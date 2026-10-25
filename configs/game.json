@@ -1,0 +1,226 @@
+{
+  "canvas": {
+    "logicalWidth": 540,
+    "logicalHeight": 820,
+    "dangerLineY": 675,
+    "launcherX": 270,
+    "launcherY": 745,
+    "initialAimOffsetY": -200,
+    "nextBallOffsetX": -68,
+    "nextBallOffsetY": 16,
+    "swapClickRadius": 54,
+    "minAimAngleRad": 0.16,
+    "maxAimAngleRad": 2.98,
+    "aimRayMaxBounces": 2,
+    "aimRayStepLength": 10,
+    "aimRayMaxDistance": 950,
+    "wallMargin": 14,
+    "floatingTextOffsetY": -16,
+    "launcherPopupOffsetY": -85,
+    "anvilPopupOffsetY": -120,
+    "wavePopupOffsetY": 40,
+    "cancelAimOffsetY": 28,
+    "tutorialDisplayShots": 2
+  },
+  "scoring": {
+    "baseMatchPoints": 100,
+    "extraBallMultiplier": 45,
+    "droppedBallPoints": 180,
+    "remainingShotBonus": 250,
+    "comboIncrement": 1,
+    "maxComboMultiplier": 10,
+    "starThresholds": [0, 5000, 8500],
+    "maxStars": 3,
+    "specialChargePerMatch": 1,
+    "specialDropChanceEndless": 0.16,
+    "coinsPerVictoryStar": 15,
+    "firstTimeStarCoinBonus": 25,
+    "coinsPerAvalancheBall": 2,
+    "overchargeMax": 100,
+    "overchargePerMatchedBall": 8,
+    "overchargePerDroppedBall": 5
+  },
+  "upgrades": {
+    "laserSight": {
+      "maxLevel": 4,
+      "baseCost": 40,
+      "costStep": 35,
+      "distanceBonusPerLevel": 180,
+      "bouncesBonusPerLevel": 1
+    },
+    "blastRadius": {
+      "maxLevel": 4,
+      "baseCost": 50,
+      "costStep": 45,
+      "radiusMultiplierPerLevel": 0.12
+    },
+    "overchargeRate": {
+      "maxLevel": 4,
+      "baseCost": 45,
+      "costStep": 40,
+      "rateMultiplierPerLevel": 0.2
+    },
+    "startingShots": {
+      "maxLevel": 4,
+      "baseCost": 55,
+      "costStep": 50,
+      "shotsPerLevel": 2
+    }
+  },
+  "juice": {
+    "shakeDecay": 0.86,
+    "maxShakeOffset": 12,
+    "matchShake": 4.5,
+    "bombShake": 11.0,
+    "anvilShake": 7.5,
+    "avalancheShake": 6.0,
+    "trailSpawnInterval": 1,
+    "matchBurstCount": 14,
+    "matchBurstSpeed": 5.2,
+    "bounceBurstCount": 5,
+    "bounceBurstSpeed": 2.5,
+    "hitStopMinCombo": 3,
+    "hitStopFramesCombo": 3,
+    "hitStopFramesSpecial": 4,
+    "particles": {
+      "trailSpread": 4,
+      "trailRadiusFactor": 0.58,
+      "trailInitialAlpha": 0.55,
+      "trailRadiusDecay": 0.92,
+      "trailAlphaDecay": 0.055,
+      "burstDefaultCount": 16,
+      "burstDefaultSpeed": 5.5,
+      "burstAngleJitter": 0.4,
+      "burstSpeedMinFactor": 0.35,
+      "burstSpeedRangeFactor": 0.85,
+      "burstMinRadius": 2.5,
+      "burstRadiusRange": 3.5,
+      "burstBaseDecay": 0.022,
+      "burstDecayRange": 0.02,
+      "burstGravity": 0.12,
+      "burstDrag": 0.97,
+      "shockwaveInitialRadius": 8,
+      "shockwaveDefaultMaxRadius": 110,
+      "shockwaveInitialAlpha": 0.95,
+      "shockwaveExpandRate": 0.18,
+      "shockwaveAlphaDecay": 0.045,
+      "lightningSteps": 14,
+      "lightningJitterY": 28,
+      "lightningBranches": 3,
+      "lightningBranchLength": 26,
+      "lightningAlphaDecay": 0.06,
+      "floatingTextVy": -1.4,
+      "floatingTextAlphaDecay": 0.02,
+      "floatingTextDefaultColor": "#f8fafc"
+    }
+  },
+  "endless": {
+    "paletteCount": 5,
+    "initialRows": 5,
+    "columns": 10,
+    "startY": 95,
+    "rowSpacingY": 40,
+    "shotsBeforeWave": 5,
+    "descentStepY": 38,
+    "freezeTurnsDuration": 3,
+    "anchorColumns": [2, 5, 8],
+    "initialSpecialCounts": {
+      "bomb": 2,
+      "lightning": 1,
+      "rainbow": 2,
+      "anvil": 1,
+      "freeze": 2
+    },
+    "modifierSpawnChance": 0.18,
+    "goldRushWaveInterval": 3,
+    "goldRushCoinCoreCount": 3,
+    "bossWaveInterval": 5
+  },
+  "achievements": {
+    "firstAvalanche": {
+      "id": "firstAvalanche",
+      "threshold": 6,
+      "rewardCoins": 40
+    },
+    "comboMaster": {
+      "id": "comboMaster",
+      "threshold": 4,
+      "rewardCoins": 50
+    },
+    "bossSlayer": {
+      "id": "bossSlayer",
+      "threshold": 1,
+      "rewardCoins": 60
+    },
+    "sharpshooter": {
+      "id": "sharpshooter",
+      "threshold": 12,
+      "rewardCoins": 50
+    },
+    "survivorWave10": {
+      "id": "survivorWave10",
+      "threshold": 10,
+      "rewardCoins": 75
+    },
+    "starCollector": {
+      "id": "starCollector",
+      "threshold": 18,
+      "rewardCoins": 100
+    }
+  },
+  "storage": {
+    "prefix": "magnet_balls_v1_",
+    "keys": {
+      "language": "lang",
+      "muted": "muted",
+      "highContrast": "high_contrast",
+      "unlockedLevel": "unlocked_level",
+      "levelStats": "level_stats",
+      "endlessHighScore": "endless_high_score",
+      "coins": "coins",
+      "upgrades": "upgrades",
+      "achievements": "achievements"
+    }
+  },
+  "defaults": {
+    "language": "fr",
+    "supportedLanguages": ["fr", "en"],
+    "initialUnlockedLevel": 1,
+    "matchMinCount": 3,
+    "initialCoins": 50
+  },
+  "theme": {
+    "backgroundTop": "#0b0f1d",
+    "backgroundBottom": "#171f38",
+    "gridLineColor": "rgba(100, 150, 255, 0.05)",
+    "gridSize": 36,
+    "wallColor": "#2c3e66",
+    "wallGlowColor": "rgba(88, 166, 255, 0.35)",
+    "dangerLineColor": "#ff4757",
+    "dangerZoneFill": "rgba(255, 71, 87, 0.08)",
+    "magneticLinkColor": "rgba(140, 210, 255, 0.38)",
+    "magneticSameColorBase": "125, 211, 252",
+    "magneticRepelColorBase": "251, 146, 60",
+    "magneticFieldPulseSpeed": 0.004,
+    "anchorCoreColor": "#f1f5f9",
+    "anchorRingColor": "#38bdf8",
+    "frozenOverlayColor": "rgba(125, 211, 252, 0.55)",
+    "launcherBaseColor": "#1e293b",
+    "launcherBarrelColor": "#64748b",
+    "launcherAccentColor": "#38bdf8",
+    "cancelAimColor": "#ff4757",
+    "targetHighlightColor": "#fef08a",
+    "defaultTrailColor": "#38bdf8",
+    "bounceParticleColor": "#93c5fd",
+    "chainPopupColor": "#fde68a",
+    "avalanchePopupColor": "#38bdf8",
+    "overchargePopupColor": "#a855f7",
+    "wavePopupColor": "#f59e0b",
+    "coinPopupColor": "#fbbf24",
+    "bossPopupColor": "#f43f5e",
+    "portalPopupColor": "#67e8f9",
+    "floatingTextShadowColor": "#090d16",
+    "starFilledSymbol": "★",
+    "starEmptySymbol": "☆"
+  }
+}

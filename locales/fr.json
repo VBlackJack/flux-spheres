@@ -1,0 +1,329 @@
+{
+  "app": {
+    "header": {
+      "title": {
+        "main": "MAGNET BALLS"
+      },
+      "subtitle": {
+        "edition": "ÉDITION PHYSIQUE MAGNÉTIQUE",
+        "description": "Jeu de tir de billes à physique magnétique avec attraction dynamique, rotors et billes spéciales."
+      }
+    },
+    "nav": {
+      "button": {
+        "levels": "Niveaux",
+        "endless": "Survie",
+        "shop": "Boutique",
+        "restart": "Recommencer",
+        "pause": "Pause",
+        "soundOn": "Son : Activé",
+        "soundOff": "Son : Muet",
+        "contrastOn": "Contraste : Fort",
+        "contrastOff": "Contraste : Standard",
+        "language": "FR"
+      }
+    }
+  },
+  "hud": {
+    "stats": {
+      "score": {
+        "label": "Score"
+      },
+      "highScore": {
+        "label": "Record"
+      },
+      "coins": {
+        "label": "Pièces",
+        "value": "{{coins}} ⬡"
+      },
+      "overcharge": {
+        "label": "Surcharge",
+        "pct": "{{pct}}%"
+      },
+      "mode": {
+        "campaign": "Niveau {{level}} : {{name}}",
+        "endless": "Mode Survie • Vague {{wave}}"
+      },
+      "shots": {
+        "label": "Tirs restants",
+        "infinite": "∞"
+      },
+      "combo": {
+        "label": "Combo x{{count}}"
+      },
+      "frozen": {
+        "label": "Gel actif ({{turns}})"
+      }
+    },
+    "launcher": {
+      "swap": {
+        "hint": "Échanger (Espace / Clic)"
+      },
+      "cancel": {
+        "hint": "Relâcher ici pour annuler le tir"
+      }
+    },
+    "powerups": {
+      "title": {
+        "label": "Billes Spéciales"
+      },
+      "bomb": {
+        "name": "Bombe",
+        "tooltip": "Explose les billes dans un large rayon"
+      },
+      "lightning": {
+        "name": "Foudre",
+        "tooltip": "Désintègre une chaîne horizontale et électrique"
+      },
+      "rainbow": {
+        "name": "Prisme",
+        "tooltip": "S'adapte à toutes les couleurs adjacentes"
+      },
+      "anvil": {
+        "name": "Enclume",
+        "tooltip": "Traverse et écrase tout sur sa trajectoire"
+      },
+      "freeze": {
+        "name": "Cryo",
+        "tooltip": "Gèle la descente et stabilise l'amas magnétique"
+      }
+    }
+  },
+  "gameplay": {
+    "feedback": {
+      "combo": {
+        "popup": "COMBO x{{combo}} ! +{{points}}"
+      },
+      "chain": {
+        "popup": "RÉACTION EN CHAÎNE ! +{{points}}"
+      },
+      "drop": {
+        "popup": "AVALANCHE MAGNÉTIQUE ! +{{points}}"
+      },
+      "overcharge": {
+        "ready": "SURCHARGE ! +1 {{name}}"
+      },
+      "coins": {
+        "gain": "+{{coins}} ⬡"
+      },
+      "armor": {
+        "cracked": "BLINDAGE FISSURÉ !"
+      },
+      "boss": {
+        "shield": "BOUCLIER BOSS -1 !",
+        "destroyed": "NOYAU BOSS DÉTRUIT ! +{{coins}} ⬡"
+      },
+      "portal": {
+        "warp": "TÉLÉPORTATION !"
+      },
+      "achievement": {
+        "unlocked": "SUCCÈS : {{name}} (+{{coins}} ⬡)"
+      },
+      "special": {
+        "bomb": "EXPLOSION !",
+        "lightning": "DÉCHARGE ÉLECTRIQUE !",
+        "rainbow": "RÉSONANCE PRISMATIQUE !",
+        "anvil": "IMPACT LOURD !",
+        "freeze": "CHAMP CRYOGÉNIQUE !"
+      },
+      "wave": {
+        "incoming": "Nouvelle rangée magnétique !",
+        "goldRush": "VAGUE DORÉE ! Gemmes bonus !",
+        "bossWave": "ALERTE ANOMALIE : Noyau Boss détecté !"
+      }
+    },
+    "tutorial": {
+      "pendulum": "Visez 3 billes de même couleur ou coupez les ancres supérieures pour déclencher une avalanche !",
+      "rotor": "Le rotor central tourne selon le poids des billes et la force d'impact de vos tirs.",
+      "repulsor": "Les cœurs répulsifs et les pôles identiques courbent votre trajectoire : fiez-vous au laser !",
+      "portal": "Tirez dans un Portail Quantique pour téléporter votre bille derrière les barrières !",
+      "boss": "Les Noyaux Boss (👑) possèdent 3 boucliers et libèrent une pluie de pièces à leur destruction !"
+    }
+  },
+  "modals": {
+    "levelSelect": {
+      "title": {
+        "main": "Sélection du Niveau"
+      },
+      "starsTotal": "Étoiles de Campagne : {{stars}} / {{maxStars}} ★",
+      "card": {
+        "levelNumber": "Niveau {{id}}",
+        "locked": "Verrouillé",
+        "bestScore": "Record : {{score}}"
+      },
+      "button": {
+        "close": "Fermer",
+        "playEndless": "Lancer le Mode Survie"
+      }
+    },
+    "shop": {
+      "title": {
+        "main": "Atelier Magnétique"
+      },
+      "balance": {
+        "label": "Pièces disponibles : {{coins}} ⬡"
+      },
+      "achievements": {
+        "title": "Succès & Récompenses",
+        "reward": "Récompense : +{{coins}} ⬡",
+        "unlockedBadge": "Débloqué ✓",
+        "lockedBadge": "En cours",
+        "items": {
+          "firstAvalanche": {
+            "name": "Maître de l'Avalanche",
+            "description": "Faire tomber au moins 6 billes en une seule avalanche."
+          },
+          "comboMaster": {
+            "name": "Résonance en Chaîne",
+            "description": "Atteindre un multiplicateur de Combo x4 ou supérieur."
+          },
+          "bossSlayer": {
+            "name": "Briseur de Couronne",
+            "description": "Détruire un Noyau Boss (👑) en Campagne ou Survie."
+          },
+          "sharpshooter": {
+            "name": "Tir de Précision",
+            "description": "Terminer un niveau de campagne avec au moins 12 tirs restants."
+          },
+          "survivorWave10": {
+            "name": "Gardien Magnétique",
+            "description": "Atteindre la Vague 10 en Mode Survie."
+          },
+          "starCollector": {
+            "name": "Constellation Magnétique",
+            "description": "Obtenir un total de 18 étoiles en mode Campagne."
+          }
+        }
+      },
+      "card": {
+        "level": "Niv. {{level}} / {{maxLevel}}",
+        "maxed": "MAX",
+        "buy": "Améliorer ({{cost}} ⬡)"
+      },
+      "upgrades": {
+        "laserSight": {
+          "name": "Visée Laser Courbée",
+          "description": "Augmente la portée et le nombre de rebonds prédictifs du viseur."
+        },
+        "blastRadius": {
+          "name": "Amplificateur Magnétique",
+          "description": "Augmente le rayon d'action des billes Bombe, Foudre et Cryo."
+        },
+        "overchargeRate": {
+          "name": "Condensateur de Surcharge",
+          "description": "Charge la jauge de Surcharge plus vite pour gagner des billes spéciales."
+        },
+        "startingShots": {
+          "name": "Réserve de Projectiles",
+          "description": "Ajoute +2 billes au début de chaque niveau de campagne par rang."
+        }
+      },
+      "button": {
+        "close": "Fermer"
+      }
+    },
+    "victory": {
+      "title": {
+        "main": "Niveau Terminé !"
+      },
+      "stats": {
+        "score": "Score final : {{score}}",
+        "stars": "Étoiles obtenues : {{stars}} / {{maxStars}}",
+        "shotsBonus": "Bonus de tirs : +{{bonus}} • Pièces : +{{coins}} ⬡"
+      },
+      "button": {
+        "nextLevel": "Niveau Suivant",
+        "replay": "Rejouer",
+        "levels": "Carte des Niveaux"
+      }
+    },
+    "gameOver": {
+      "title": {
+        "main": "Rupture Magnétique !"
+      },
+      "reason": {
+        "lineCrossed": "L'amas magnétique a franchi la ligne critique.",
+        "outOfShots": "Vous n'avez plus de billes disponibles."
+      },
+      "stats": {
+        "score": "Score atteint : {{score}}",
+        "highScore": "Meilleur score : {{highScore}}"
+      },
+      "button": {
+        "retry": "Réessayer",
+        "levels": "Choisir un Niveau"
+      }
+    },
+    "pause": {
+      "title": {
+        "main": "Jeu en Pause"
+      },
+      "instructions": {
+        "aim": "Viser et tirer : Souris ou tactile",
+        "swap": "Changer de bille : Clic sur le chargeur ou Espace",
+        "physics": "Astuce : Détachez les ancres ou déséquilibrez les rotors pour créer des réactions en chaîne !"
+      },
+      "button": {
+        "resume": "Reprendre",
+        "restart": "Recommencer"
+      }
+    }
+  },
+  "levels": {
+    "items": {
+      "lvl1": {
+        "name": "Pendule Magnétique",
+        "description": "Découvrez l'attraction physique et faites osciller la grappe."
+      },
+      "lvl2": {
+        "name": "Rotor à Inertie",
+        "description": "Un rotor central tourne selon le poids des billes et la force de vos impacts."
+      },
+      "lvl3": {
+        "name": "Double Ancrage & Bumpers",
+        "description": "Utilisez les rebonds sur les bumpers énergétiques pour atteindre les ancres."
+      },
+      "lvl4": {
+        "name": "Anomalie Répulsive",
+        "description": "Un cœur répulsif courbe vos tirs. Le viseur prédit la déviation !"
+      },
+      "lvl5": {
+        "name": "Citadelle Oscillante",
+        "description": "Des barrières mobiles protègent les noyaux blindés et explosifs."
+      },
+      "lvl6": {
+        "name": "Vortex Binaire",
+        "description": "Deux rotors à inertie couplés à un champ d'attraction gravitationnel."
+      },
+      "lvl7": {
+        "name": "Ruche Hexagonale",
+        "description": "Une structure hexagonale dense parsemée de billes caméléons et de gemmes."
+      },
+      "lvl8": {
+        "name": "Spirale Gravitationnelle",
+        "description": "Quatre bras spiralés en rotation libre autour d'un noyau magnétique."
+      },
+      "lvl9": {
+        "name": "Croix de Tesla",
+        "description": "Une croix rotative protégée par des bumpers et des barils explosifs."
+      },
+      "lvl10": {
+        "name": "Cœur Oméga",
+        "description": "Deux rotors blindés gardés par une barrière oscillante et des noyaux Boss."
+      },
+      "lvl11": {
+        "name": "Faille Quantique",
+        "description": "Empruntez les portails magnétiques pour contourner le bouclier mobile."
+      },
+      "lvl12": {
+        "name": "Singularité Souveraine",
+        "description": "L'affrontement final : rotors jumeaux, portails dimensionnels et Noyaux Boss."
+      }
+    }
+  },
+  "errors": {
+    "config": {
+      "loadFailed": "Erreur lors du chargement des fichiers de configuration."
+    }
+  }
+}

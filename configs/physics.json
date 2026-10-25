@@ -1,0 +1,53 @@
+{
+  "ball": {
+    "radius": 20,
+    "projectileSpeed": 18.5,
+    "anvilSpeed": 15.0,
+    "mass": 1.0,
+    "anvilMass": 4.5,
+    "restitution": 0.35,
+    "wallRestitution": 0.96
+  },
+  "simulation": {
+    "substeps": 3,
+    "velocityDamping": 0.94,
+    "frozenDamping": 0.72,
+    "angularDamping": 0.92,
+    "maxVelocity": 26.0,
+    "dropGravity": 0.58,
+    "dropHorizontalSpread": 3.2,
+    "dropMinVerticalSpeed": 1.5,
+    "dropOutMarginY": 40,
+    "clusterGravity": 0.055,
+    "constraintIterations": 4,
+    "bondRestDistanceFactor": 2.02,
+    "bondCreationDistanceFactor": 2.45,
+    "bondBreakDistanceFactor": 3.15,
+    "bondStiffness": 0.34,
+    "anchorStiffness": 0.52,
+    "collisionOverlapPush": 0.52,
+    "projectileSnapDistanceFactor": 2.15,
+    "impactImpulseMultiplier": 0.44,
+    "snapVelocityRetention": 0.25,
+    "neighborImpulseTransfer": 0.35,
+    "outOfBoundsMarginFactor": 2.0,
+    "pivotGravityTorqueFactor": 0.000018,
+    "pivotImpactTorqueFactor": 0.00012,
+    "pivotAngularDamping": 0.975,
+    "pivotMaxAngularSpeed": 0.065,
+    "chainCheckCooldownFrames": 14,
+    "outOfShotsGraceFrames": 28
+  },
+  "magnetism": {
+    "attractionRangeFactor": 3.8,
+    "attractionForceConstant": 28.0,
+    "sameColorAttractionMultiplier": 1.45,
+    "oppositePolarityMultiplier": 1.18,
+    "samePolarityMultiplier": -0.38,
+    "minDistanceClamp": 18.0,
+    "fieldLineMaxDistanceFactor": 2.85,
+    "projectileCurveInfluence": 0.08,
+    "projectileOppositePolarityInfluence": 0.03,
+    "projectileSamePolarityInfluence": -0.02
+  }
+}

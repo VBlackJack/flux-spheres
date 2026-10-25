@@ -1,0 +1,329 @@
+{
+  "app": {
+    "header": {
+      "title": {
+        "main": "MAGNET BALLS"
+      },
+      "subtitle": {
+        "edition": "MAGNETIC PHYSICS EDITION",
+        "description": "Magnetic physics bubble shooter game with dynamic attraction, rotors, and special balls."
+      }
+    },
+    "nav": {
+      "button": {
+        "levels": "Levels",
+        "endless": "Survival",
+        "shop": "Shop",
+        "restart": "Restart",
+        "pause": "Pause",
+        "soundOn": "Sound: ON",
+        "soundOff": "Sound: OFF",
+        "contrastOn": "Contrast: High",
+        "contrastOff": "Contrast: Normal",
+        "language": "EN"
+      }
+    }
+  },
+  "hud": {
+    "stats": {
+      "score": {
+        "label": "Score"
+      },
+      "highScore": {
+        "label": "Best"
+      },
+      "coins": {
+        "label": "Coins",
+        "value": "{{coins}} ⬡"
+      },
+      "overcharge": {
+        "label": "Overcharge",
+        "pct": "{{pct}}%"
+      },
+      "mode": {
+        "campaign": "Level {{level}}: {{name}}",
+        "endless": "Survival Mode • Wave {{wave}}"
+      },
+      "shots": {
+        "label": "Shots Left",
+        "infinite": "∞"
+      },
+      "combo": {
+        "label": "Combo x{{count}}"
+      },
+      "frozen": {
+        "label": "Frozen ({{turns}})"
+      }
+    },
+    "launcher": {
+      "swap": {
+        "hint": "Swap (Space / Click)"
+      },
+      "cancel": {
+        "hint": "Release here to cancel shot"
+      }
+    },
+    "powerups": {
+      "title": {
+        "label": "Special Balls"
+      },
+      "bomb": {
+        "name": "Bomb",
+        "tooltip": "Detonates magnetic balls in a wide blast radius"
+      },
+      "lightning": {
+        "name": "Lightning",
+        "tooltip": "Disintegrates a horizontal electric chain"
+      },
+      "rainbow": {
+        "name": "Prism",
+        "tooltip": "Matches any adjacent magnetic ball color"
+      },
+      "anvil": {
+        "name": "Anvil",
+        "tooltip": "Pierces and crushes every ball in its path"
+      },
+      "freeze": {
+        "name": "Cryo",
+        "tooltip": "Freezes descent and stabilizes magnetic oscillation"
+      }
+    }
+  },
+  "gameplay": {
+    "feedback": {
+      "combo": {
+        "popup": "COMBO x{{combo}}! +{{points}}"
+      },
+      "chain": {
+        "popup": "CHAIN REACTION! +{{points}}"
+      },
+      "drop": {
+        "popup": "MAGNETIC AVALANCHE! +{{points}}"
+      },
+      "overcharge": {
+        "ready": "OVERCHARGE! +1 {{name}}"
+      },
+      "coins": {
+        "gain": "+{{coins}} ⬡"
+      },
+      "armor": {
+        "cracked": "ARMOR CRACKED!"
+      },
+      "boss": {
+        "shield": "BOSS SHIELD -1!",
+        "destroyed": "BOSS CORE DESTROYED! +{{coins}} ⬡"
+      },
+      "portal": {
+        "warp": "PORTAL WARP!"
+      },
+      "achievement": {
+        "unlocked": "ACHIEVEMENT: {{name}} (+{{coins}} ⬡)"
+      },
+      "special": {
+        "bomb": "BLAST WAVE!",
+        "lightning": "ELECTRIC SURGE!",
+        "rainbow": "PRISMATIC MATCH!",
+        "anvil": "HEAVY CRUSH!",
+        "freeze": "CRYO FIELD!"
+      },
+      "wave": {
+        "incoming": "New magnetic wave incoming!",
+        "goldRush": "GOLD RUSH WAVE! Bonus Coin Cores!",
+        "bossWave": "ANOMALY ALERT: Boss Core detected!"
+      }
+    },
+    "tutorial": {
+      "pendulum": "Match 3+ same-color balls or sever upper anchors to trigger a magnetic avalanche!",
+      "rotor": "The central rotor spins dynamically from ball weight balance and shot impact torque.",
+      "repulsor": "Repulsive cores and like magnetic poles bend your shot—trust the curved laser!",
+      "portal": "Shoot into a Quantum Portal to teleport your projectile past moving barriers!",
+      "boss": "Boss Cores (👑) have 3 shields and burst into a shower of coins when destroyed!"
+    }
+  },
+  "modals": {
+    "levelSelect": {
+      "title": {
+        "main": "Select Level"
+      },
+      "starsTotal": "Campaign Stars: {{stars}} / {{maxStars}} ★",
+      "card": {
+        "levelNumber": "Level {{id}}",
+        "locked": "Locked",
+        "bestScore": "Best: {{score}}"
+      },
+      "button": {
+        "close": "Close",
+        "playEndless": "Play Survival Mode"
+      }
+    },
+    "shop": {
+      "title": {
+        "main": "Magnetic Workshop"
+      },
+      "balance": {
+        "label": "Available Coins: {{coins}} ⬡"
+      },
+      "achievements": {
+        "title": "Achievements & Bounties",
+        "reward": "Reward: +{{coins}} ⬡",
+        "unlockedBadge": "Unlocked ✓",
+        "lockedBadge": "In Progress",
+        "items": {
+          "firstAvalanche": {
+            "name": "Avalanche Master",
+            "description": "Drop at least 6 unanchored balls in a single avalanche."
+          },
+          "comboMaster": {
+            "name": "Chain Resonance",
+            "description": "Reach a x4 or higher Combo multiplier."
+          },
+          "bossSlayer": {
+            "name": "Crown Breaker",
+            "description": "Destroy a Boss Core (👑) in Campaign or Survival."
+          },
+          "sharpshooter": {
+            "name": "Sharpshooter",
+            "description": "Clear any campaign level with at least 12 shots remaining."
+          },
+          "survivorWave10": {
+            "name": "Magnetic Vanguard",
+            "description": "Reach Wave 10 in Survival Mode."
+          },
+          "starCollector": {
+            "name": "Magnetic Constellation",
+            "description": "Earn a total of 18 stars across Campaign levels."
+          }
+        }
+      },
+      "card": {
+        "level": "Lv. {{level}} / {{maxLevel}}",
+        "maxed": "MAX",
+        "buy": "Upgrade ({{cost}} ⬡)"
+      },
+      "upgrades": {
+        "laserSight": {
+          "name": "Curved Laser Sight",
+          "description": "Increases predictive aiming distance and wall bounces."
+        },
+        "blastRadius": {
+          "name": "Magnetic Amplifier",
+          "description": "Increases the area of effect of Bomb, Lightning, and Cryo balls."
+        },
+        "overchargeRate": {
+          "name": "Overcharge Capacitor",
+          "description": "Fills the Overcharge gauge faster to earn free Special Balls."
+        },
+        "startingShots": {
+          "name": "Projectile Reserve",
+          "description": "Adds +2 starting shots per rank in all campaign levels."
+        }
+      },
+      "button": {
+        "close": "Close"
+      }
+    },
+    "victory": {
+      "title": {
+        "main": "Level Cleared!"
+      },
+      "stats": {
+        "score": "Final Score: {{score}}",
+        "stars": "Stars Earned: {{stars}} / {{maxStars}}",
+        "shotsBonus": "Shots Bonus: +{{bonus}} • Coins: +{{coins}} ⬡"
+      },
+      "button": {
+        "nextLevel": "Next Level",
+        "replay": "Replay",
+        "levels": "Level Select"
+      }
+    },
+    "gameOver": {
+      "title": {
+        "main": "Magnetic Breach!"
+      },
+      "reason": {
+        "lineCrossed": "The magnetic cluster crossed the danger threshold.",
+        "outOfShots": "You ran out of magnetic projectiles."
+      },
+      "stats": {
+        "score": "Final Score: {{score}}",
+        "highScore": "High Score: {{highScore}}"
+      },
+      "button": {
+        "retry": "Try Again",
+        "levels": "Select Level"
+      }
+    },
+    "pause": {
+      "title": {
+        "main": "Game Paused"
+      },
+      "instructions": {
+        "aim": "Aim & Shoot: Mouse or Touch",
+        "swap": "Swap Projectile: Click Launcher or Press Space",
+        "physics": "Tip: Sever anchor links or unbalance rotors to trigger chain reactions!"
+      },
+      "button": {
+        "resume": "Resume",
+        "restart": "Restart"
+      }
+    }
+  },
+  "levels": {
+    "items": {
+      "lvl1": {
+        "name": "Magnetic Pendulum",
+        "description": "Experience dynamic attraction and swing the suspended cluster."
+      },
+      "lvl2": {
+        "name": "Inertia Rotor",
+        "description": "A central rotor spins based on ball weight balance and impact torque."
+      },
+      "lvl3": {
+        "name": "Dual Anchors & Bumpers",
+        "description": "Bank your shots off energy bumpers to sever the upper anchors."
+      },
+      "lvl4": {
+        "name": "Repulsive Anomaly",
+        "description": "A repulsive core bends projectile trajectories. Follow the curved laser!"
+      },
+      "lvl5": {
+        "name": "Oscillating Citadel",
+        "description": "Moving barriers guard armored spheres and dormant explosive barrels."
+      },
+      "lvl6": {
+        "name": "Binary Vortex",
+        "description": "Twin inertia rotors paired with a gravitational attraction field."
+      },
+      "lvl7": {
+        "name": "Hexagonal Hive",
+        "description": "A dense hexagonal matrix filled with chameleon balls and coin cores."
+      },
+      "lvl8": {
+        "name": "Gravitational Spiral",
+        "description": "Four spiral arms rotating freely around a magnetic core."
+      },
+      "lvl9": {
+        "name": "Tesla Cross",
+        "description": "A rotating cross guarded by bumpers and explosive barrels."
+      },
+      "lvl10": {
+        "name": "Omega Core",
+        "description": "Twin armored rotors guarded by an oscillating barrier and Boss Cores."
+      },
+      "lvl11": {
+        "name": "Quantum Rift",
+        "description": "Shoot through linked magnetic portals to bypass the oscillating shield."
+      },
+      "lvl12": {
+        "name": "Sovereign Singularity",
+        "description": "The final showdown: twin rotors, dimensional portals, and Boss Cores."
+      }
+    }
+  },
+  "errors": {
+    "config": {
+      "loadFailed": "Failed to load configuration files."
+    }
+  }
+}

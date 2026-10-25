@@ -1,0 +1,172 @@
+{
+  "standardColors": [
+    {
+      "id": "crimson",
+      "fill": "#ef4444",
+      "highlight": "#fca5a5",
+      "shadow": "#7f1d1d",
+      "glow": "rgba(239, 68, 68, 0.55)",
+      "symbol": "N",
+      "polarity": 1
+    },
+    {
+      "id": "cobalt",
+      "fill": "#3b82f6",
+      "highlight": "#93c5fd",
+      "shadow": "#1e3a8a",
+      "glow": "rgba(59, 130, 246, 0.55)",
+      "symbol": "S",
+      "polarity": -1
+    },
+    {
+      "id": "emerald",
+      "fill": "#10b981",
+      "highlight": "#6ee7b7",
+      "shadow": "#064e3b",
+      "glow": "rgba(16, 185, 129, 0.55)",
+      "symbol": "+",
+      "polarity": 1
+    },
+    {
+      "id": "amber",
+      "fill": "#f59e0b",
+      "highlight": "#fde68a",
+      "shadow": "#78350f",
+      "glow": "rgba(245, 158, 11, 0.55)",
+      "symbol": "-",
+      "polarity": -1
+    },
+    {
+      "id": "violet",
+      "fill": "#a855f7",
+      "highlight": "#d8b4fe",
+      "shadow": "#581c87",
+      "glow": "rgba(168, 85, 247, 0.55)",
+      "symbol": "Ω",
+      "polarity": 1
+    },
+    {
+      "id": "cyan",
+      "fill": "#06b6d4",
+      "highlight": "#67e8f9",
+      "shadow": "#164e63",
+      "glow": "rgba(6, 182, 212, 0.55)",
+      "symbol": "Φ",
+      "polarity": -1
+    }
+  ],
+  "specialTypes": {
+    "bomb": {
+      "id": "bomb",
+      "fill": "#1e293b",
+      "highlight": "#f97316",
+      "shadow": "#090d16",
+      "glow": "rgba(249, 115, 22, 0.75)",
+      "icon": "✹",
+      "blastRadiusFactor": 3.9,
+      "shockwaveRadiusMultiplier": 1.8,
+      "visualShockwaveFactor": 1.2,
+      "shockwaveForce": 14.0,
+      "burstCount": 14,
+      "burstSpeed": 6.5,
+      "pointsPerBall": 130
+    },
+    "lightning": {
+      "id": "lightning",
+      "fill": "#eab308",
+      "highlight": "#fef08a",
+      "shadow": "#713f12",
+      "glow": "rgba(250, 204, 21, 0.85)",
+      "icon": "⚡",
+      "bandHalfHeightFactor": 1.65,
+      "burstCount": 10,
+      "burstSpeed": 5.5,
+      "pointsPerBall": 140
+    },
+    "rainbow": {
+      "id": "rainbow",
+      "fill": "#ec4899",
+      "highlight": "#ffffff",
+      "shadow": "#831843",
+      "glow": "rgba(236, 72, 153, 0.8)",
+      "icon": "✦",
+      "neighborRadiusFactor": 2.55,
+      "visualShockwaveFactor": 4.0,
+      "burstCount": 12,
+      "burstSpeed": 5.0,
+      "matchAudioCombo": 2,
+      "pointsPerBall": 125
+    },
+    "anvil": {
+      "id": "anvil",
+      "fill": "#64748b",
+      "highlight": "#e2e8f0",
+      "shadow": "#0f172a",
+      "glow": "rgba(148, 163, 184, 0.7)",
+      "icon": "▼",
+      "pierceRadiusFactor": 2.1,
+      "pointsPerBall": 150
+    },
+    "freeze": {
+      "id": "freeze",
+      "fill": "#38bdf8",
+      "highlight": "#e0f2fe",
+      "shadow": "#0369a1",
+      "glow": "rgba(56, 189, 248, 0.85)",
+      "icon": "❄",
+      "freezeRadiusFactor": 3.4,
+      "velocityDampingFactor": 0.1,
+      "scoreMultiplier": 3,
+      "burstCount": 18,
+      "burstSpeed": 4.5,
+      "pointsPerBall": 110
+    }
+  },
+  "clusterModifiers": {
+    "armored": {
+      "id": "armored",
+      "initialArmor": 2,
+      "ringColor": "#cbd5e1",
+      "crackedColor": "#94a3b8",
+      "crackBurstCount": 8,
+      "crackBurstSpeed": 3.5,
+      "badge": "🛡️"
+    },
+    "dormantBomb": {
+      "id": "dormantBomb",
+      "ringColor": "#f97316",
+      "highlight": "#f97316",
+      "badge": "💣",
+      "blastRadiusFactor": 3.2,
+      "shockwaveRadiusMultiplier": 1.8,
+      "visualShockwaveFactor": 1.2,
+      "shockwaveForce": 12.0,
+      "burstCount": 14,
+      "burstSpeed": 6.0,
+      "pointsPerBall": 110
+    },
+    "chameleon": {
+      "id": "chameleon",
+      "ringColor": "#ec4899",
+      "badge": "↻"
+    },
+    "coinCore": {
+      "id": "coinCore",
+      "ringColor": "#fbbf24",
+      "badge": "⬡",
+      "coinReward": 18
+    },
+    "bossCore": {
+      "id": "bossCore",
+      "initialArmor": 3,
+      "ringColor": "#f43f5e",
+      "crackedColor": "#fb7185",
+      "crackBurstCount": 14,
+      "crackBurstSpeed": 4.8,
+      "badge": "👑",
+      "coinReward": 35,
+      "pointsBonus": 600,
+      "shockwaveRadius": 135
+    }
+  }
+}

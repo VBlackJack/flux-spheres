@@ -1,0 +1,87 @@
+{
+  "masterGain": 0.25,
+  "minFrequency": 1,
+  "minGain": 0.001,
+  "arpeggioStepRatio": 0.8,
+  "arpeggioWaveType": "triangle",
+  "harmonicRatio": 1.5,
+  "harmonicGainRatio": 0.28,
+  "effects": {
+    "shoot": {
+      "type": "triangle",
+      "startFreq": 240,
+      "endFreq": 520,
+      "duration": 0.11
+    },
+    "snap": {
+      "type": "sine",
+      "startFreq": 620,
+      "endFreq": 310,
+      "duration": 0.07
+    },
+    "bounce": {
+      "type": "sine",
+      "startFreq": 340,
+      "endFreq": 440,
+      "duration": 0.06
+    },
+    "match": {
+      "type": "sine",
+      "baseFreq": 440,
+      "pitchStep": 65,
+      "endFreqMultiplier": 1.35,
+      "duration": 0.18,
+      "harmonic": true
+    },
+    "bomb": {
+      "type": "sawtooth",
+      "startFreq": 160,
+      "endFreq": 38,
+      "duration": 0.36,
+      "harmonic": true
+    },
+    "lightning": {
+      "type": "sawtooth",
+      "startFreq": 880,
+      "endFreq": 210,
+      "duration": 0.28,
+      "harmonic": true
+    },
+    "freeze": {
+      "type": "sine",
+      "startFreq": 920,
+      "endFreq": 1380,
+      "duration": 0.3,
+      "harmonic": true
+    },
+    "portal": {
+      "type": "sine",
+      "startFreq": 360,
+      "endFreq": 960,
+      "duration": 0.19,
+      "harmonic": true
+    },
+    "armorCrack": {
+      "type": "triangle",
+      "startFreq": 480,
+      "endFreq": 160,
+      "duration": 0.14
+    },
+    "overcharge": {
+      "notes": [440.0, 554.37, 659.25],
+      "noteDuration": 0.09
+    },
+    "achievement": {
+      "notes": [587.33, 739.99, 880.0, 1174.66],
+      "noteDuration": 0.12
+    },
+    "victory": {
+      "notes": [523.25, 659.25, 783.99, 1046.5],
+      "noteDuration": 0.14
+    },
+    "gameOver": {
+      "notes": [392.0, 349.23, 311.13, 261.63],
+      "noteDuration": 0.18
+    }
+  }
+}

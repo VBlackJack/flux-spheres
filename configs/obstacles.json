@@ -1,0 +1,62 @@
+{
+  "defaults": {
+    "radius": 24,
+    "width": 110,
+    "height": 16,
+    "restitution": 1.0,
+    "hitPulseDecay": 0.08,
+    "fieldWaveSpeed": 0.04,
+    "bumperPulseScale": 0.25,
+    "bumperCoreRadiusFactor": 0.48,
+    "barrierCornerRadius": 8
+  },
+  "types": {
+    "pivot": {
+      "radius": 24,
+      "coreColor": "#38bdf8",
+      "outerColor": "#1e293b",
+      "ringColor": "rgba(56, 189, 248, 0.6)",
+      "defaultAngularSpeed": 0.012
+    },
+    "bumper": {
+      "radius": 26,
+      "coreColor": "#f43f5e",
+      "outerColor": "#881337",
+      "ringColor": "#fda4af",
+      "restitution": 1.32
+    },
+    "repulsor": {
+      "radius": 22,
+      "fieldRadius": 125,
+      "force": -0.65,
+      "coreColor": "#f97316",
+      "fieldColor": "rgba(249, 115, 22, 0.14)"
+    },
+    "attractor": {
+      "radius": 22,
+      "fieldRadius": 135,
+      "force": 0.52,
+      "coreColor": "#a855f7",
+      "fieldColor": "rgba(168, 85, 247, 0.14)"
+    },
+    "barrier": {
+      "height": 16,
+      "fillColor": "#334155",
+      "borderColor": "#94a3b8",
+      "restitution": 0.95
+    },
+    "portal": {
+      "radius": 24,
+      "coreColor": "#06b6d4",
+      "outerColor": "#083344",
+      "ringColor": "#67e8f9",
+      "fieldColor": "rgba(6, 182, 212, 0.22)",
+      "speedBoostMultiplier": 1.06,
+      "exitOffsetFactor": 1.35,
+      "teleportCooldownSteps": 10,
+      "spinSpeed": 0.045,
+      "burstCount": 12,
+      "burstSpeed": 4.2
+    }
+  }
+}
