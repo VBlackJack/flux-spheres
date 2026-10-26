@@ -204,6 +204,8 @@
     "crackedArmorDash": [5, 4],
     "labelScaleNormal": 0.68,
     "labelScaleHighContrast": 0.78,
+    "labelScaleMax": 1.1,
+    "labelMinDisplayPx": 10,
     "labelColorNormal": "rgba(255, 255, 255, 0.92)",
     "labelColorHighContrast": "#ffffff",
     "labelStrokeWidth": 3,

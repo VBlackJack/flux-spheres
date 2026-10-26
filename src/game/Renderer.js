@@ -56,6 +56,8 @@ export class Renderer {
     const theme = this.gameConfig.theme;
     this.floatingTextFont = `bold ${gameConfig.juice.particles.floatingTextFontSize}px ${theme.fontFamily}`;
     this.labelFontCache = new Map();
+    // CSS pixels per logical unit; ball labels are enlarged when it gets small.
+    this.displayScale = 1;
     this.badgeFontCache = new Map();
 
     this.bondSegments = [];
@@ -133,6 +135,11 @@ export class Renderer {
     }
     this.scaleX = this.canvas.width / this.logicalWidth;
     this.scaleY = this.canvas.height / this.logicalHeight;
+    const nextDisplayScale = displayW / this.logicalWidth;
+    if (nextDisplayScale !== this.displayScale) {
+      this.displayScale = nextDisplayScale;
+      this.labelFontCache.clear();
+    }
   }
 
   invalidateStaticLayer() {
@@ -173,14 +180,26 @@ export class Renderer {
     this.highContrast = Boolean(enabled);
   }
 
+  /**
+   * Polarity glyphs are the color-independent cue for a ball, so on a small canvas
+   * they grow toward the ball edge to stay at a readable on-screen size.
+   * @returns {{font: string, isEnlarged: boolean}}
+   */
   getLabelFont(radius) {
     let entry = this.labelFontCache.get(radius);
     if (!entry) {
       const renderCfg = this.ballsConfig.render;
       const family = this.gameConfig.theme.fontFamily;
+      const minLogicalPx = renderCfg.labelMinDisplayPx / this.displayScale;
+      const maxLogicalPx = radius * renderCfg.labelScaleMax;
+      const build = (scale) => {
+        const basePx = radius * scale;
+        const px = Math.min(maxLogicalPx, Math.max(basePx, minLogicalPx));
+        return { font: `bold ${Math.round(px)}px ${family}`, isEnlarged: px > basePx };
+      };
       entry = {
-        normal: `bold ${Math.round(radius * renderCfg.labelScaleNormal)}px ${family}`,
-        highContrast: `bold ${Math.round(radius * renderCfg.labelScaleHighContrast)}px ${family}`
+        normal: build(renderCfg.labelScaleNormal),
+        highContrast: build(renderCfg.labelScaleHighContrast)
       };
       this.labelFontCache.set(radius, entry);
     }
@@ -778,10 +797,12 @@ export class Renderer {
 
     const primaryLabel = palette.icon || palette.symbol;
     if (primaryLabel) {
-      ctx.font = this.getLabelFont(r);
+      const label = this.getLabelFont(r);
+      ctx.font = label.font;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      if (this.highContrast) {
+      // An enlarged glyph covers the shine and gradient, so it gets the outline too.
+      if (this.highContrast || label.isEnlarged) {
         ctx.strokeStyle = theme.floatingTextShadowColor;
         ctx.lineWidth = renderCfg.labelStrokeWidth;
         ctx.strokeText(primaryLabel, 0, renderCfg.labelOffsetY);
