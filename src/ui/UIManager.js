@@ -17,6 +17,7 @@
 import {
   GAME_MODES,
   GAME_STATES,
+  INPUT_MODES,
   SPECIAL_TYPES,
   SPECIAL_TYPES_ORDER,
   OBSTACLE_TYPES_ORDER
@@ -33,6 +34,27 @@ const NON_INTERACTIVE_ANCESTOR_SELECTOR = '.hidden, [hidden], [inert]';
 
 /** Root class mirroring the in-app reduced motion setting for CSS. */
 export const REDUCED_MOTION_CLASS = 'reduced-motion';
+
+/** Pointer types that mean a finger-like input without a keyboard at hand. */
+const TOUCH_POINTER_TYPES = new Set(['touch', 'pen']);
+
+/** Root data attribute mirroring the current input mode for CSS. */
+const INPUT_MODE_DATASET_KEY = 'input';
+
+/** Pause modal hints that have one wording per input mode. */
+const PAUSE_INPUT_HINTS = Object.freeze([
+  { elementId: 'pause-instruction-aim', key: 'modals.pause.instructions.aim' },
+  { elementId: 'pause-instruction-swap', key: 'modals.pause.instructions.swap' },
+  { elementId: 'pause-instruction-cancel', key: 'modals.pause.instructions.cancel' }
+]);
+
+/**
+ * Maps a pointer event type to an input mode; mouse and unknown types keep the
+ * mouse/keyboard wording.
+ */
+export function inputModeForPointerType(pointerType) {
+  return TOUCH_POINTER_TYPES.has(pointerType) ? INPUT_MODES.TOUCH : INPUT_MODES.POINTER;
+}
 
 /** Keys whose action is a one-shot toggle or trigger; auto-repeat must not re-fire them. */
 const REPEAT_SENSITIVE_KEY_CODES = new Set(['Space', 'KeyF', 'Enter', 'NumpadEnter', 'Escape']);
@@ -178,10 +200,59 @@ export class UIManager {
     this.autoPausedByOverlay = false;
     this.lastFocusedElement = null;
     this.prevEngineState = null;
+    this.inputMode = this.detectInitialInputMode();
+  }
+
+  detectInitialInputMode() {
+    const query = this.gameConfig.defaults.coarsePointerMediaQuery;
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function' && query) {
+      return window.matchMedia(query).matches ? INPUT_MODES.TOUCH : INPUT_MODES.POINTER;
+    }
+    return INPUT_MODES.POINTER;
+  }
+
+  /**
+   * Switches every input-specific hint (keyboard shortcuts, tap or click wording)
+   * when the player changes device, e.g. a touch laptop used with its keyboard.
+   */
+  setInputMode(mode) {
+    if (mode === this.inputMode) {
+      return;
+    }
+    this.inputMode = mode;
+    this.applyInputMode();
+    this.refresh(this.engine, this.lastExtra);
+  }
+
+  applyInputMode() {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.dataset[INPUT_MODE_DATASET_KEY] = this.inputMode;
+    }
+    this.updateInputHints();
+  }
+
+  /** A launcher label, followed by its keyboard shortcut only when a keyboard is in use. */
+  formatLauncherLabel(labelKey, shortcutKey) {
+    const label = t(labelKey);
+    if (this.inputMode === INPUT_MODES.TOUCH) {
+      return label;
+    }
+    return t('hud.launcher.shortcutFormat', { label, key: t(shortcutKey) });
+  }
+
+  updateInputHints() {
+    setTextIfChanged(
+      this.elements.swapBtn,
+      this.formatLauncherLabel('hud.launcher.swap.label', 'hud.launcher.swap.shortcut')
+    );
+    for (const { elementId, key } of PAUSE_INPUT_HINTS) {
+      setTextIfChanged(document.getElementById(elementId), t(`${key}.${this.inputMode}`));
+    }
   }
 
   init() {
     this.applyCanvasLayoutVariables();
+    this.applyInputMode();
     this.buildPowerupButtons();
     this.bindEvents();
     this.updateSoundButton();
@@ -190,6 +261,7 @@ export class UIManager {
     this.updateLanguageButton();
 
     i18n.onChange(() => {
+      this.updateInputHints();
       this.buildPowerupButtons();
       this.updateSoundButton();
       this.updateContrastButton();
@@ -527,7 +599,17 @@ export class UIManager {
       });
     });
 
+    // Capture phase: the mode must switch even when a handler below stops the event.
+    window.addEventListener(
+      'pointerdown',
+      (e) => {
+        this.setInputMode(inputModeForPointerType(e.pointerType));
+      },
+      { capture: true }
+    );
+
     window.addEventListener('keydown', (e) => {
+      this.setInputMode(INPUT_MODES.POINTER);
       if (e.code === 'Tab' && this.isAnyModalOpen()) {
         this.trapModalFocus(e);
         return;
@@ -1309,7 +1391,7 @@ export class UIManager {
       const polKey = engine.isPolarityFlipped
         ? 'hud.launcher.polarity.inverted'
         : 'hud.launcher.polarity.normal';
-      setTextIfChanged(this.elements.polarityBtn, t(polKey));
+      setTextIfChanged(this.elements.polarityBtn, this.formatLauncherLabel(polKey, 'hud.launcher.polarity.shortcut'));
       this.elements.polarityBtn.classList.toggle('active', Boolean(engine.isPolarityFlipped));
     }
 
@@ -1417,7 +1499,8 @@ export class UIManager {
           t('hud.launcher.specialEquipped.hint', {
             icon: spec?.icon || '',
             name: t(`hud.powerups.${equippedType}.name`),
-            desc: t(`hud.powerups.${equippedType}.tooltip`)
+            desc: t(`hud.powerups.${equippedType}.tooltip`),
+            unequip: t(`hud.launcher.specialEquipped.unequip.${this.inputMode}`)
           })
         );
         this.elements.specialEquippedBanner.classList.remove('hidden');

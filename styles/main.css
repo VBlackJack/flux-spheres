@@ -36,13 +36,18 @@
   --canvas-max-width: 460px;
   --canvas-aspect: 540 / 820;
   --canvas-border: 2px;
-  --dock-height: 34px;
+  --dock-height: var(--touch-target);
   --stage-column-gap: 8px;
   --powerups-width: 148px;
   --stage-gap: 12px;
   /* Space the canvas must leave inside the stage container, per axis. */
   --stage-reserve-x: calc(var(--powerups-width) + var(--stage-gap) + var(--canvas-border));
   --stage-reserve-y: calc(var(--dock-height) + var(--stage-column-gap) + var(--canvas-border));
+}
+
+/* Hints written for one input mode only (the root carries data-input). */
+:root[data-input='touch'] .pointer-only {
+  display: none;
 }
 
 * {
@@ -377,9 +382,11 @@ body {
   color: #cbd5e1;
   border: 1px solid #475569;
   border-radius: 10px;
-  padding: 7px 12px;
+  padding: 4px 12px;
   font-size: 0.78rem;
   font-weight: 600;
+  /* Two lines fit in the dock height, so a long label wraps instead of being clipped. */
+  line-height: 1.15;
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }

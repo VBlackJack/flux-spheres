@@ -279,7 +279,8 @@
     "initialUnlockedLevel": 1,
     "matchMinCount": 3,
     "initialCoins": 50,
-    "reducedMotionMediaQuery": "(prefers-reduced-motion: reduce)"
+    "reducedMotionMediaQuery": "(prefers-reduced-motion: reduce)",
+    "coarsePointerMediaQuery": "(pointer: coarse)"
   },
   "theme": {
     "fontFamily": "system-ui, sans-serif",
