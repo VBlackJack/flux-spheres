@@ -344,6 +344,11 @@ test('An anvil crushing a dormant bomb survives the balls the blast removes mid-
   const engine = createTestEngine();
   engine.startCampaignLevel(16);
   const world = engine.physicsWorld;
+  // Level 16 rolls its modifiers at random; armored neighbours would survive the blast.
+  for (const ball of world.balls) {
+    ball.clusterModifier = null;
+    ball.armorHits = 0;
+  }
   // The anvil pass walks the balls from the end, so the bomb is the first one it crushes.
   const bomb = world.balls[world.balls.length - 1];
   bomb.clusterModifier = CLUSTER_MODIFIERS.DORMANT_BOMB;
