@@ -468,3 +468,26 @@ test('Coins earned while a shot is in flight are written only once the run is sa
   assert.equal(engine.storageManager.getCoins(), coinsBefore + FAR_POSITION);
   assert.equal(engine.pendingRunCoins, 0);
 });
+
+test('A write from another tab replaces the cached value instead of being overwritten', () => {
+  const storage = new StorageManager();
+  storage.init();
+  const coinsKey = storage.buildKey(gameConfig.storage.keys.coins);
+  const upgradesKey = storage.buildKey(gameConfig.storage.keys.upgrades);
+  const otherTabCoins = 300;
+  const earnedHere = 5;
+  storage.getCoins();
+  storage.getUpgrades();
+
+  storage.handleExternalStorageChange({ key: coinsKey, newValue: String(otherTabCoins) });
+  storage.addCoins(earnedHere);
+  assert.equal(storage.getCoins(), otherTabCoins + earnedHere);
+
+  const upgradeId = Object.keys(gameConfig.upgrades)[0];
+  storage.handleExternalStorageChange({ key: upgradesKey, newValue: JSON.stringify({ [upgradeId]: 1 }) });
+  assert.equal(storage.getUpgradeLevel(upgradeId), 1);
+
+  storage.handleExternalStorageChange({ key: 'unrelated-app-key', newValue: 'x' });
+  storage.handleExternalStorageChange({ key: null, newValue: null });
+  assert.equal(storage.memoryFallback.size, 0, 'a storage clear in another tab drops the cache');
+});

@@ -30,6 +30,7 @@ export class StorageManager {
     this.maxCampaignLevel = null;
     this.memoryFallback = new Map();
     this.upgradesCache = null;
+    this.isCrossTabSyncBound = false;
   }
 
   init() {
@@ -41,6 +42,43 @@ export class StorageManager {
     this.achievementsConfig = gameConfig.achievements || {};
     this.maxCampaignLevel = levelsConfig.levels.length;
     this.upgradesCache = null;
+    this.bindCrossTabSync();
+  }
+
+  /**
+   * Keeps the in-memory copy in step with other tabs of the game. The browser fires a
+   * `storage` event in every other tab on each write; without it each tab kept the values
+   * it first read and wrote them back over progress made elsewhere (coins, upgrades...).
+   */
+  bindCrossTabSync() {
+    if (this.isCrossTabSyncBound || typeof window === 'undefined' || typeof window.addEventListener !== 'function') {
+      return;
+    }
+    window.addEventListener('storage', (event) => this.handleExternalStorageChange(event));
+    this.isCrossTabSyncBound = true;
+  }
+
+  /**
+   * Applies a write made by another tab. A cleared storage (key null) drops every cached value.
+   * @param {{key: string|null, newValue: string|null}} event - The `storage` event.
+   */
+  handleExternalStorageChange(event) {
+    if (event.key === null) {
+      this.memoryFallback.clear();
+      this.upgradesCache = null;
+      return;
+    }
+    if (!event.key.startsWith(this.storageConfig.prefix)) {
+      return;
+    }
+    if (event.newValue === null) {
+      this.memoryFallback.delete(event.key);
+    } else {
+      this.memoryFallback.set(event.key, event.newValue);
+    }
+    if (event.key === this.buildKey(this.storageConfig.keys.upgrades)) {
+      this.upgradesCache = null;
+    }
   }
 
   buildKey(shortKey) {
