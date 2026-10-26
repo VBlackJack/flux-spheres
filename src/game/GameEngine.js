@@ -517,12 +517,13 @@ export class GameEngine {
       const ballsPerArm = layout.ballsPerArm;
       for (let arm = 0; arm < arms; arm++) {
         const baseAngle = (MATH_CONSTANTS.TWO_PI * arm) / arms;
+        let prevArmBall = null;
         for (let step = 0; step < ballsPerArm; step++) {
           const dist = layout.startRadius + step * layout.radiusStep;
           const angle = baseAngle + step * layout.angleStep;
           const x = layout.centerX + Math.cos(angle) * dist;
           const y = layout.centerY + Math.sin(angle) * dist;
-          const isInner = step === 0;
+          const isInner = step % 2 === 0;
 
           const ball = this.createClusterBall({
             x,
@@ -536,6 +537,10 @@ export class GameEngine {
             pivotAngle: angle
           });
           this.physicsWorld.addBall(ball);
+          if (prevArmBall) {
+            this.physicsWorld.createBond(prevArmBall, ball, false);
+          }
+          prevArmBall = ball;
         }
       }
     } else if (layout.type === LAYOUT_TYPES.CROSS) {
@@ -549,6 +554,7 @@ export class GameEngine {
         { dx: 0, dy: -1 }
       ];
       for (const dir of directions) {
+        const armGrid = new Map();
         for (let step = 1; step <= armLength; step++) {
           for (let perp = -1; perp <= 1; perp++) {
             if (step === 1 && perp !== 0) {
@@ -558,7 +564,7 @@ export class GameEngine {
             const y = layout.centerY + (dir.dy * step + dir.dx * perp * perpFactor) * spacing;
             const dist = Math.hypot(x - layout.centerX, y - layout.centerY);
             const angle = Math.atan2(y - layout.centerY, x - layout.centerX);
-            const isInner = step === 1;
+            const isInner = perp === 0;
 
             const ball = this.createClusterBall({
               x,
@@ -572,6 +578,31 @@ export class GameEngine {
               pivotAngle: angle
             });
             this.physicsWorld.addBall(ball);
+            armGrid.set(`${step}:${perp}`, ball);
+          }
+        }
+        for (let step = 1; step <= armLength; step++) {
+          const centerBall = armGrid.get(`${step}:0`);
+          const prevCenter = armGrid.get(`${step - 1}:0`);
+          if (centerBall && prevCenter) {
+            this.physicsWorld.createBond(prevCenter, centerBall, false);
+          }
+          for (const perp of [-1, 1]) {
+            const flankBall = armGrid.get(`${step}:${perp}`);
+            if (!flankBall) {
+              continue;
+            }
+            if (centerBall) {
+              this.physicsWorld.createBond(centerBall, flankBall, false);
+            }
+            const prevFlank = armGrid.get(`${step - 1}:${perp}`);
+            if (prevFlank) {
+              this.physicsWorld.createBond(prevFlank, flankBall, false);
+            }
+            const prevSpine = armGrid.get(`${step - 1}:0`);
+            if (prevSpine) {
+              this.physicsWorld.createBond(prevSpine, flankBall, false);
+            }
           }
         }
       }
@@ -794,6 +825,7 @@ export class GameEngine {
     }
 
     this.hasFiredInRound = true;
+    this.physicsWorld.allowTensionBreak = true;
     this.shotsFiredInLevel++;
     this.audioManager.playEffect('shoot');
     this.updateAimFromAngle(this.aimAngle);
@@ -917,6 +949,13 @@ export class GameEngine {
         this.notifyUI();
       }
     });
+
+    if (this.physicsWorld.hasBrokenBondThisStep) {
+      this.physicsWorld.hasBrokenBondThisStep = false;
+      this.detachAndRewardAvalanche();
+      this.evaluateRoundEnd();
+      this.notifyUI();
+    }
 
     if (!this.physicsWorld.projectile) {
       if (!this.isAimCancelled) {
@@ -1448,6 +1487,13 @@ export class GameEngine {
     const dangerY = this.gameConfig.canvas.dangerLineY;
     for (const b of this.physicsWorld.balls) {
       if (!b.isDropping && b.y + b.radius >= dangerY) {
+        const anchoredSet = this.physicsWorld.getAnchoredBallIds();
+        if (!anchoredSet.has(b.id)) {
+          this.detachAndRewardAvalanche();
+          this.evaluateRoundEnd();
+          this.notifyUI();
+          return;
+        }
         this.triggerGameOver('lineCrossed');
         return;
       }

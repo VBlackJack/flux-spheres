@@ -44,6 +44,8 @@ export class PhysicsWorld {
     this.gravityMultiplier = 1.0;
     this.magnetismMultiplier = 1.0;
     this.rotorSpeedMultiplier = 1.0;
+    this.allowTensionBreak = false;
+    this.hasBrokenBondThisStep = false;
     const attractRange = physicsConfig.ball.radius * physicsConfig.magnetism.attractionRangeFactor;
     this.spatialGrid = new SpatialHashGrid(attractRange);
   }
@@ -110,6 +112,8 @@ export class PhysicsWorld {
     this.gravityMultiplier = 1.0;
     this.magnetismMultiplier = 1.0;
     this.rotorSpeedMultiplier = 1.0;
+    this.allowTensionBreak = false;
+    this.hasBrokenBondThisStep = false;
   }
 
   addBall(ball) {
@@ -378,9 +382,10 @@ export class PhysicsWorld {
           const dy = b.y - a.y;
           const dist = Math.hypot(dx, dy) || MATH_CONSTANTS.EPSILON;
 
-          if (dist > breakDist && !a.isAnchor && !b.isAnchor) {
+          if (this.allowTensionBreak && dist > breakDist && !a.isAnchor && !b.isAnchor) {
             a.bonds.delete(b.id);
             b.bonds.delete(a.id);
+            this.hasBrokenBondThisStep = true;
             continue;
           }
 

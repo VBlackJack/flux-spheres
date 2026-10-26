@@ -436,3 +436,41 @@ test('Ceiling acts as a wall and bounces projectile downward instead of snapping
   assert.equal(bouncedDownward, true, 'Projectile should bounce off the ceiling with positive vertical velocity');
   assert.equal(engine.physicsWorld.balls.length, 0, 'Projectile must not stick or snap to the ceiling');
 });
+
+test('Spiral and Cross rotor levels remain structurally stable without playing and tension breaks trigger avalanches', () => {
+  const engine = createTestEngine();
+
+  for (const levelId of [8, 9, 15]) {
+    engine.startCampaignLevel(levelId);
+    const initialCount = engine.physicsWorld.balls.length;
+    for (let frame = 0; frame < 350; frame++) {
+      engine.update();
+    }
+    assert.equal(engine.state, 'playing', `Level ${levelId} must not trigger Game Over while idle`);
+    assert.equal(engine.physicsWorld.balls.length, initialCount, `Level ${levelId} must not lose balls while idle`);
+    const maxY = Math.max(...engine.physicsWorld.balls.map((b) => b.y + b.radius));
+    assert.ok(
+      maxY < gameConfig.canvas.dangerLineY - 180,
+      `Level ${levelId} cluster should stay well above danger line (maxY=${maxY.toFixed(1)})`
+    );
+  }
+
+  // Verify that if a bond snaps under tension after firing, unanchored balls become a dropping avalanche
+  engine.startCampaignLevel(1);
+  engine.physicsWorld.clear();
+  const anchor = new Ball({ x: 270, y: 100, radius: 20, colorId: 'red', isAnchor: true });
+  const mid = new Ball({ x: 270, y: 140, radius: 20, colorId: 'blue', isAnchor: false });
+  const low = new Ball({ x: 270, y: 260, radius: 20, colorId: 'green', isAnchor: false });
+  engine.physicsWorld.addBall(anchor);
+  engine.physicsWorld.addBall(mid);
+  engine.physicsWorld.addBall(low);
+  engine.physicsWorld.createBond(anchor, mid, false);
+  engine.physicsWorld.createBond(mid, low, false);
+  engine.hasFiredInRound = true;
+  engine.physicsWorld.allowTensionBreak = true;
+
+  engine.update();
+  assert.equal(engine.physicsWorld.balls.includes(low), false, 'Tension-severed ball should be removed from active cluster');
+  assert.equal(engine.physicsWorld.droppingBalls.includes(low), true, 'Tension-severed ball should drop as an avalanche');
+  assert.equal(engine.state, 'playing', 'Detached avalanche must not trigger danger line Game Over');
+});
