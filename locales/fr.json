@@ -15,6 +15,7 @@
         "endless": "Survie",
         "daily": "Défi du Jour",
         "dailyBonusBadge": "Défi du Jour (+{{coins}} ⬡)",
+        "flux": "Mode Flux",
         "shop": "Boutique",
         "shopBadge": "Boutique ({{count}})",
         "restart": "Recommencer",
@@ -73,7 +74,9 @@
       "mode": {
         "campaign": "Niveau {{level}} : {{name}}",
         "endless": "Mode Survie • Vague {{wave}}",
-        "daily": "Défi du Jour ({{mutator}}) • Vague {{wave}}"
+        "daily": "Défi du Jour ({{mutator}}) • Vague {{wave}}",
+        "flux": "Mode Flux • Forme {{stage}} : {{shape}}",
+        "fluxBoss": "Mode Flux • Forme {{stage}} : {{shape}} (Boss)"
       },
       "shots": {
         "label": "Tirs restants",
@@ -152,7 +155,8 @@
       },
       "round": {
         "victory": "Niveau terminé. Score : {{score}}. Étoiles : {{stars}} sur {{maxStars}}.",
-        "gameOver": "Partie terminée. {{reason}} Score : {{score}}."
+        "gameOver": "Partie terminée. {{reason}} Score : {{score}}.",
+        "fluxStageCleared": "Forme {{stage}} vidée. La forme suivante arrive."
       }
     }
   },
@@ -209,6 +213,9 @@
       },
       "victory": {
         "cleared": "PLATEAU NETTOYÉ !"
+      },
+      "flux": {
+        "stageCleared": "FORME {{stage}} VIDÉE ! +{{points}} • +{{shots}} tirs"
       }
     },
     "mutators": {
@@ -216,6 +223,27 @@
       "turboRotors": "Rotors Turbo",
       "superMagnetism": "Super-Magnétisme",
       "volatileCluster": "Amas Volatil"
+    },
+    "flux": {
+      "shapes": {
+        "pendulum": "Pendule",
+        "ring": "Anneau",
+        "hexagon": "Hexagone",
+        "spiral": "Spirale",
+        "cross": "Croix",
+        "dualRing": "Double Anneau",
+        "heart": "Coeur",
+        "diamond": "Losange",
+        "crown": "Couronne",
+        "arrow": "Flèche",
+        "donut": "Beignet",
+        "invader": "Envahisseur",
+        "hourglass": "Sablier",
+        "miniHeart": "Petit Coeur",
+        "miniDiamond": "Petit Losange",
+        "miniRing": "Petit Rotor",
+        "pairFormat": "{{left}} et {{right}}"
+      }
     },
     "tutorial": {
       "pendulum": "Visez 3 billes de même couleur ou coupez les ancres supérieures pour déclencher une avalanche !",
@@ -261,7 +289,7 @@
         "stock": "En stock : {{count}}",
         "buy": "+1 ({{cost}} ⬡)",
         "unavailable": "Aucune manche en cours",
-        "unavailableHint": "Lancez un niveau, la Survie ou le Défi du Jour pour acheter des munitions."
+        "unavailableHint": "Lancez un niveau, la Survie, le Défi du Jour ou le Mode Flux pour acheter des munitions."
       },
       "codex": {
         "modifiersTitle": "Billes Spéciales de l'Amas",
@@ -345,7 +373,7 @@
           },
           "bossSlayer": {
             "name": "Briseur de Couronne",
-            "description": "Détruire un Noyau Boss (👑) en Campagne ou Survie."
+            "description": "Détruire un Noyau Boss (👑) en Campagne, Survie ou Mode Flux."
           },
           "sharpshooter": {
             "name": "Tir de Précision",
@@ -413,7 +441,8 @@
       },
       "stats": {
         "score": "Score atteint : {{score}}",
-        "highScore": "Meilleur score : {{highScore}}"
+        "highScore": "Meilleur score : {{highScore}}",
+        "fluxStage": "Forme atteinte : {{stage}} (record : {{best}})"
       },
       "button": {
         "retry": "Réessayer",

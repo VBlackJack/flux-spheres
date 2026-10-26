@@ -36,6 +36,7 @@ class Application {
       const ballsConfig = configRegistry.get('balls');
       const obstaclesConfig = configRegistry.get('obstacles');
       const levelsConfig = configRegistry.get('levels');
+      const fluxConfig = configRegistry.get('flux');
 
       const storageManager = new StorageManager();
       storageManager.init();
@@ -61,6 +62,7 @@ class Application {
         ballsConfig,
         obstaclesConfig,
         levelsConfig,
+        fluxConfig,
         audioManager,
         storageManager,
         onStateChange: (eng, extra) => {

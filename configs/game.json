@@ -72,7 +72,9 @@
     "overchargePerDroppedBall": 5
   },
   "victory": {
-    "celebrationFrames": 120
+    "celebrationFrames": 120,
+    "countUpMs": 900,
+    "starRevealStepMs": 260
   },
   "upgrades": {
     "laserSight": {
@@ -123,6 +125,11 @@
     "hitStopMinCombo": 3,
     "hitStopFramesCombo": 3,
     "hitStopFramesSpecial": 4,
+    "slowMotion": {
+      "timeScale": 0.4,
+      "maxRemainingBalls": 3,
+      "triggerDistance": 150
+    },
     "particles": {
       "shakeStopThreshold": 0.1,
       "trailSpread": 4,
@@ -266,6 +273,8 @@
       "unlockedLevel": "unlocked_level",
       "levelStats": "level_stats",
       "endlessHighScore": "endless_high_score",
+      "fluxHighScore": "flux_high_score",
+      "fluxBestStage": "flux_best_stage",
       "dailyBest": "daily_best",
       "dailyBestDate": "daily_best_date",
       "dailyLastPlayedDate": "daily_last_date",

@@ -20,7 +20,8 @@ export const CONFIG_PATHS = Object.freeze({
   BALLS: './configs/balls.json',
   OBSTACLES: './configs/obstacles.json',
   LEVELS: './configs/levels.json',
-  AUDIO: './configs/audio.json'
+  AUDIO: './configs/audio.json',
+  FLUX: './configs/flux.json'
 });
 
 export const LOCALE_PATHS = Object.freeze({
@@ -31,7 +32,8 @@ export const LOCALE_PATHS = Object.freeze({
 export const GAME_MODES = Object.freeze({
   CAMPAIGN: 'campaign',
   ENDLESS: 'endless',
-  DAILY: 'daily'
+  DAILY: 'daily',
+  FLUX: 'flux'
 });
 
 export const DAILY_MUTATORS = Object.freeze({
@@ -106,7 +108,8 @@ export const LAYOUT_TYPES = Object.freeze({
   DUAL_RING: 'dualRing',
   HEXAGON: 'hexagon',
   SPIRAL: 'spiral',
-  CROSS: 'cross'
+  CROSS: 'cross',
+  MASK: 'mask'
 });
 
 export const MATH_CONSTANTS = Object.freeze({

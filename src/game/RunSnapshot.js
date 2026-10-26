@@ -39,7 +39,10 @@ const ENGINE_SCALAR_FIELDS = [
   'activeTutorialKey',
   'isPolarityFlipped',
   'stashedRegularColorId',
-  'aimAngle'
+  'aimAngle',
+  'fluxSeed',
+  'fluxStage',
+  'fluxPreviousFamily'
 ];
 
 /** Ball fields copied verbatim; identity, bonds and the pivot link are handled separately. */
@@ -79,9 +82,13 @@ const OBSTACLE_MOTION_FIELDS = [
   'disabled'
 ];
 
+// Fields absent from the source are left alone, so a run saved before a field existed
+// keeps the target's own value for it.
 const copyFields = (target, source, fields) => {
   for (const field of fields) {
-    target[field] = source[field];
+    if (source[field] !== undefined) {
+      target[field] = source[field];
+    }
   }
 };
 
@@ -92,14 +99,20 @@ const pickFields = (source, fields) => {
 };
 
 /**
- * True when the run can be captured without losing anything: a run is in progress
- * and no projectile is in flight. Falling avalanche balls are already rewarded and
- * are purely visual, so they do not block a capture.
+ * True when the run can be captured without losing anything: a run is in progress,
+ * no projectile is in flight and no Flux shape is being replaced. Falling avalanche
+ * balls are already rewarded and are purely visual, so they do not block a capture.
  * @param {import('./GameEngine.js').GameEngine} engine
  */
 export function isRunSnapshotable(engine) {
   const isRunActive = engine.state === GAME_STATES.PLAYING || engine.state === GAME_STATES.PAUSED;
-  return isRunActive && !engine.physicsWorld.projectile && Boolean(engine.currentBall) && Boolean(engine.nextBall);
+  return (
+    isRunActive &&
+    !engine.physicsWorld.projectile &&
+    !(engine.stageTransitionFrames > 0) &&
+    Boolean(engine.currentBall) &&
+    Boolean(engine.nextBall)
+  );
 }
 
 /**
@@ -154,6 +167,12 @@ export function isValidRunSnapshot(snapshot, version) {
   if (snapshot.mode === GAME_MODES.DAILY && typeof snapshot.dailySeedKey !== 'string') {
     return false;
   }
+  if (
+    snapshot.mode === GAME_MODES.FLUX &&
+    (typeof snapshot.engine?.fluxSeed !== 'string' || !Number.isInteger(snapshot.engine.fluxStage) || snapshot.engine.fluxStage < 1)
+  ) {
+    return false;
+  }
   return (
     Array.isArray(snapshot.balls) &&
     snapshot.balls.length > 0 &&
@@ -178,6 +197,8 @@ export function applyRunSnapshot(engine, snapshot) {
     engine.startCampaignLevel(snapshot.engine.currentLevelId);
   } else if (snapshot.mode === GAME_MODES.DAILY) {
     engine.startDailyChallenge(snapshot.dailySeedKey, true);
+  } else if (snapshot.mode === GAME_MODES.FLUX) {
+    engine.restoreFluxRun(snapshot.engine.fluxSeed, snapshot.engine.fluxStage, snapshot.engine.fluxPreviousFamily);
   } else {
     engine.startEndlessMode();
   }

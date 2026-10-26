@@ -262,6 +262,32 @@ export class StorageManager {
     }
   }
 
+  readNonNegativeInt(shortKey) {
+    const parsed = Number.parseInt(this.safeGetItem(shortKey), 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  }
+
+  getFluxHighScore() {
+    return this.readNonNegativeInt(this.storageConfig.keys.fluxHighScore);
+  }
+
+  getFluxBestStage() {
+    return this.readNonNegativeInt(this.storageConfig.keys.fluxBestStage);
+  }
+
+  /**
+   * Keeps the best Flux score and the furthest Flux stage, each on its own: the deepest
+   * run is not always the highest-scoring one.
+   */
+  setFluxRecord(score, stage) {
+    if (score > this.getFluxHighScore()) {
+      this.safeSetItem(this.storageConfig.keys.fluxHighScore, Math.floor(score));
+    }
+    if (stage > this.getFluxBestStage()) {
+      this.safeSetItem(this.storageConfig.keys.fluxBestStage, Math.floor(stage));
+    }
+  }
+
   getDailyHighScore(dateKey = SeededRandom.getTodayDateKey()) {
     const savedDate = this.safeGetItem(this.storageConfig.keys.dailyBestDate);
     if (savedDate !== dateKey) {

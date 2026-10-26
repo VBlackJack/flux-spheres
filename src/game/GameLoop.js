@@ -36,7 +36,8 @@ export function willSimulationAdvance(engine) {
  * thrown by update or render stops the loop for good and is reported once.
  *
  * @param {object} options
- * @param {object} options.engine - Game engine (update(), state, hitStopFrames).
+ * @param {object} options.engine - Game engine (update(), state, hitStopFrames, and an
+ *   optional getTimeScale() below 1 for slow motion).
  * @param {object} options.renderer - Renderer exposing render(engine, alpha).
  * @param {number} options.fixedStepMs - Fixed simulation step in milliseconds.
  * @param {number} options.maxAccumulatedMs - Upper bound of elapsed time per frame.
@@ -67,7 +68,9 @@ export function createGameLoop({
     try {
       const elapsed = lastTime === null ? 0 : Math.min(maxAccumulatedMs, Math.max(0, now - lastTime));
       lastTime = now;
-      accumulator += elapsed;
+      // Slow motion: fewer fixed steps per real second; interpolation keeps it smooth.
+      const timeScale = typeof engine.getTimeScale === 'function' ? engine.getTimeScale() : 1;
+      accumulator += elapsed * timeScale;
 
       while (accumulator >= fixedStepMs) {
         lastUpdateAdvanced = willSimulationAdvance(engine);
