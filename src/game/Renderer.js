@@ -355,6 +355,22 @@ export class Renderer {
         ctx.arc(0, 0, obs.radius * cfg.swirlRadiusFactor, 0, Math.PI * cfg.swirlArcAngleFactor);
         ctx.stroke();
       } else if (obs.type === OBSTACLE_TYPES.SINGULARITY) {
+        if (obs.pullRadius > obs.captureRadius && cfg.pullFieldColor) {
+          const pullWave = obs.pullRadius - ((now * obsDefaults.fieldWaveSpeed) % obs.pullRadius);
+          ctx.fillStyle = cfg.pullFieldColor;
+          ctx.beginPath();
+          ctx.arc(ox, oy, obs.pullRadius, 0, MATH_CONSTANTS.TWO_PI);
+          ctx.fill();
+
+          ctx.strokeStyle = cfg.ringColor;
+          ctx.globalAlpha = obsDefaults.fieldWaveAlpha * MATH_CONSTANTS.HALF;
+          ctx.lineWidth = obsDefaults.lineWidth;
+          ctx.beginPath();
+          ctx.arc(ox, oy, Math.max(obs.captureRadius, pullWave), 0, MATH_CONSTANTS.TWO_PI);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+
         const pulseScale = 1 + obs.hitPulse * obsDefaults.bumperPulseScale;
         ctx.translate(ox, oy);
         ctx.scale(pulseScale, pulseScale);

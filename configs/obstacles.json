@@ -33,17 +33,18 @@
     },
     "repulsor": {
       "radius": 22,
-      "fieldRadius": 125,
-      "force": -0.65,
+      "fieldRadius": 140,
+      "force": -2.25,
+      "restitution": 1.15,
       "coreColor": "#f97316",
-      "fieldColor": "rgba(249, 115, 22, 0.14)"
+      "fieldColor": "rgba(249, 115, 22, 0.16)"
     },
     "attractor": {
       "radius": 22,
-      "fieldRadius": 135,
-      "force": 0.52,
+      "fieldRadius": 145,
+      "force": 1.85,
       "coreColor": "#a855f7",
-      "fieldColor": "rgba(168, 85, 247, 0.14)"
+      "fieldColor": "rgba(168, 85, 247, 0.16)"
     },
     "barrier": {
       "height": 16,
@@ -75,6 +76,7 @@
       "captureRadius": 36,
       "pullRadius": 150,
       "pullForce": 0.85,
+      "projectilePullForce": 1.55,
       "scoreMultiplier": 1.5,
       "bonusOvercharge": 6,
       "spinSpeed": -0.06,
@@ -82,6 +84,7 @@
       "outerColor": "#4c1d95",
       "ringColor": "#c084fc",
       "fieldColor": "rgba(168, 85, 247, 0.16)",
+      "pullFieldColor": "rgba(168, 85, 247, 0.07)",
       "ringDash": [6, 6],
       "ringInset": 3,
       "swirlRadiusFactor": 0.55,

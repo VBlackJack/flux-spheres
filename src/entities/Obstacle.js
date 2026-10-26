@@ -46,6 +46,9 @@ export class Obstacle {
     this.captureRadius = def.captureRadius || typeSpec.captureRadius || this.radius;
     this.pullRadius = def.pullRadius || typeSpec.pullRadius || 0;
     this.pullForce = def.pullForce || typeSpec.pullForce || 0;
+    this.projectilePullForce = def.projectilePullForce !== undefined
+      ? def.projectilePullForce
+      : (typeSpec.projectilePullForce || 0);
     this.scoreMultiplier = typeSpec.scoreMultiplier || 1.0;
     this.bonusOvercharge = typeSpec.bonusOvercharge || 0;
     this.restitution = typeSpec.restitution || defaults.restitution;

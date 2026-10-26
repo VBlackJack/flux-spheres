@@ -456,14 +456,26 @@ export class PhysicsWorld {
       if (obs.disabled) {
         continue;
       }
-      if (obs.type === OBSTACLE_TYPES.REPULSOR || obs.type === OBSTACLE_TYPES.ATTRACTOR) {
+      const isFieldObstacle =
+        obs.type === OBSTACLE_TYPES.REPULSOR ||
+        obs.type === OBSTACLE_TYPES.ATTRACTOR ||
+        obs.type === OBSTACLE_TYPES.SINGULARITY;
+      if (isFieldObstacle) {
+        const activeRadius = obs.type === OBSTACLE_TYPES.SINGULARITY ? obs.pullRadius : obs.fieldRadius;
+        const activeForce = obs.type === OBSTACLE_TYPES.SINGULARITY ? obs.projectilePullForce : obs.force;
         const dx = obs.x - state.x;
         const dy = obs.y - state.y;
         const dist = Math.hypot(dx, dy);
-        if (dist > MATH_CONSTANTS.EPSILON && dist < obs.fieldRadius) {
-          const factor = (1 - dist / obs.fieldRadius) * obs.force * dt;
+        if (dist > MATH_CONSTANTS.EPSILON && dist < activeRadius && activeForce !== 0) {
+          const prevSpeed = Math.hypot(state.vx, state.vy);
+          const factor = (1 - dist / activeRadius) * activeForce * dt;
           state.vx += (dx / dist) * factor;
           state.vy += (dy / dist) * factor;
+          const newSpeed = Math.hypot(state.vx, state.vy);
+          if (newSpeed > MATH_CONSTANTS.EPSILON && prevSpeed > MATH_CONSTANTS.EPSILON) {
+            state.vx = (state.vx / newSpeed) * prevSpeed;
+            state.vy = (state.vy / newSpeed) * prevSpeed;
+          }
         }
       }
     }
@@ -536,7 +548,11 @@ export class PhysicsWorld {
             }
           }
         }
-      } else if (obs.type === OBSTACLE_TYPES.BUMPER || obs.type === OBSTACLE_TYPES.PIVOT) {
+      } else if (
+        obs.type === OBSTACLE_TYPES.BUMPER ||
+        obs.type === OBSTACLE_TYPES.PIVOT ||
+        obs.type === OBSTACLE_TYPES.REPULSOR
+      ) {
         const dx = state.x - obs.x;
         const dy = state.y - obs.y;
         const minDist = r + obs.radius;

@@ -23,6 +23,7 @@ import { StorageManager } from '../src/core/StorageManager.js';
 import { SeededRandom } from '../src/core/SeededRandom.js';
 import { SpatialHashGrid } from '../src/physics/SpatialHashGrid.js';
 import { Ball } from '../src/entities/Ball.js';
+import { Obstacle } from '../src/entities/Obstacle.js';
 import { GameEngine } from '../src/game/GameEngine.js';
 import { Renderer } from '../src/game/Renderer.js';
 import {
@@ -370,4 +371,45 @@ test('StorageManager handles corrupted JSON gracefully and caches upgrade levels
   sm.setCoins(500);
   assert.equal(sm.purchaseUpgrade('laserSight'), true);
   assert.equal(sm.getUpgradeLevel('laserSight'), 1);
+});
+
+test('Repulsor, Attractor, and Singularity obstacles noticeably deflect projectile trajectories', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  engine.physicsWorld.balls = [];
+  engine.physicsWorld.ballMap.clear();
+
+  const startX = gameConfig.canvas.launcherX;
+  const startY = gameConfig.canvas.launcherY;
+  const angle = -Math.PI * 0.5;
+
+  // 1. Repulsor placed slightly to the right of the vertical firing line pushes projectile to the left
+  engine.physicsWorld.obstacles = [
+    new Obstacle({ type: OBSTACLE_TYPES.REPULSOR, x: startX + 45, y: 420 }, obstaclesConfig)
+  ];
+  const repulsorTraj = engine.physicsWorld.computeAimTrajectory(startX, startY, angle, engine.currentBall);
+  assert.ok(
+    repulsorTraj.landingX < startX - 80,
+    `Repulsor should strongly deflect shot to the left (landingX=${repulsorTraj.landingX.toFixed(1)})`
+  );
+
+  // 2. Attractor placed slightly to the right pulls projectile to the right
+  engine.physicsWorld.obstacles = [
+    new Obstacle({ type: OBSTACLE_TYPES.ATTRACTOR, x: startX + 55, y: 420 }, obstaclesConfig)
+  ];
+  const attractorTraj = engine.physicsWorld.computeAimTrajectory(startX, startY, angle, engine.currentBall);
+  assert.ok(
+    attractorTraj.landingX > startX + 80,
+    `Attractor should strongly curve shot to the right (landingX=${attractorTraj.landingX.toFixed(1)})`
+  );
+
+  // 3. Singularity placed slightly to the left pulls projectile to the left
+  engine.physicsWorld.obstacles = [
+    new Obstacle({ type: OBSTACLE_TYPES.SINGULARITY, x: startX - 55, y: 450 }, obstaclesConfig)
+  ];
+  const singularityTraj = engine.physicsWorld.computeAimTrajectory(startX, startY, angle, engine.currentBall);
+  assert.ok(
+    singularityTraj.landingX < startX - 70,
+    `Singularity should noticeably curve shot toward its gravity well (landingX=${singularityTraj.landingX.toFixed(1)})`
+  );
 });
