@@ -32,6 +32,7 @@ All notable changes to **FluxSpheres** are documented in this file.
 - **Offline Mode**: Service Worker cache writes complete reliably, navigations fall back to the cached page, and slow networks fall back to the cache after a timeout.
 
 ### Changed
+- **Desktop Layout**: On landscape desktops the board is centered between two full-height columns of the same width. The left one holds navigation and the round stats, with larger score and shot counts; the right one holds the overcharge gauge and special balls, with Polarity and Swap at the bottom, level with the launcher. Phones are unchanged.
 - **Victory Celebration**: Clearing a level no longer cuts straight to the victory window. The last falling spheres and particles keep animating for two seconds under a "Board cleared!" popup, then the window opens; the delay is `victory.celebrationFrames` in `configs/game.json`.
 - **Readable Pacing**: Automatic chain reactions now go off one cluster at a time, 0.6 s apart, instead of all in the same frame. Avalanches fall about twice as slowly, special balls hold their impact for a quarter of a second, and running out of shots leaves 1.5 s for the board to settle before the defeat. All delays live in `configs/physics.json` (`chainCheckCooldownFrames`, `dropGravity`, `dropMinVerticalSpeed`, `outOfShotsGraceFrames`) and `configs/game.json` (`juice.hitStopFramesCombo`, `juice.hitStopFramesSpecial`).
 - **First Visit Language**: The interface language follows the browser language until the player picks one.
