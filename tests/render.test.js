@@ -190,6 +190,14 @@ test('Render alpha is 1 when no simulation step advanced, interpolated otherwise
   };
   loop.frame(FIXED_STEP_MS * 5.4);
   assert.equal(alphas.at(-1), 1.0, 'hit-stop: alpha must be 1');
+
+  engine.hitStopFrames = 0;
+  engine.stageTransitionFrames = 10;
+  engine.update = () => {
+    engine.stageTransitionFrames--;
+  };
+  loop.frame(FIXED_STEP_MS * 6.9);
+  assert.equal(alphas.at(-1), 1.0, 'Flux stage transition: alpha must be 1');
 });
 
 test('Game loop throttles rendering while the engine is not playing', () => {
@@ -431,4 +439,19 @@ test('Reduced motion drops decorative particles but keeps the informative floati
   assert.equal(particles.shakeIntensity, 0);
   assert.equal(particles.floatingTexts.length, 2);
   assert.doesNotThrow(() => createRenderer().render(engine, 1.0));
+});
+
+test('A rotor board traces the aim preview once per rendered frame, not once per step', () => {
+  const engine = createTestEngine();
+  engine.startDailyChallenge('2025-01-01');
+  const world = engine.physicsWorld;
+  assert.ok(world.obstacles.some((obs) => obs.angularVelocity !== undefined), 'the Daily board has a rotor');
+  const renderer = { render: () => {} };
+  const { loop } = createLoopHarness(engine, renderer);
+  const stepsPerFrame = 4;
+
+  loop.frame(0);
+  const before = world.aimTrajectoryComputeCount;
+  loop.frame(FIXED_STEP_MS * stepsPerFrame);
+  assert.equal(world.aimTrajectoryComputeCount - before, 1);
 });

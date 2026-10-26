@@ -111,6 +111,7 @@ export class GameEngine {
     this.nextBall = null;
     this.aimAngle = -Math.PI * MATH_CONSTANTS.HALF;
     this.aimPoints = [];
+    this.isAimPreviewStale = false;
   }
 
   random() {
@@ -995,6 +996,7 @@ export class GameEngine {
 
   updateAimFromAngle(angle) {
     this.aimAngle = angle;
+    this.isAimPreviewStale = false;
     const canvasCfg = this.gameConfig.canvas;
     const bonuses = this.getLaserBonuses();
     this.aimPoints = this.physicsWorld.computeAimTrajectory(
@@ -1006,6 +1008,20 @@ export class GameEngine {
       bonuses.bouncesBonus,
       this.isPolarityFlipped
     );
+  }
+
+  /**
+   * Recomputes the aim preview if the board moved since it was last traced. Called once
+   * per rendered frame, however many fixed steps the frame ran.
+   */
+  refreshAimPreview() {
+    if (!this.isAimPreviewStale) {
+      return;
+    }
+    this.isAimPreviewStale = false;
+    if (this.state === GAME_STATES.PLAYING && !this.physicsWorld.projectile && !this.isAimCancelled) {
+      this.updateAimFromAngle(this.aimAngle);
+    }
   }
 
   shoot() {
@@ -1203,9 +1219,9 @@ export class GameEngine {
     }
 
     if (!this.physicsWorld.projectile) {
-      if (!this.isAimCancelled) {
-        this.updateAimFromAngle(this.aimAngle);
-      }
+      // The board moved, but the preview is only drawn once per frame: the game loop
+      // recomputes it through refreshAimPreview instead of once per fixed step.
+      this.isAimPreviewStale = true;
       if (!this.hasFiredInRound) {
         this.physicsWorld.pendingChainCandidateIds.clear();
       } else {

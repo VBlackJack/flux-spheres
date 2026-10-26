@@ -18,26 +18,28 @@ import { GAME_STATES } from '../core/Constants.js';
 
 /**
  * Returns true when the next engine.update() call will advance the physics simulation,
- * i.e. the game is playing and no hit-stop freeze is pending.
- * @param {object} engine - Game engine exposing state and hitStopFrames.
+ * i.e. the game is playing, no hit-stop freeze is pending and no Flux shape is being
+ * replaced (that transition only lets the old balls fall, without saving their previous
+ * positions, so it cannot be interpolated).
+ * @param {object} engine - Game engine exposing state, hitStopFrames and stageTransitionFrames.
  * @returns {boolean}
  */
 export function willSimulationAdvance(engine) {
-  return engine.state === GAME_STATES.PLAYING && engine.hitStopFrames <= 0;
+  return engine.state === GAME_STATES.PLAYING && engine.hitStopFrames <= 0 && !(engine.stageTransitionFrames > 0);
 }
 
 /**
  * Creates a fixed-timestep game loop with render interpolation.
  *
  * Interpolation alpha is forced to 1 whenever the last update did not advance the
- * simulation (hit-stop, pause, menus), because previous positions are only saved by a
+ * simulation (hit-stop, pause, menus, Flux stage transition), because previous positions are only saved by a
  * real physics step. While the engine is neither playing nor celebrating a victory, the
  * scene is static and is redrawn at the configured idle interval instead of every frame. Any exception
  * thrown by update or render stops the loop for good and is reported once.
  *
  * @param {object} options
- * @param {object} options.engine - Game engine (update(), state, hitStopFrames, and an
- *   optional getTimeScale() below 1 for slow motion).
+ * @param {object} options.engine - Game engine (update(), state, hitStopFrames, and the
+ *   optional getTimeScale() below 1 for slow motion and refreshAimPreview() before a render).
  * @param {object} options.renderer - Renderer exposing render(engine, alpha).
  * @param {number} options.fixedStepMs - Fixed simulation step in milliseconds.
  * @param {number} options.maxAccumulatedMs - Upper bound of elapsed time per frame.
@@ -76,6 +78,9 @@ export function createGameLoop({
         lastUpdateAdvanced = willSimulationAdvance(engine);
         engine.update();
         accumulator -= fixedStepMs;
+      }
+      if (typeof engine.refreshAimPreview === 'function') {
+        engine.refreshAimPreview();
       }
 
       const alpha = lastUpdateAdvanced && fixedStepMs > 0 ? accumulator / fixedStepMs : 1.0;
