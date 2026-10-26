@@ -4,6 +4,10 @@ All notable changes to **FluxSpheres** are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Run Resume**: The run in progress is saved after every shot and when the page is hidden, and resumes paused after a reload or a discarded tab; finishing or starting a run clears it.
+- **Input-Aware Hints**: Keyboard shortcuts are shown only to mouse and keyboard players; touch players get tap and drag wording, including how to cancel a shot.
+
 ### Fixed
 - **Round End Idempotence**: A victory can no longer be paid twice in one frame, a lost level can no longer turn into a victory, and the score is frozen once a run ends.
 - **Storage Resilience**: A failed `localStorage` write no longer resurrects the previous coin balance, and stored values of the wrong shape no longer crash the game.
@@ -15,11 +19,17 @@ All notable changes to **FluxSpheres** are documented in this file.
 - **Layout**: Zero-scroll layout on desktop, phones and landscape phones; modals fit the viewport and keep their Close button reachable.
 - **Accessibility**: Stable labels with `aria-pressed` on toggles, accessible names for power-ups and level stars, focus trap fixes, polite announcements for achievements and round results, reduced-motion support in CSS, 44 px touch targets and WCAG AA button contrast.
 - **Keyboard**: Holding Space, F, Enter or a digit key no longer repeats the action.
+- **Mobile Gestures**: Pull-to-refresh, scroll chaining, double-tap zoom and the tap highlight are disabled outside the board.
+- **Tutorial Banner**: Sits above the danger line and lets aiming through, instead of covering the cluster on small screens.
+- **Small Screens**: Polarity glyphs grow to stay readable on small boards, HUD labels are larger, the star progress line wraps cleanly, launcher buttons no longer clip their label, and Pause settings show a caption.
+- **Locked Levels**: The level select says which level unlocks a locked one.
 - **Offline Mode**: Service Worker cache writes complete reliably, navigations fall back to the cached page, and slow networks fall back to the cache after a timeout.
 
 ### Changed
 - **First Visit Language**: The interface language follows the browser language until the player picks one.
 - **Installable PWA**: New sphere icon with 192 px, 512 px and maskable variants.
+- **Desktop Layout**: Landscape desktops and tablets put the header and HUD in a side column so the board uses the full window height (about 60 % larger on a 1366x768 laptop).
+- **Design Tokens**: Neutral surface, border and text colors are CSS tokens.
 - **Performance**: Aim preview, avalanche prediction and cluster searches are cached; the spatial grid is rebuilt once per substep; the static background is pre-rendered; the canvas backing store follows its displayed size.
 - **Audio**: Simultaneous voices are capped, effects are throttled behind a limiter, and the audio context is suspended while hidden or muted.
 - **High Scores**: Written when a run ends or the page is left instead of on every scoring event.

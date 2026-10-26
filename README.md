@@ -31,7 +31,8 @@
   - **Reduced Motion** toggle (`prefers-reduced-motion` aware) and automatic pause on tab switch.
   - Screen reader support: labelled toggles with `aria-pressed`, named power-ups and level stars, and polite announcements for achievements and round results.
   - Full mouse, touch (with vertical finger offset and pull-down shot cancellation), and keyboard controls; held action keys do not auto-repeat.
-  - Zero-scroll layout on desktop, phones and landscape phones, with 44 px touch targets. On phones, Restart, Sound, Contrast, Motion and Language live in the **Pause** menu.
+  - Zero-scroll layout on desktop, phones and landscape phones, with 44 px touch targets. On phones, Restart, Sound, Contrast, Motion and Language live in the **Pause** menu. On landscape desktops the board uses the full window height.
+  - The run in progress survives a reload or a discarded tab and resumes paused.
 - **Installable & Offline**:
   - Installable Progressive Web App with standard and maskable icons.
   - Network-first Service Worker that falls back to the cached copy when offline or when the network is too slow.
