@@ -27,7 +27,7 @@ export class StorageManager {
     this.defaultsConfig = null;
     this.upgradesConfig = null;
     this.achievementsConfig = null;
-    this.maxCampaignLevel = 16;
+    this.maxCampaignLevel = null;
     this.memoryFallback = new Map();
     this.upgradesCache = null;
   }
@@ -39,9 +39,7 @@ export class StorageManager {
     this.defaultsConfig = gameConfig.defaults;
     this.upgradesConfig = gameConfig.upgrades;
     this.achievementsConfig = gameConfig.achievements || {};
-    if (levelsConfig?.levels?.length) {
-      this.maxCampaignLevel = levelsConfig.levels.length;
-    }
+    this.maxCampaignLevel = levelsConfig.levels.length;
     this.upgradesCache = null;
   }
 

@@ -178,8 +178,8 @@
     "firstPlayBonusCoins": 30,
     "singularityMarginRadiusFactor": 4,
     "singularityOffsetAboveDangerFactor": 5,
-    "pivotY": 235,
-    "pivotRingCount": 8,
+    "pivotClearanceY": 115,
+    "pivotRingCount": 6,
     "pivotRingRadiusFactor": 2.4,
     "pivotBaseAngularSpeed": 0.008,
     "mutators": {

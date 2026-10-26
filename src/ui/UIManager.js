@@ -24,6 +24,10 @@ import {
 import { i18n, t } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
 
+/**
+ * Manages DOM HUD updates, accessible modal dialogs, shop/codex tabs,
+ * and keyboard/button event bindings.
+ */
 export class UIManager {
   constructor({ engine, renderer, storageManager, audioManager, gameConfig, levelsConfig, ballsConfig }) {
     this.engine = engine;
@@ -414,17 +418,19 @@ export class UIManager {
       }
 
       const activeEl = document.activeElement;
-      const isInteractiveFocused = Boolean(
+      const isKeyboardInteractiveFocused = Boolean(
         activeEl &&
           activeEl !== document.body &&
           activeEl !== document.documentElement &&
           activeEl.id !== 'game-canvas' &&
+          typeof activeEl.matches === 'function' &&
+          activeEl.matches(':focus-visible') &&
           typeof activeEl.closest === 'function' &&
           activeEl.closest('button, a, input, select, textarea, [role="button"], [role="tab"]')
       );
 
       if (e.code === 'Space') {
-        if (isInteractiveFocused) {
+        if (isKeyboardInteractiveFocused) {
           return;
         }
         e.preventDefault();
@@ -441,7 +447,7 @@ export class UIManager {
         this.engine.adjustAimByDelta(dir * step);
         this.updateAimState(this.engine);
       } else if (e.code === 'Enter') {
-        if (isInteractiveFocused) {
+        if (isKeyboardInteractiveFocused) {
           return;
         }
         e.preventDefault();

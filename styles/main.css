@@ -881,13 +881,14 @@ body {
     border-left: none;
   }
   .nav-btn {
-    padding: 7px 11px;
-    min-height: 36px;
+    padding: 8px 12px;
+    min-height: 44px;
+    min-width: 44px;
     font-size: 0.78rem;
   }
   .nav-btn.icon-btn {
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 44px;
+    min-height: 44px;
   }
   .hud-bar {
     grid-template-columns: repeat(4, 1fr);

@@ -287,7 +287,7 @@ export class GameEngine {
 
   initSurvivalRun(mode, seed = null) {
     const endlessCfg = this.gameConfig.endless;
-    const dailyCfg = this.gameConfig.daily || {};
+    const dailyCfg = this.gameConfig.daily;
     this.mode = mode;
     this.dailySeedKey = mode === GAME_MODES.DAILY ? seed : null;
     this.seededRng = seed ? new SeededRandom(seed) : null;
@@ -362,8 +362,8 @@ export class GameEngine {
     }
 
     if (mode === GAME_MODES.DAILY) {
-      const singMargin = r * (dailyCfg.singularityMarginRadiusFactor || 4);
-      const singOffsetY = r * (dailyCfg.singularityOffsetAboveDangerFactor || 5);
+      const singMargin = r * dailyCfg.singularityMarginRadiusFactor;
+      const singOffsetY = r * dailyCfg.singularityOffsetAboveDangerFactor;
       const leftSingularity = new Obstacle(
         { type: OBSTACLE_TYPES.SINGULARITY, x: singMargin, y: this.gameConfig.canvas.dangerLineY - singOffsetY },
         this.obstaclesConfig
@@ -376,9 +376,10 @@ export class GameEngine {
         },
         this.obstaclesConfig
       );
+      const lastRowY = endlessCfg.startY + (endlessCfg.initialRows - 1) * endlessCfg.rowSpacingY;
       const pivotX = this.gameConfig.canvas.logicalWidth * MATH_CONSTANTS.HALF;
-      const pivotY = dailyCfg.pivotY || 235;
-      const basePivotSpeed = (dailyCfg.pivotBaseAngularSpeed || 0.008) * rotorMult;
+      const pivotY = lastRowY + dailyCfg.pivotClearanceY;
+      const basePivotSpeed = dailyCfg.pivotBaseAngularSpeed * rotorMult;
       const centralPivot = new Obstacle(
         {
           type: OBSTACLE_TYPES.PIVOT,
@@ -390,8 +391,8 @@ export class GameEngine {
       );
       this.physicsWorld.obstacles.push(leftSingularity, rightSingularity, centralPivot);
 
-      const ringCount = dailyCfg.pivotRingCount || 8;
-      const ringRadius = r * (dailyCfg.pivotRingRadiusFactor || 2.4);
+      const ringCount = dailyCfg.pivotRingCount;
+      const ringRadius = r * dailyCfg.pivotRingRadiusFactor;
       this.spawnConcentricRings(pivotX, pivotY, [{ radius: ringRadius, count: ringCount }], centralPivot, {});
     }
 
@@ -1328,8 +1329,18 @@ export class GameEngine {
     this.endlessRowParity = (this.endlessRowParity + 1) % 2;
 
     const previousAnchors = [];
+    for (const obs of this.physicsWorld.obstacles) {
+      if (obs.type === OBSTACLE_TYPES.PIVOT) {
+        obs.baseY += endlessCfg.descentStepY;
+        obs.y += endlessCfg.descentStepY;
+        obs.prevY += endlessCfg.descentStepY;
+      }
+    }
     for (const b of this.physicsWorld.balls) {
       if (b.pivotRef) {
+        b.y += endlessCfg.descentStepY;
+        b.prevY += endlessCfg.descentStepY;
+        b.anchorY += endlessCfg.descentStepY;
         continue;
       }
       if (b.isAnchor) {

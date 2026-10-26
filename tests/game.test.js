@@ -322,6 +322,34 @@ test('Daily Challenge spawns central rotor, applies Turbo Rotors multiplier, and
   const pivot = engine.physicsWorld.obstacles.find((o) => o.type === OBSTACLE_TYPES.PIVOT);
   assert.ok(pivot, 'Daily challenge should include a central inertia rotor');
 
+  const balls = engine.physicsWorld.balls;
+  const minAllowedDist = physicsConfig.ball.radius * 2 - 1e-4;
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i + 1; j < balls.length; j++) {
+      const dist = Math.hypot(balls[j].x - balls[i].x, balls[j].y - balls[i].y);
+      assert.ok(
+        dist >= minAllowedDist,
+        `Overlapping balls at start of Daily Challenge: dist=${dist.toFixed(2)} < ${minAllowedDist}`
+      );
+    }
+  }
+
+  const prevPivotY = pivot.y;
+  engine.spawnEndlessWave();
+  assert.equal(pivot.y, prevPivotY + gameConfig.endless.descentStepY);
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i + 1; j < balls.length; j++) {
+      if (!balls[i].pivotRef && !balls[j].pivotRef) {
+        continue;
+      }
+      const dist = Math.hypot(balls[j].x - balls[i].x, balls[j].y - balls[i].y);
+      assert.ok(
+        dist >= minAllowedDist,
+        `Rotor overlaps grid after Daily wave descent: dist=${dist.toFixed(2)} < ${minAllowedDist}`
+      );
+    }
+  }
+
   engine.addScore(1500);
   assert.ok(engine.storageManager.getDailyHighScore('2026-10-27') >= 1500);
   assert.equal(engine.storageManager.getDailyHighScore('2026-10-28'), 0);
