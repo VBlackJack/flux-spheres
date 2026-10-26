@@ -22,6 +22,10 @@
   - **Campaign**: 16 handcrafted levels introducing pendulums, inertia rotors, repulsors, oscillating barriers, quantum locks, linked portals, and Boss Cores.
   - **Survival (Endless)**: Infinite wave defense with Gold Rush waves and Boss anomalies.
   - **Daily Challenge**: Deterministic daily seed with rotating physics mutators (*Hyper Gravity*, *Turbo Rotors*, *Super Magnetism*, *Volatile Cluster*) and a daily coin reward.
+  - **Flux Mode**: An endless chain of procedurally generated shapes sharing one shot reserve. Each stage draws a parametric rotor or pendulum, a hanging silhouette (heart, crown, hourglass...) or a pair of small shapes, never the same family twice in a row. A difficulty budget adds bumpers, portals, repulsors and singularities as the run goes on, every fifth stage hides a Boss Core, and clearing a shape refills shots. Runs are seeded, so a reload resumes on the same shape.
+- **Game Feel**:
+  - Slow motion when a shot flies close to one of the last three spheres of a level or Flux shape.
+  - The victory score rolls up and the earned stars pop in one after another; both respect reduced motion.
 - **Magnetic Workshop & Codex**:
   - Permanent upgrades (*Curved Laser Sight*, *Magnetic Amplifier*, *Overcharge Capacitor*, *Projectile Reserve*).
   - In-run Special Ammo refills, Bounties/Achievements, and an illustrated **Codex & Guide**.
@@ -59,7 +63,7 @@
 The codebase follows a modular, zero-dependency ES module architecture with strict data/logic separation (`configs/*.json` and `locales/*.json`):
 
 ```text
-├── configs/                  # Externalized game, physics, ball, obstacle, audio & level data
+├── configs/                  # Externalized game, physics, ball, obstacle, audio, level & Flux data
 ├── icons/                    # PWA icons (SVG, maskable SVG, 192 px and 512 px PNG)
 ├── locales/                  # Bilingual translation dictionaries (fr.json, en.json)
 ├── src/
@@ -68,7 +72,7 @@ The codebase follows a modular, zero-dependency ES module architecture with stri
 │   │   ├── ConfigRegistry.js # Parallel JSON configuration loader
 │   │   ├── Constants.js      # Frozen enums and mathematical constants
 │   │   ├── I18n.js           # Localization service and DOM attribute translator
-│   │   ├── SeededRandom.js   # Deterministic PRNG (Mulberry32) for Daily Challenges
+│   │   ├── SeededRandom.js   # Deterministic PRNG (Mulberry32) for Daily Challenges and Flux runs
 │   │   ├── StorageManager.js # Cached localStorage persistence with in-memory fallback
 │   │   └── AudioManager.js   # Procedural Web Audio API synthesizer
 │   ├── entities/
@@ -82,7 +86,10 @@ The codebase follows a modular, zero-dependency ES module architecture with stri
 │   │   ├── GameEngine.js     # Game state machine, wave spawner, scoring & achievements
 │   │   ├── GameLoop.js       # Fixed-step loop with interpolation, idle throttling and fatal error stop
 │   │   ├── Renderer.js       # HiDPI Canvas 2D renderer with alpha interpolation & AOE preview
-│   │   └── SpecialBallController.js # Bomb, Lightning, Prism, Anvil & Cryo impact resolution
+│   │   ├── SpecialBallController.js # Bomb, Lightning, Prism, Anvil & Cryo impact resolution
+│   │   └── layouts/
+│   │       ├── LayoutGenerators.js   # Pure shape geometry: pendulum, rings, hexagon, spiral, cross, masks
+│   │       └── FluxStageGenerator.js # Seeded Flux stages: shape family, difficulty budget, boss core
 │   └── ui/
 │       └── UIManager.js      # HUD updates, accessible modals (focus trap + inert) & Codex
 ├── styles/main.css           # Responsive layout and design tokens

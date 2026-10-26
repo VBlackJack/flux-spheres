@@ -302,15 +302,19 @@ function buyObstacles({ fluxConfig, obstaclesConfig, stage, parts, pivots, ballR
   return bought;
 }
 
-/** Index of the free ball closest to the shape's centroid, which becomes the boss core. */
+/**
+ * Index of the ball closest to the shape's centroid, which becomes the boss core. Free
+ * balls are preferred; a shape made only of anchors (a single-ring rotor) uses an anchor.
+ */
 function findBossBallIndex(spec) {
   const count = spec.balls.length;
   const centroidX = spec.balls.reduce((sum, b) => sum + b.x, 0) / count;
   const centroidY = spec.balls.reduce((sum, b) => sum + b.y, 0) / count;
+  const hasFreeBall = spec.balls.some((ball) => ball.allowModifier);
   let bestIndex = null;
   let bestDistance = Infinity;
   spec.balls.forEach((ball, index) => {
-    if (!ball.allowModifier) {
+    if (hasFreeBall && !ball.allowModifier) {
       return;
     }
     const distance = Math.hypot(ball.x - centroidX, ball.y - centroidY);

@@ -178,6 +178,11 @@ body {
   gap: 6px;
 }
 
+/* In the two-column mode grids (phones), an odd last button spans the full row. */
+.nav-modes .nav-btn:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 .nav-settings {
   padding-left: 8px;
   border-left: 1px solid var(--border-subtle);

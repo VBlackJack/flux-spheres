@@ -22,6 +22,10 @@
   - **Campagne** : 16 niveaux conçus à la main, qui introduisent pendules, rotors à inertie, répulseurs, barrières oscillantes, verrous quantiques, portails liés et Noyaux Boss.
   - **Survie (sans fin)** : défense par vagues infinies, avec vagues de ruée vers l'or et anomalies Boss.
   - **Défi du jour** : graine quotidienne déterministe, mutateurs physiques tournants (*Hyper Gravité*, *Rotors Turbo*, *Super Magnétisme*, *Amas Volatil*) et récompense quotidienne en pièces.
+  - **Mode Flux** : un enchaînement sans fin de formes générées, avec une réserve de tirs commune. Chaque forme est un rotor ou un pendule paramétré, une silhouette suspendue (coeur, couronne, sablier...) ou une paire de petites formes, jamais deux fois de suite la même famille. Un budget de difficulté ajoute bumpers, portails, répulseurs et singularités au fil de la partie, une forme sur cinq cache un Noyau Boss, et vider une forme rend des tirs. Chaque partie a sa graine : un rechargement reprend sur la même forme.
+- **Sensations de jeu** :
+  - Ralenti quand un tir passe près de l'une des trois dernières sphères d'un niveau ou d'une forme Flux.
+  - À la victoire, le score défile et les étoiles gagnées apparaissent une par une ; les deux respectent le mode mouvements réduits.
 - **Atelier magnétique et Codex** :
   - Améliorations permanentes (*Visée laser courbée*, *Amplificateur magnétique*, *Condensateur de surcharge*, *Réserve de projectiles*).
   - Recharges de munitions spéciales en cours de partie, primes et succès, et un **Codex et guide** illustré.
@@ -59,7 +63,7 @@
 Le code suit une architecture en modules ES sans dépendance, avec une séparation stricte des données et de la logique (`configs/*.json` et `locales/*.json`) :
 
 ```text
-├── configs/                  # Données externalisées : jeu, physique, sphères, obstacles, audio et niveaux
+├── configs/                  # Données externalisées : jeu, physique, sphères, obstacles, audio, niveaux et Mode Flux
 ├── icons/                    # Icônes PWA (SVG, SVG maskable, PNG 192 px et 512 px)
 ├── locales/                  # Dictionnaires de traduction (fr.json, en.json)
 ├── src/
@@ -68,7 +72,7 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 │   │   ├── ConfigRegistry.js # Chargeur parallèle des configurations JSON
 │   │   ├── Constants.js      # Énumérations figées et constantes mathématiques
 │   │   ├── I18n.js           # Service de traduction et traducteur d'attributs DOM
-│   │   ├── SeededRandom.js   # Générateur pseudo-aléatoire déterministe (Mulberry32) du Défi du jour
+│   │   ├── SeededRandom.js   # Générateur pseudo-aléatoire déterministe (Mulberry32) du Défi du jour et du Mode Flux
 │   │   ├── StorageManager.js # Persistance localStorage en cache, avec repli en mémoire
 │   │   └── AudioManager.js   # Synthétiseur procédural Web Audio API
 │   ├── entities/
@@ -82,7 +86,10 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 │   │   ├── GameEngine.js     # Machine à états, génération des vagues, score et succès
 │   │   ├── GameLoop.js       # Boucle à pas fixe avec interpolation, ralenti au repos et arrêt sur erreur fatale
 │   │   ├── Renderer.js       # Rendu Canvas 2D HiDPI avec interpolation et prévisualisation de zone
-│   │   └── SpecialBallController.js # Résolution des impacts Bombe, Éclair, Prisme, Enclume et Cryo
+│   │   ├── SpecialBallController.js # Résolution des impacts Bombe, Éclair, Prisme, Enclume et Cryo
+│   │   └── layouts/
+│   │       ├── LayoutGenerators.js   # Géométrie pure des formes : pendule, anneaux, hexagone, spirale, croix, masques
+│   │       └── FluxStageGenerator.js # Formes Flux à graine : famille, budget de difficulté, Noyau Boss
 │   └── ui/
 │       └── UIManager.js      # Mise à jour du HUD, fenêtres accessibles (piège de focus + inert) et Codex
 ├── styles/main.css           # Mise en page adaptative et jetons de design
