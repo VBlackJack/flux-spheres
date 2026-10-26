@@ -22,6 +22,7 @@ import { i18n, resolveInitialLocale } from '../src/core/I18n.js';
 import {
   MODAL_FOCUSABLE_SELECTOR,
   filterFocusTrapCandidates,
+  isBrowserShortcut,
   shouldIgnoreRepeatedKey
 } from '../src/ui/UIManager.js';
 
@@ -86,6 +87,14 @@ test('held-down toggle keys are ignored but aiming arrows keep repeating', () =>
   for (const code of ['ArrowLeft', 'ArrowRight']) {
     assert.equal(shouldIgnoreRepeatedKey(code, true), false, `${code} must keep repeating`);
   }
+});
+
+test('browser chords are left to the browser, Shift still aims faster', () => {
+  assert.equal(isBrowserShortcut({ ctrlKey: true }), true, 'Ctrl+F opens the find bar');
+  assert.equal(isBrowserShortcut({ metaKey: true }), true, 'Cmd+1 switches tabs');
+  assert.equal(isBrowserShortcut({ altKey: true }), true, 'Alt+Left goes back');
+  assert.equal(isBrowserShortcut({ shiftKey: true }), false);
+  assert.equal(isBrowserShortcut({}), false);
 });
 
 test('formatNumber groups digits per locale and caches one formatter per locale', () => {

@@ -190,6 +190,14 @@ test('Render alpha is 1 when no simulation step advanced, interpolated otherwise
   };
   loop.frame(FIXED_STEP_MS * 5.4);
   assert.equal(alphas.at(-1), 1.0, 'hit-stop: alpha must be 1');
+
+  engine.hitStopFrames = 0;
+  engine.stageTransitionFrames = 10;
+  engine.update = () => {
+    engine.stageTransitionFrames--;
+  };
+  loop.frame(FIXED_STEP_MS * 6.9);
+  assert.equal(alphas.at(-1), 1.0, 'Flux stage transition: alpha must be 1');
 });
 
 test('Game loop throttles rendering while the engine is not playing', () => {
@@ -403,4 +411,47 @@ test('Full render pass runs against a stub context without mutating launcher bal
     'rendering must not write positions into engine state'
   );
   assert.equal(renderer.canvas.width, Math.round(gameConfig.canvas.logicalWidth * renderer.dpr));
+});
+
+test('Reduced motion drops decorative particles but keeps the informative floating texts', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  const particles = engine.particleSystem;
+  const spot = gameConfig.canvas.launcherX;
+  particles.spawnBurst(spot, spot, '#ffffff');
+  particles.spawnFloatingText(spot, spot, 'kept', '#ffffff');
+
+  engine.setReducedMotion(true);
+  assert.equal(particles.particles.length, 0, 'switching on clears the running effects');
+  assert.equal(particles.floatingTexts.length, 1);
+
+  particles.spawnBurst(spot, spot, '#ffffff');
+  particles.spawnTrail(spot, spot, physicsConfig.ball.radius, '#ffffff');
+  particles.spawnShockwave(spot, spot, '#ffffff');
+  particles.spawnLightning(spot, 0, gameConfig.canvas.logicalWidth, '#ffffff');
+  particles.addScreenShake(gameConfig.juice.matchShake);
+  particles.spawnFloatingText(spot, spot, 'still shown', '#ffffff');
+
+  assert.equal(particles.particles.length, 0);
+  assert.equal(particles.trailParticles.length, 0);
+  assert.equal(particles.shockwaves.length, 0);
+  assert.equal(particles.lightningBolts.length, 0);
+  assert.equal(particles.shakeIntensity, 0);
+  assert.equal(particles.floatingTexts.length, 2);
+  assert.doesNotThrow(() => createRenderer().render(engine, 1.0));
+});
+
+test('A rotor board traces the aim preview once per rendered frame, not once per step', () => {
+  const engine = createTestEngine();
+  engine.startDailyChallenge('2025-01-01');
+  const world = engine.physicsWorld;
+  assert.ok(world.obstacles.some((obs) => obs.angularVelocity !== undefined), 'the Daily board has a rotor');
+  const renderer = { render: () => {} };
+  const { loop } = createLoopHarness(engine, renderer);
+  const stepsPerFrame = 4;
+
+  loop.frame(0);
+  const before = world.aimTrajectoryComputeCount;
+  loop.frame(FIXED_STEP_MS * stepsPerFrame);
+  assert.equal(world.aimTrajectoryComputeCount - before, 1);
 });

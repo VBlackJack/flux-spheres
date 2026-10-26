@@ -30,7 +30,7 @@ import { Obstacle } from '../entities/Obstacle.js';
 import { ParticleSystem } from '../entities/ParticleSystem.js';
 import { PhysicsWorld } from '../physics/PhysicsWorld.js';
 import { SpecialBallController } from './SpecialBallController.js';
-import { captureRunSnapshot, isValidRunSnapshot, applyRunSnapshot } from './RunSnapshot.js';
+import { captureRunSnapshot, isValidRunSnapshot, applyRunSnapshot, isRunSnapshotable } from './RunSnapshot.js';
 import { generateLayout, NO_PIVOT_SLOT } from './layouts/LayoutGenerators.js';
 import { generateFluxStage } from './layouts/FluxStageGenerator.js';
 
@@ -78,6 +78,8 @@ export class GameEngine {
     this.shotsUntilWave = 0;
     this.freezeTurnsRemaining = 0;
     this.chainCooldown = 0;
+    this.pendingRunCoins = 0;
+    this.anvilCrushCount = 0;
     this.outOfShotsGraceFrames = 0;
     this.victoryCelebrationFrames = 0;
     this.victorySummary = null;
@@ -109,6 +111,7 @@ export class GameEngine {
     this.nextBall = null;
     this.aimAngle = -Math.PI * MATH_CONSTANTS.HALF;
     this.aimPoints = [];
+    this.isAimPreviewStale = false;
   }
 
   random() {
@@ -207,7 +210,34 @@ export class GameEngine {
     const snapshot = captureRunSnapshot(this, this.storageManager.getRunSnapshotVersion());
     if (snapshot) {
       this.storageManager.saveRunSnapshot(snapshot);
+      this.flushPendingRunCoins();
     }
+  }
+
+  /**
+   * Pays coins earned in the run. Coins earned while the run cannot be captured (a shot
+   * in flight, a Flux shape being replaced) are held until the next snapshot: the stored
+   * run still predates them, so a reload at that moment would replay the shot and pay
+   * them a second time.
+   * @param {number} amount - Coins to pay.
+   */
+  awardRunCoins(amount) {
+    if (amount <= 0) {
+      return;
+    }
+    if (isRunSnapshotable(this)) {
+      this.storageManager.addCoins(amount);
+    } else {
+      this.pendingRunCoins += amount;
+    }
+  }
+
+  /** Writes the coins held by awardRunCoins once the run they belong to is settled. */
+  flushPendingRunCoins() {
+    if (this.pendingRunCoins > 0) {
+      this.storageManager.addCoins(this.pendingRunCoins);
+    }
+    this.pendingRunCoins = 0;
   }
 
   /**
@@ -245,6 +275,7 @@ export class GameEngine {
    */
   resetRunState(mode) {
     this.persistRunHighScore();
+    this.flushPendingRunCoins();
     this.storageManager.clearRunSnapshot();
     this.mode = mode;
     this.score = 0;
@@ -252,6 +283,8 @@ export class GameEngine {
     this.overcharge = 0;
     this.freezeTurnsRemaining = 0;
     this.chainCooldown = 0;
+    this.pendingRunCoins = 0;
+    this.anvilCrushCount = 0;
     this.outOfShotsGraceFrames = 0;
     this.victoryCelebrationFrames = 0;
     this.victorySummary = null;
@@ -559,6 +592,7 @@ export class GameEngine {
       const snapshot = captureRunSnapshot(this, this.storageManager.getRunSnapshotVersion());
       if (snapshot) {
         this.storageManager.saveRunSnapshot(snapshot);
+        this.flushPendingRunCoins();
       }
     }
   }
@@ -579,7 +613,7 @@ export class GameEngine {
     const points = rewards.stageClearPointsBase + rewards.stageClearPointsPerStage * clearedStage;
     const refill = this.getFluxShotRefill(clearedStage);
     this.addScore(points);
-    this.storageManager.addCoins(rewards.stageClearCoins);
+    this.awardRunCoins(rewards.stageClearCoins);
     this.shotsRemaining += refill;
     if (this.fluxIsBossStage) {
       for (let i = 0; i < rewards.bossClearSpecials; i++) {
@@ -962,6 +996,7 @@ export class GameEngine {
 
   updateAimFromAngle(angle) {
     this.aimAngle = angle;
+    this.isAimPreviewStale = false;
     const canvasCfg = this.gameConfig.canvas;
     const bonuses = this.getLaserBonuses();
     this.aimPoints = this.physicsWorld.computeAimTrajectory(
@@ -973,6 +1008,20 @@ export class GameEngine {
       bonuses.bouncesBonus,
       this.isPolarityFlipped
     );
+  }
+
+  /**
+   * Recomputes the aim preview if the board moved since it was last traced. Called once
+   * per rendered frame, however many fixed steps the frame ran.
+   */
+  refreshAimPreview() {
+    if (!this.isAimPreviewStale) {
+      return;
+    }
+    this.isAimPreviewStale = false;
+    if (this.state === GAME_STATES.PLAYING && !this.physicsWorld.projectile && !this.isAimCancelled) {
+      this.updateAimFromAngle(this.aimAngle);
+    }
   }
 
   shoot() {
@@ -1002,6 +1051,7 @@ export class GameEngine {
     projectile.vy = Math.sin(this.aimAngle) * speed;
 
     this.physicsWorld.projectile = projectile;
+    this.anvilCrushCount = 0;
     this.stashedRegularColorId = null;
     this.currentBall = this.nextBall;
     this.nextBall = this.createRandomLauncherBall();
@@ -1098,6 +1148,7 @@ export class GameEngine {
       onAnvilCrush: (target) => {
         const anvilSpecs = this.ballsConfig.specialTypes.anvil;
         if (this.destroyClusterBall(target, anvilSpecs.highlight, true)) {
+          this.anvilCrushCount++;
           this.addScore(anvilSpecs.pointsPerBall);
           this.addOvercharge(this.gameConfig.scoring.overchargePerMatchedBall);
           this.audioManager.playEffect('snap');
@@ -1114,7 +1165,12 @@ export class GameEngine {
         );
         this.particleSystem.addScreenShake(juice.anvilShake, juice.maxShakeOffset);
         this.hitStopFrames = juice.hitStopFramesSpecial;
-        this.handlePostTurnCleanup(true);
+        // An anvil that crushed nothing is a miss: it breaks the combo and counts toward the next wave.
+        const madeMatch = this.anvilCrushCount > 0;
+        if (!madeMatch) {
+          this.combo = 0;
+        }
+        this.handlePostTurnCleanup(madeMatch);
       },
       onProjectileSnapped: (snappedBall) => {
         this.handleProjectileSnapped(snappedBall);
@@ -1163,9 +1219,9 @@ export class GameEngine {
     }
 
     if (!this.physicsWorld.projectile) {
-      if (!this.isAimCancelled) {
-        this.updateAimFromAngle(this.aimAngle);
-      }
+      // The board moved, but the preview is only drawn once per frame: the game loop
+      // recomputes it through refreshAimPreview instead of once per fixed step.
+      this.isAimPreviewStale = true;
       if (!this.hasFiredInRound) {
         this.physicsWorld.pendingChainCandidateIds.clear();
       } else {
@@ -1370,7 +1426,7 @@ export class GameEngine {
 
     if (ball.clusterModifier === CLUSTER_MODIFIERS.BOSS_CORE) {
       const bossSpec = this.ballsConfig.clusterModifiers.bossCore;
-      this.storageManager.addCoins(bossSpec.coinReward);
+      this.awardRunCoins(bossSpec.coinReward);
       this.addScore(bossSpec.pointsBonus);
       this.particleSystem.spawnShockwave(ball.x, ball.y, bossSpec.ringColor, bossSpec.shockwaveRadius);
       this.particleSystem.spawnFloatingText(
@@ -1385,7 +1441,7 @@ export class GameEngine {
       }
     } else if (ball.clusterModifier === CLUSTER_MODIFIERS.COIN_CORE) {
       const reward = this.ballsConfig.clusterModifiers.coinCore.coinReward;
-      this.storageManager.addCoins(reward);
+      this.awardRunCoins(reward);
       this.particleSystem.spawnFloatingText(
         ball.x,
         ball.y + canvasCfg.floatingTextOffsetY,
@@ -1413,26 +1469,38 @@ export class GameEngine {
       const lockSpec = this.ballsConfig.clusterModifiers.laserLock;
       this.addScore(lockSpec.pointsBonus);
       this.particleSystem.spawnShockwave(ball.x, ball.y, lockSpec.ringColor, lockSpec.shockwaveRadius);
-      const anyLockRemaining = this.physicsWorld.balls.some(
-        (b) => b.clusterModifier === CLUSTER_MODIFIERS.LASER_LOCK
-      );
-      if (!anyLockRemaining) {
-        for (const obs of this.physicsWorld.obstacles) {
-          if (obs.type === OBSTACLE_TYPES.BARRIER && !obs.disabled) {
-            obs.disabled = true;
-            this.particleSystem.spawnShockwave(obs.x, obs.y, lockSpec.ringColor, obs.width);
-            this.particleSystem.spawnFloatingText(
-              obs.x,
-              obs.y + canvasCfg.floatingTextOffsetY,
-              t('gameplay.feedback.lock.released'),
-              this.gameConfig.theme.lockPopupColor
-            );
-          }
-        }
-      }
+      this.releaseBarriersWhenLocksCleared();
     }
 
     return true;
+  }
+
+  /**
+   * Turns the energy barriers off once no Lock Core is left on the board, whether the
+   * last one was destroyed or fell in an avalanche. Boards that never had a Lock Core
+   * keep their barriers: callers only invoke this after a Lock Core left the board.
+   */
+  releaseBarriersWhenLocksCleared() {
+    const anyLockRemaining = this.physicsWorld.balls.some(
+      (b) => b.clusterModifier === CLUSTER_MODIFIERS.LASER_LOCK
+    );
+    if (anyLockRemaining) {
+      return;
+    }
+    const lockSpec = this.ballsConfig.clusterModifiers.laserLock;
+    const canvasCfg = this.gameConfig.canvas;
+    for (const obs of this.physicsWorld.obstacles) {
+      if (obs.type === OBSTACLE_TYPES.BARRIER && !obs.disabled) {
+        obs.disabled = true;
+        this.particleSystem.spawnShockwave(obs.x, obs.y, lockSpec.ringColor, obs.width);
+        this.particleSystem.spawnFloatingText(
+          obs.x,
+          obs.y + canvasCfg.floatingTextOffsetY,
+          t('gameplay.feedback.lock.released'),
+          this.gameConfig.theme.lockPopupColor
+        );
+      }
+    }
   }
 
   handleProjectileSnapped(snappedBall) {
@@ -1491,8 +1559,9 @@ export class GameEngine {
           bonusCoins += this.ballsConfig.clusterModifiers.coinCore.coinReward;
         }
       }
-      if (bonusCoins > 0) {
-        this.storageManager.addCoins(bonusCoins);
+      this.awardRunCoins(bonusCoins);
+      if (detached.some((d) => d.clusterModifier === CLUSTER_MODIFIERS.LASER_LOCK)) {
+        this.releaseBarriersWhenLocksCleared();
       }
 
       const sample = detached[0];
@@ -1555,16 +1624,31 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Recolors every regular launcher color that no longer exists on the board: the
+   * current ball, the next ball and the color stashed behind an equipped special,
+   * so neither a swap nor un-equipping a special can bring back a cleared color.
+   */
+  refreshStaleLauncherColors() {
+    const activeColors = new Set(this.physicsWorld.balls.map((b) => b.colorId).filter(Boolean));
+    if (activeColors.size === 0) {
+      return;
+    }
+    for (const launcherBall of [this.currentBall, this.nextBall]) {
+      if (launcherBall && !launcherBall.specialType && !activeColors.has(launcherBall.colorId)) {
+        launcherBall.colorId = this.pickLauncherColor();
+      }
+    }
+    if (this.stashedRegularColorId && !activeColors.has(this.stashedRegularColorId)) {
+      this.stashedRegularColorId = this.pickLauncherColor();
+    }
+  }
+
   handlePostTurnCleanup(madeMatch, appliedFreeze = false) {
     this.detachAndRewardAvalanche();
     this.shiftChameleonBalls();
 
-    if (this.currentBall && !this.currentBall.specialType && this.physicsWorld.balls.length > 0) {
-      const activeColors = new Set(this.physicsWorld.balls.map((b) => b.colorId).filter(Boolean));
-      if (activeColors.size > 0 && !activeColors.has(this.currentBall.colorId)) {
-        this.currentBall.colorId = this.pickLauncherColor();
-      }
-    }
+    this.refreshStaleLauncherColors();
 
     const wasFrozen = this.freezeTurnsRemaining > 0 || appliedFreeze;
     if (!appliedFreeze && this.freezeTurnsRemaining > 0) {
@@ -1745,6 +1829,7 @@ export class GameEngine {
         const firstStarBonus = newlyEarnedStars * this.gameConfig.scoring.firstTimeStarCoinBonus;
         const earnedCoins = stars * this.gameConfig.scoring.coinsPerVictoryStar + firstStarBonus;
         this.storageManager.addCoins(earnedCoins);
+        this.flushPendingRunCoins();
         const maxCampaignLevel = this.levelsConfig.levels.length;
         this.storageManager.unlockLevel(Math.min(this.currentLevelId + 1, maxCampaignLevel));
         if (this.storageManager.getTotalStars() >= this.gameConfig.achievements.starCollector.threshold) {
@@ -1795,6 +1880,7 @@ export class GameEngine {
     }
     this.state = GAME_STATES.GAME_OVER;
     this.persistRunHighScore();
+    this.flushPendingRunCoins();
     this.storageManager.clearRunSnapshot();
     this.audioManager.playEffect('gameOver');
     this.notifyUI({ gameOverReason: reasonKey });
