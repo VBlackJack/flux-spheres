@@ -37,7 +37,8 @@
     "pivotAngularDamping": 0.975,
     "pivotMaxAngularSpeed": 0.065,
     "chainCheckCooldownFrames": 14,
-    "outOfShotsGraceFrames": 28
+    "outOfShotsGraceFrames": 28,
+    "maxProjectileBounces": 12
   },
   "magnetism": {
     "attractionRangeFactor": 3.8,

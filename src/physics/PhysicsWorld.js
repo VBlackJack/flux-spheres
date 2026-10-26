@@ -448,6 +448,7 @@ export class PhysicsWorld {
     const r = state.radius;
     const minWallX = this.gameConfig.canvas.wallMargin + r;
     const maxWallX = this.gameConfig.canvas.logicalWidth - this.gameConfig.canvas.wallMargin - r;
+    const minWallY = this.gameConfig.canvas.wallMargin + r;
 
     state.warpedThisStep = false;
     state.warpedFrom = null;
@@ -512,6 +513,15 @@ export class PhysicsWorld {
     } else if (state.x >= maxWallX) {
       state.x = maxWallX;
       state.vx = -Math.abs(state.vx) * ballCfg.wallRestitution;
+      state.bounces = (state.bounces || 0) + 1;
+      if (callbacks?.onBounce) {
+        callbacks.onBounce(state.x, state.y);
+      }
+    }
+
+    if (!isAnvil && state.y <= minWallY) {
+      state.y = minWallY;
+      state.vy = Math.abs(state.vy) * ballCfg.wallRestitution;
       state.bounces = (state.bounces || 0) + 1;
       if (callbacks?.onBounce) {
         callbacks.onBounce(state.x, state.y);
@@ -663,16 +673,10 @@ export class PhysicsWorld {
       }
     }
 
-    if (p.y <= minWallY) {
-      p.y = minWallY;
-      p.isAnchor = true;
-      p.anchorX = p.x;
-      p.anchorY = p.y;
-      this.snapProjectile(p, null, callbacks);
-      return true;
-    }
-
-    if (p.y > this.gameConfig.canvas.logicalHeight + p.radius * sim.outOfBoundsMarginFactor) {
+    if (
+      p.y > this.gameConfig.canvas.logicalHeight + p.radius * sim.outOfBoundsMarginFactor ||
+      (p.bounces || 0) > sim.maxProjectileBounces
+    ) {
       this.projectile = null;
       if (callbacks?.onProjectileMissed) {
         callbacks.onProjectileMissed(p);
@@ -949,7 +953,7 @@ export class PhysicsWorld {
       landingX = state.x;
       landingY = state.y;
 
-      if (state.y <= minWallY) {
+      if (isAnvil && state.y <= minWallY) {
         landingY = minWallY;
         break;
       }

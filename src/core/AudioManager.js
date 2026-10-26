@@ -20,13 +20,32 @@ export class AudioManager {
   constructor() {
     this.ctx = null;
     this.muted = false;
+    this.reducedMotion = false;
     this.config = null;
     this.activeOscillators = new Set();
   }
 
-  init(initialMuted = false) {
+  init(initialMuted = false, initialReducedMotion = false) {
     this.config = configRegistry.get('audio');
     this.muted = initialMuted;
+    this.reducedMotion = Boolean(initialReducedMotion);
+  }
+
+  setReducedMotion(reduced) {
+    this.reducedMotion = Boolean(reduced);
+  }
+
+  triggerHaptic(durationMs) {
+    if (this.muted || this.reducedMotion || !durationMs) {
+      return;
+    }
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try {
+        navigator.vibrate(durationMs);
+      } catch {
+        // Ignore haptic errors on unsupported browsers
+      }
+    }
   }
 
   ensureContext() {
@@ -109,6 +128,7 @@ export class AudioManager {
     if (!fx) {
       return;
     }
+    this.triggerHaptic(fx.hapticMs);
 
     if (effectName === 'match') {
       const freq = fx.baseFreq + comboIndex * fx.pitchStep;

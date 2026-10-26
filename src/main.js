@@ -40,7 +40,7 @@ class Application {
       await i18n.init(initialLang);
 
       const audioManager = new AudioManager();
-      audioManager.init(storageManager.getMuted());
+      audioManager.init(storageManager.getMuted(), storageManager.getReducedMotion());
 
       const canvas = document.getElementById('game-canvas');
       const renderer = new Renderer(canvas, gameConfig, ballsConfig, obstaclesConfig);
@@ -146,13 +146,16 @@ class Application {
 
     const getAimAdjustedCoords = (e, pos) => {
       if (e.pointerType === 'touch') {
-        const cancelThresholdY = gameConfig.canvas.launcherY + gameConfig.canvas.cancelAimOffsetY;
+        const canvasCfg = gameConfig.canvas;
+        const cancelThresholdY = canvasCfg.launcherY + canvasCfg.cancelAimOffsetY;
         if (pos.y > cancelThresholdY) {
           return pos;
         }
+        const shiftedY = pos.y + canvasCfg.touchAimVerticalOffset;
+        const maxAnchorY = canvasCfg.launcherY + canvasCfg.touchMinAimAnchorOffsetY;
         return {
           x: pos.x,
-          y: pos.y + (gameConfig.canvas.touchAimVerticalOffset || 0)
+          y: Math.min(shiftedY, maxAnchorY)
         };
       }
       return pos;
@@ -165,7 +168,20 @@ class Application {
       return Math.hypot(x - nx, y - ny) <= canvasCfg.swapClickRadius;
     };
 
+    const isLauncherBaseTap = (x, y, startPos) => {
+      const canvasCfg = gameConfig.canvas;
+      const distToLauncher = Math.hypot(x - canvasCfg.launcherX, y - canvasCfg.launcherY);
+      if (distToLauncher > canvasCfg.launcherTapSwapRadius) {
+        return false;
+      }
+      if (!startPos) {
+        return true;
+      }
+      return Math.hypot(x - startPos.x, y - startPos.y) <= canvasCfg.tapMaxMoveDistance;
+    };
+
     let isPointerDownOnCanvas = false;
+    let pointerDownPos = null;
 
     canvas.addEventListener('pointermove', (e) => {
       if (uiManager && uiManager.isAnyModalOpen()) {
@@ -187,8 +203,16 @@ class Application {
         return;
       }
       isPointerDownOnCanvas = true;
+      if (typeof canvas.setPointerCapture === 'function') {
+        try {
+          canvas.setPointerCapture(e.pointerId);
+        } catch {
+          // Ignore pointer capture errors
+        }
+      }
       const rawPos = toLogicalCoords(e.clientX, e.clientY);
-      if (isSwapClick(rawPos.x, rawPos.y)) {
+      pointerDownPos = { x: rawPos.x, y: rawPos.y };
+      if (isSwapClick(rawPos.x, rawPos.y) || isLauncherBaseTap(rawPos.x, rawPos.y, null)) {
         return;
       }
       const aimPos = getAimAdjustedCoords(e, rawPos);
@@ -206,11 +230,20 @@ class Application {
         return;
       }
       isPointerDownOnCanvas = false;
+      if (typeof canvas.releasePointerCapture === 'function') {
+        try {
+          canvas.releasePointerCapture(e.pointerId);
+        } catch {
+          // Ignore pointer capture errors
+        }
+      }
+      const startPos = pointerDownPos;
+      pointerDownPos = null;
       if (uiManager && uiManager.isAnyModalOpen()) {
         return;
       }
       const rawPos = toLogicalCoords(e.clientX, e.clientY);
-      if (isSwapClick(rawPos.x, rawPos.y)) {
+      if (isSwapClick(rawPos.x, rawPos.y) || isLauncherBaseTap(rawPos.x, rawPos.y, startPos)) {
         engine.isAimCancelled = false;
         engine.swapLauncherBalls();
         if (uiManager) {
@@ -226,8 +259,16 @@ class Application {
       }
     });
 
-    canvas.addEventListener('pointercancel', () => {
+    canvas.addEventListener('pointercancel', (e) => {
       isPointerDownOnCanvas = false;
+      pointerDownPos = null;
+      if (typeof canvas.releasePointerCapture === 'function' && e?.pointerId !== undefined) {
+        try {
+          canvas.releasePointerCapture(e.pointerId);
+        } catch {
+          // Ignore pointer capture errors
+        }
+      }
       engine.isAimCancelled = false;
       if (uiManager) {
         uiManager.updateAimState(engine);

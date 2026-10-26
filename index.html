@@ -17,7 +17,11 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f1d" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" data-i18n-content="app.header.subtitle.description" content="Magnetic physics bubble shooter game with dynamic attraction, rotors, and special balls." />
   <title data-i18n="app.header.title.main">FLUX SPHERES</title>
   <link rel="manifest" href="./manifest.webmanifest" />
@@ -185,6 +189,12 @@
         <li data-i18n="modals.pause.instructions.keyboard"></li>
         <li data-i18n="modals.pause.instructions.physics"></li>
       </ul>
+      <div class="pause-settings-row">
+        <button id="btn-sound-pause" type="button" class="nav-btn icon-btn"></button>
+        <button id="btn-contrast-pause" type="button" class="nav-btn icon-btn"></button>
+        <button id="btn-motion-pause" type="button" class="nav-btn icon-btn"></button>
+        <button id="btn-lang-pause" type="button" class="nav-btn badge-btn"></button>
+      </div>
       <div class="modal-actions">
         <button id="btn-resume" type="button" class="modal-btn primary" data-i18n="modals.pause.button.resume"></button>
         <button id="btn-restart-pause" type="button" class="modal-btn" data-i18n="modals.pause.button.restart"></button>

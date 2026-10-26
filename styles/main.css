@@ -858,33 +858,65 @@ body {
   border-color: var(--accent-danger);
 }
 
+.pause-settings-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 680px) {
+  body {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
   .app-shell {
-    padding: 6px 8px;
-    gap: 6px;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: max(4px, env(safe-area-inset-top)) 6px max(4px, env(safe-area-inset-bottom));
+    gap: 4px;
+    overflow: hidden;
   }
   .top-bar {
-    padding: 6px 10px;
-    gap: 6px;
+    padding: 4px 6px;
+    gap: 4px;
   }
-  .brand-title {
-    font-size: 1.05rem;
-  }
-  .brand-subtitle {
+  .brand-group,
+  #btn-restart,
+  #btn-sound,
+  #btn-contrast,
+  #btn-motion,
+  #btn-lang {
     display: none;
   }
   .nav-controls {
-    gap: 6px;
+    width: 100%;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .nav-modes {
+    flex: 1;
+    display: flex;
+    gap: 4px;
+  }
+  .nav-modes .nav-btn {
+    flex: 1;
+    padding: 6px 4px;
+    text-align: center;
+    justify-content: center;
   }
   .nav-settings {
     padding-left: 0;
     border-left: none;
   }
   .nav-btn {
-    padding: 8px 12px;
+    padding: 6px 8px;
     min-height: 44px;
     min-width: 44px;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
+    white-space: nowrap;
   }
   .nav-btn.icon-btn {
     min-width: 44px;
@@ -892,54 +924,111 @@ body {
   }
   .hud-bar {
     grid-template-columns: repeat(4, 1fr);
-    padding: 6px 10px;
-    gap: 4px;
+    padding: 4px 8px;
+    gap: 2px 4px;
   }
   .hud-center-info {
     grid-column: 1 / -1;
     order: -1;
-  }
-  .hud-value {
-    font-size: 1rem;
-  }
-  .stage-container {
-    flex-direction: column;
-    align-items: center;
+    flex-direction: row;
+    justify-content: center;
     gap: 6px;
   }
-  .stage-column {
+  .hud-mode-banner {
+    font-size: 0.75rem;
+  }
+  .hud-label {
+    font-size: 0.58rem;
+  }
+  .hud-value {
+    font-size: 0.92rem;
+  }
+  .hud-subvalue {
+    font-size: 0.62rem;
+  }
+  .stage-container {
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
     align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .stage-column {
+    flex: 1;
+    min-height: 0;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    gap: 4px;
+  }
+  .canvas-wrapper {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
   }
   #game-canvas {
     width: auto;
-    height: min(58vh, 500px);
+    height: 100%;
     max-width: 100%;
+    max-height: 100%;
     aspect-ratio: 540 / 820;
   }
   .launcher-controls-dock {
     width: 100%;
-    max-width: 420px;
+    max-width: 440px;
+    gap: 6px;
+  }
+  .polarity-floating-btn,
+  .swap-floating-btn {
+    min-height: 44px;
+    padding: 6px 10px;
+    font-size: 0.76rem;
   }
   .powerups-panel {
     width: 100%;
-    max-width: 420px;
-    padding: 8px;
-    gap: 6px;
+    max-width: 440px;
+    padding: 5px 6px;
+    gap: 4px;
+  }
+  .overcharge-widget {
+    gap: 2px;
+  }
+  .overcharge-header {
+    font-size: 0.65rem;
+  }
+  .overcharge-track {
+    height: 6px;
   }
   .powerups-header {
     display: none;
   }
   .powerups-bar {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    width: 100%;
   }
   .powerup-btn {
-    padding: 7px 10px;
-    min-height: 38px;
+    padding: 4px;
+    min-height: 44px;
+    min-width: 44px;
+    justify-content: center;
+    gap: 4px;
+  }
+  .powerup-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 0.75rem;
   }
   .powerup-name {
-    font-size: 0.7rem;
+    display: none;
+  }
+  .powerup-count {
+    font-size: 0.75rem;
+    padding: 1px 6px;
   }
 }

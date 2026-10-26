@@ -102,6 +102,10 @@ export class UIManager {
       pauseLevelTip: document.getElementById('pause-level-tip'),
       btnResume: document.getElementById('btn-resume'),
       btnRestartPause: document.getElementById('btn-restart-pause'),
+      btnSoundPause: document.getElementById('btn-sound-pause'),
+      btnContrastPause: document.getElementById('btn-contrast-pause'),
+      btnMotionPause: document.getElementById('btn-motion-pause'),
+      btnLangPause: document.getElementById('btn-lang-pause'),
       modalConfirm: document.getElementById('modal-confirm'),
       btnConfirmYes: document.getElementById('btn-confirm-yes'),
       btnConfirmNo: document.getElementById('btn-confirm-no')
@@ -204,33 +208,48 @@ export class UIManager {
       this.engine.togglePause();
     });
 
-    this.elements.btnSound.addEventListener('click', () => {
+    const toggleSound = () => {
       const nextMuted = !this.audioManager.isMuted();
       this.audioManager.setMuted(nextMuted);
       this.storageManager.setMuted(nextMuted);
       this.updateSoundButton();
-    });
-
-    if (this.elements.btnContrast) {
-      this.elements.btnContrast.addEventListener('click', () => {
-        const nextContrast = !this.storageManager.getHighContrast();
-        this.storageManager.setHighContrast(nextContrast);
-        if (this.renderer) {
-          this.renderer.setHighContrast(nextContrast);
-        }
-        this.updateContrastButton();
-      });
+    };
+    this.elements.btnSound.addEventListener('click', toggleSound);
+    if (this.elements.btnSoundPause) {
+      this.elements.btnSoundPause.addEventListener('click', toggleSound);
     }
 
+    const toggleContrast = () => {
+      const nextContrast = !this.storageManager.getHighContrast();
+      this.storageManager.setHighContrast(nextContrast);
+      if (this.renderer) {
+        this.renderer.setHighContrast(nextContrast);
+      }
+      this.updateContrastButton();
+    };
+    if (this.elements.btnContrast) {
+      this.elements.btnContrast.addEventListener('click', toggleContrast);
+    }
+    if (this.elements.btnContrastPause) {
+      this.elements.btnContrastPause.addEventListener('click', toggleContrast);
+    }
+
+    const toggleMotion = () => {
+      const nextReduced = !this.storageManager.getReducedMotion();
+      this.storageManager.setReducedMotion(nextReduced);
+      if (this.engine && typeof this.engine.setReducedMotion === 'function') {
+        this.engine.setReducedMotion(nextReduced);
+      }
+      if (this.audioManager && typeof this.audioManager.setReducedMotion === 'function') {
+        this.audioManager.setReducedMotion(nextReduced);
+      }
+      this.updateMotionButton();
+    };
     if (this.elements.btnMotion) {
-      this.elements.btnMotion.addEventListener('click', () => {
-        const nextReduced = !this.storageManager.getReducedMotion();
-        this.storageManager.setReducedMotion(nextReduced);
-        if (this.engine && typeof this.engine.setReducedMotion === 'function') {
-          this.engine.setReducedMotion(nextReduced);
-        }
-        this.updateMotionButton();
-      });
+      this.elements.btnMotion.addEventListener('click', toggleMotion);
+    }
+    if (this.elements.btnMotionPause) {
+      this.elements.btnMotionPause.addEventListener('click', toggleMotion);
     }
 
     document.addEventListener('visibilitychange', () => {
@@ -239,14 +258,18 @@ export class UIManager {
       }
     });
 
-    this.elements.btnLang.addEventListener('click', () => {
+    const toggleLang = () => {
       const supported = this.gameConfig.defaults.supportedLanguages;
       const current = i18n.getLocale();
       const nextIdx = (supported.indexOf(current) + 1) % supported.length;
       const nextLang = supported[nextIdx];
       i18n.setLocale(nextLang);
       this.storageManager.setLanguage(nextLang);
-    });
+    };
+    this.elements.btnLang.addEventListener('click', toggleLang);
+    if (this.elements.btnLangPause) {
+      this.elements.btnLangPause.addEventListener('click', toggleLang);
+    }
 
     this.elements.swapBtn.addEventListener('click', () => {
       this.engine.swapLauncherBalls();
@@ -643,33 +666,39 @@ export class UIManager {
     const isMuted = this.audioManager.isMuted();
     const label = t(isMuted ? 'app.nav.button.soundOff' : 'app.nav.button.soundOn');
     const aria = t(isMuted ? 'app.nav.button.soundOffAria' : 'app.nav.button.soundOnAria');
-    this.elements.btnSound.textContent = label;
-    this.elements.btnSound.setAttribute('aria-label', aria);
-    this.elements.btnSound.title = aria;
+    for (const btn of [this.elements.btnSound, this.elements.btnSoundPause]) {
+      if (btn) {
+        btn.textContent = label;
+        btn.setAttribute('aria-label', aria);
+        btn.title = aria;
+      }
+    }
   }
 
   updateContrastButton() {
-    if (!this.elements.btnContrast) {
-      return;
-    }
     const isHigh = this.storageManager.getHighContrast();
     const label = t(isHigh ? 'app.nav.button.contrastOn' : 'app.nav.button.contrastOff');
     const aria = t(isHigh ? 'app.nav.button.contrastOnAria' : 'app.nav.button.contrastOffAria');
-    this.elements.btnContrast.textContent = label;
-    this.elements.btnContrast.setAttribute('aria-label', aria);
-    this.elements.btnContrast.title = aria;
+    for (const btn of [this.elements.btnContrast, this.elements.btnContrastPause]) {
+      if (btn) {
+        btn.textContent = label;
+        btn.setAttribute('aria-label', aria);
+        btn.title = aria;
+      }
+    }
   }
 
   updateMotionButton() {
-    if (!this.elements.btnMotion) {
-      return;
-    }
     const isReduced = this.storageManager.getReducedMotion();
     const label = t(isReduced ? 'app.nav.button.motionReduced' : 'app.nav.button.motionOn');
     const aria = t(isReduced ? 'app.nav.button.motionReducedAria' : 'app.nav.button.motionOnAria');
-    this.elements.btnMotion.textContent = label;
-    this.elements.btnMotion.setAttribute('aria-label', aria);
-    this.elements.btnMotion.title = aria;
+    for (const btn of [this.elements.btnMotion, this.elements.btnMotionPause]) {
+      if (btn) {
+        btn.textContent = label;
+        btn.setAttribute('aria-label', aria);
+        btn.title = aria;
+      }
+    }
   }
 
   updateAimState(engine) {
@@ -680,8 +709,12 @@ export class UIManager {
 
   updateLanguageButton() {
     const label = t('app.nav.button.language');
-    this.elements.btnLang.textContent = label;
-    this.elements.btnLang.setAttribute('aria-label', label);
+    for (const btn of [this.elements.btnLang, this.elements.btnLangPause]) {
+      if (btn) {
+        btn.textContent = label;
+        btn.setAttribute('aria-label', label);
+      }
+    }
     if (this.elements.btnDismissTutorial) {
       const dismissLabel = t('hud.tutorial.dismiss');
       this.elements.btnDismissTutorial.setAttribute('aria-label', dismissLabel);

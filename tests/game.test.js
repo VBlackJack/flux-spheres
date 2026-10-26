@@ -413,3 +413,26 @@ test('Repulsor, Attractor, and Singularity obstacles noticeably deflect projecti
     `Singularity should noticeably curve shot toward its gravity well (landingX=${singularityTraj.landingX.toFixed(1)})`
   );
 });
+
+test('Ceiling acts as a wall and bounces projectile downward instead of snapping to it', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  engine.physicsWorld.balls = [];
+  engine.physicsWorld.ballMap.clear();
+  engine.physicsWorld.obstacles = [];
+
+  engine.updateAim(gameConfig.canvas.launcherX, gameConfig.canvas.launcherY - 250);
+  engine.shoot();
+  assert.ok(engine.physicsWorld.projectile, 'Projectile should be active after shooting');
+
+  let bouncedDownward = false;
+  for (let frame = 0; frame < 65; frame++) {
+    engine.physicsWorld.step({});
+    if (engine.physicsWorld.projectile && engine.physicsWorld.projectile.vy > 0) {
+      bouncedDownward = true;
+      break;
+    }
+  }
+  assert.equal(bouncedDownward, true, 'Projectile should bounce off the ceiling with positive vertical velocity');
+  assert.equal(engine.physicsWorld.balls.length, 0, 'Projectile must not stick or snap to the ceiling');
+});
