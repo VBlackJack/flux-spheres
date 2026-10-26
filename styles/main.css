@@ -43,6 +43,10 @@
   /* Space the canvas must leave inside the stage container, per axis. */
   --stage-reserve-x: calc(var(--powerups-width) + var(--stage-gap) + var(--canvas-border));
   --stage-reserve-y: calc(var(--dock-height) + var(--stage-column-gap) + var(--canvas-border));
+  /* Desktop landscape layout: widest the shell grows, narrowest the header column gets. */
+  --desktop-shell-max-width: 1400px;
+  --side-column-min: 320px;
+  --desktop-dock-width: 150px;
 }
 
 /* Hints written for one input mode only (the root carries data-input). */
@@ -1225,10 +1229,12 @@ body {
 }
 
 /*
- * Landscape phones: header and HUD stacked on the left, the canvas uses the
- * full height in the middle, launcher controls and power-ups on the right.
+ * Landscape phones and landscape desktops: header and HUD stacked on the left,
+ * the canvas uses the full height in the middle, launcher controls and power-ups
+ * on the right. Desktop sizes are adjusted in the block that follows.
  */
-@media (orientation: landscape) and (max-height: 500px) {
+@media (orientation: landscape) and (max-height: 500px),
+  (orientation: landscape) and (min-width: 900px) and (min-aspect-ratio: 4/3) {
   :root {
     --dock-width: 88px;
     --powerups-width: 104px;
@@ -1315,6 +1321,44 @@ body {
   }
   .powerups-bar {
     grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * Landscape desktops and tablets: roomier chrome than phones, and the canvas also
+ * leaves the header column a usable width on screens that are barely wider than tall.
+ */
+@media (orientation: landscape) and (min-width: 900px) and (min-aspect-ratio: 4/3) and (min-height: 501px) {
+  :root {
+    --dock-width: var(--desktop-dock-width);
+    --powerups-width: 148px;
+    --stage-gap: 12px;
+    --shell-gap: 12px;
+    --shell-pad-x: 16px;
+  }
+  .app-shell {
+    max-width: var(--desktop-shell-max-width);
+    grid-template-columns: minmax(var(--side-column-min), 1fr) auto;
+  }
+  .hud-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 8px;
+  }
+  .hud-center-info {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+  #game-canvas {
+    width: min(
+      calc(
+        (100dvh - max(var(--shell-pad-y), env(safe-area-inset-top)) - max(var(--shell-pad-y), env(safe-area-inset-bottom)) -
+            var(--canvas-border)) * var(--canvas-aspect)
+      ),
+      calc(
+        min(100vw, var(--desktop-shell-max-width)) - 2 * var(--shell-pad-x) - var(--side-column-min) - var(--shell-gap) -
+          var(--dock-width) - var(--powerups-width) - 2 * var(--stage-gap) - var(--canvas-border)
+      )
+    );
   }
 }
 
