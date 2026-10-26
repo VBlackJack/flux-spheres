@@ -16,47 +16,98 @@
 
 import { OBSTACLE_TYPES } from '../core/Constants.js';
 
+/**
+ * Resolves an obstacle tunable through the configuration layers, most specific first:
+ * the level definition, then the obstacle type spec, then the shared defaults.
+ * A value of 0 (or any other defined value) at a higher layer is honored as-is.
+ * @param {object} def - Level obstacle definition.
+ * @param {string} defKey - Key looked up in the level definition.
+ * @param {object} typeSpec - Obstacle type configuration.
+ * @param {object} defaults - Shared obstacle defaults configuration.
+ * @param {string} specKey - Key looked up in the type spec and the defaults.
+ * @returns {*} The resolved value.
+ */
+const resolveTunable = (def, defKey, typeSpec, defaults, specKey) => {
+  if (defKey !== null && def[defKey] !== undefined) {
+    return def[defKey];
+  }
+  if (typeSpec[specKey] !== undefined) {
+    return typeSpec[specKey];
+  }
+  if (defaults[specKey] === undefined) {
+    throw new Error(`Missing obstacles.defaults.${specKey}`);
+  }
+  return defaults[specKey];
+};
+
 export class Obstacle {
   constructor(def, obstaclesConfig) {
     this.type = def.type;
     const defaults = obstaclesConfig.defaults;
     const typeSpec = obstaclesConfig.types[this.type] || {};
+    const fromDef = (key) => resolveTunable(def, key, typeSpec, defaults, key);
+    const fromSpec = (key) => resolveTunable(def, null, typeSpec, defaults, key);
+
     this.baseX = def.x;
     this.baseY = def.y;
     this.x = def.x;
     this.y = def.y;
     this.prevX = def.x;
     this.prevY = def.y;
-    this.radius = def.radius || typeSpec.radius || defaults.radius;
-    this.width = def.width || defaults.width;
-    this.height = def.height || typeSpec.height || defaults.height;
+    this.radius = fromDef('radius');
+    this.width = fromDef('width');
+    this.height = fromDef('height');
     this.angle = 0;
     this.prevAngle = 0;
     this.disabled = false;
-    this.pairId = def.pairId || null;
-    this.motorAngularSpeed = def.angularSpeed !== undefined ? def.angularSpeed : (typeSpec.defaultAngularSpeed || 0);
+    this.pairId = def.pairId !== undefined ? def.pairId : null;
+    this.motorAngularSpeed = resolveTunable(def, 'angularSpeed', typeSpec, defaults, 'defaultAngularSpeed');
     this.angularVelocity = this.motorAngularSpeed;
-    this.spinSpeed = typeSpec.spinSpeed || 0;
-    this.oscillateRangeX = def.oscillateRangeX || 0;
-    this.oscillateRangeY = def.oscillateRangeY || 0;
-    this.oscillateSpeed = def.oscillateSpeed || 0;
+    this.spinSpeed = fromSpec('spinSpeed');
+    this.oscillateRangeX = fromDef('oscillateRangeX');
+    this.oscillateRangeY = fromDef('oscillateRangeY');
+    this.oscillateSpeed = fromDef('oscillateSpeed');
     this.oscillatePhase = 0;
-    this.fieldRadius = def.fieldRadius || typeSpec.fieldRadius || 0;
-    this.force = def.force !== undefined ? def.force : (typeSpec.force || 0);
-    this.captureRadius = def.captureRadius || typeSpec.captureRadius || this.radius;
-    this.pullRadius = def.pullRadius || typeSpec.pullRadius || 0;
-    this.pullForce = def.pullForce || typeSpec.pullForce || 0;
-    this.projectilePullForce = def.projectilePullForce !== undefined
-      ? def.projectilePullForce
-      : (typeSpec.projectilePullForce || 0);
-    this.scoreMultiplier = typeSpec.scoreMultiplier || 1.0;
-    this.bonusOvercharge = typeSpec.bonusOvercharge || 0;
-    this.restitution = typeSpec.restitution || defaults.restitution;
-    this.speedBoostMultiplier = typeSpec.speedBoostMultiplier || 1.0;
-    this.exitOffsetFactor = typeSpec.exitOffsetFactor || 1.0;
-    this.teleportCooldownSteps = typeSpec.teleportCooldownSteps || 0;
+    this.fieldRadius = fromDef('fieldRadius');
+    this.force = fromDef('force');
+    this.captureRadius = fromDef('captureRadius');
+    this.pullRadius = fromDef('pullRadius');
+    this.pullForce = fromDef('pullForce');
+    this.projectilePullForce = fromDef('projectilePullForce');
+    this.scoreMultiplier = fromSpec('scoreMultiplier');
+    this.bonusOvercharge = fromSpec('bonusOvercharge');
+    this.restitution = fromSpec('restitution');
+    this.speedBoostMultiplier = fromSpec('speedBoostMultiplier');
+    this.exitOffsetFactor = fromSpec('exitOffsetFactor');
+    this.teleportCooldownSteps = fromSpec('teleportCooldownSteps');
+    this.triggerRadiusFactor = fromSpec('triggerRadiusFactor');
     this.hitPulse = 0;
+    this.hitPulsePeak = defaults.hitPulsePeak;
     this.hitPulseDecay = defaults.hitPulseDecay;
+  }
+
+  /**
+   * Starts the visual hit pulse at its configured peak intensity.
+   */
+  triggerHitPulse() {
+    this.hitPulse = this.hitPulsePeak;
+  }
+
+  /**
+   * Copies every field mutated by update() and applyTorque() from another obstacle,
+   * so a prediction proxy can be advanced without touching the source obstacle.
+   * @param {Obstacle} source - Obstacle whose motion state is copied.
+   */
+  syncMotionStateFrom(source) {
+    this.x = source.x;
+    this.y = source.y;
+    this.prevX = source.prevX;
+    this.prevY = source.prevY;
+    this.angle = source.angle;
+    this.prevAngle = source.prevAngle;
+    this.angularVelocity = source.angularVelocity;
+    this.oscillatePhase = source.oscillatePhase;
+    this.hitPulse = source.hitPulse;
   }
 
   applyTorque(torque, maxSpeed) {
