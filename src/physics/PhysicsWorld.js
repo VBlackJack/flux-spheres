@@ -951,9 +951,12 @@ export class PhysicsWorld {
       const pierceFactor = this.ballsConfig.specialTypes.anvil.pierceRadiusFactor;
       const pierceRadius = p.radius * pierceFactor;
       const massRatio = ballCfg.anvilMass / ballCfg.mass;
-      for (let i = this.balls.length - 1; i >= 0; i--) {
-        const target = this.balls[i];
-        if (p.crushedBallIds.has(target.id)) {
+      // A crush can remove other balls too (a dormant bomb's blast, a boss reward), so walk
+      // a copy and skip any ball that is gone by the time the anvil reaches it.
+      const candidates = [...this.balls];
+      for (let i = candidates.length - 1; i >= 0; i--) {
+        const target = candidates[i];
+        if (p.crushedBallIds.has(target.id) || !this.ballMap.has(target.id)) {
           continue;
         }
         const dist = Math.hypot(target.x - p.x, target.y - p.y);

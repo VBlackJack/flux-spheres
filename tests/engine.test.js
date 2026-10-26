@@ -339,3 +339,28 @@ test('bossSlayer achievement honors its configured threshold', () => {
   assert.equal(engine.destroyClusterBall(spawnBoss(OTHER_POSITION), '#ffffff', true), true);
   assert.equal(engine.storageManager.getUnlockedAchievements().bossSlayer, true);
 });
+
+test('An anvil crushing a dormant bomb survives the balls the blast removes mid-pass', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(16);
+  const world = engine.physicsWorld;
+  // The anvil pass walks the balls from the end, so the bomb is the first one it crushes.
+  const bomb = world.balls[world.balls.length - 1];
+  bomb.clusterModifier = CLUSTER_MODIFIERS.DORMANT_BOMB;
+  const ballsBefore = world.balls.length;
+  const anvil = new Ball({
+    x: bomb.x,
+    y: bomb.y,
+    radius: physicsConfig.ball.radius,
+    colorId: null,
+    specialType: SPECIAL_TYPES.ANVIL,
+    isProjectile: true
+  });
+  anvil.vy = -physicsConfig.ball.anvilSpeed;
+  world.projectile = anvil;
+
+  assert.doesNotThrow(() => engine.update());
+  assert.equal(world.ballMap.has(bomb.id), false);
+  assert.ok(world.balls.length < ballsBefore - 1, 'the blast should remove neighbours of the bomb');
+  assert.equal(engine.state, GAME_STATES.PLAYING);
+});
