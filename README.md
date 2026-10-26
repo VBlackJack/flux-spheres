@@ -1,4 +1,6 @@
-# FluxSpheres — Magnetic Physics Edition
+# FluxSpheres: Magnetic Physics Edition
+
+*Read this in [French](README.fr.md).*
 
 [![Play Online](https://img.shields.io/badge/Play_Online-GitHub_Pages-38bdf8?style=for-the-badge&logo=github)](https://vblackjack.github.io/flux-spheres/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](http://www.apache.org/licenses/LICENSE-2.0)
@@ -37,10 +39,10 @@
 | :--- | :--- | :--- |
 | **Aim** | Move pointer / Drag finger | `Left` / `Right` (`+ Shift` for fast aim) |
 | **Shoot** | Release pointer / finger | `Enter` |
-| **Cancel Aim** | Drag below the launcher ring | — |
+| **Cancel Aim** | Drag below the launcher ring | - |
 | **Swap Ball** | Click secondary ball or **Swap** button | `Space` |
 | **Flip Polarity** | Click **Polarity** button | `F` |
-| **Equip / Unequip Special Ball** | Click Special Ball slot (click again to stash) | `1` – `5` |
+| **Equip / Unequip Special Ball** | Click Special Ball slot (click again to stash) | `1` to `5` |
 | **Pause / Close Modal** | Click **Pause** or modal backdrop | `Escape` |
 
 ---
@@ -70,13 +72,14 @@ The codebase follows a modular, zero-dependency ES module architecture with stri
 │   │   └── SpatialHashGrid.js# Collision-free 2D spatial hash grid for neighbor queries
 │   ├── game/
 │   │   ├── GameEngine.js     # Game state machine, wave spawner, scoring & achievements
+│   │   ├── GameLoop.js       # Fixed-step loop with interpolation, idle throttling and fatal error stop
 │   │   ├── Renderer.js       # HiDPI Canvas 2D renderer with alpha interpolation & AOE preview
 │   │   └── SpecialBallController.js # Bomb, Lightning, Prism, Anvil & Cryo impact resolution
 │   └── ui/
 │       └── UIManager.js      # HUD updates, accessible modals (focus trap + inert) & Codex
 ├── styles/main.css           # Responsive layout and design tokens
 ├── sw.js                     # Network-first Service Worker with versioned offline fallback
-└── tests/game.test.js        # Automated Node.js test suite
+└── tests/                    # Automated Node.js test suites
 ```
 
 ---
