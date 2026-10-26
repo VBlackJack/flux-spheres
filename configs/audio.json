@@ -6,6 +6,16 @@
   "arpeggioWaveType": "triangle",
   "harmonicRatio": 1.5,
   "harmonicGainRatio": 0.28,
+  "maxVoices": 12,
+  "effectMinIntervalMs": 40,
+  "hapticMinIntervalMs": 60,
+  "limiter": {
+    "thresholdDb": -10,
+    "kneeDb": 6,
+    "ratio": 12,
+    "attackSec": 0.003,
+    "releaseSec": 0.12
+  },
   "effects": {
     "shoot": {
       "type": "triangle",

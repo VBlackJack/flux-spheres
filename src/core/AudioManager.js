@@ -16,19 +16,59 @@
 
 import { configRegistry } from './ConfigRegistry.js';
 
+const CONTEXT_STATES = Object.freeze({
+  RUNNING: 'running',
+  SUSPENDED: 'suspended'
+});
+
 export class AudioManager {
   constructor() {
     this.ctx = null;
+    this.output = null;
     this.muted = false;
     this.reducedMotion = false;
     this.config = null;
     this.activeOscillators = new Set();
+    this.lastEffectTimes = new Map();
+    this.lastHapticTime = -Infinity;
+    this.visibilityBound = false;
+    this.clock = () => performance.now();
   }
 
   init(initialMuted = false, initialReducedMotion = false) {
     this.config = configRegistry.get('audio');
     this.muted = initialMuted;
     this.reducedMotion = Boolean(initialReducedMotion);
+    this.bindVisibility();
+  }
+
+  bindVisibility() {
+    if (this.visibilityBound || typeof document === 'undefined') {
+      return;
+    }
+    this.visibilityBound = true;
+    document.addEventListener('visibilitychange', () => this.syncContextState());
+  }
+
+  isDocumentHidden() {
+    return typeof document !== 'undefined' && document.hidden === true;
+  }
+
+  /**
+   * Suspends the audio context while muted or hidden and resumes it otherwise. A context
+   * only exists once a sound was requested from a user gesture, so nothing starts here.
+   */
+  syncContextState() {
+    if (!this.ctx) {
+      return;
+    }
+    if (this.muted || this.isDocumentHidden()) {
+      if (this.ctx.state === CONTEXT_STATES.RUNNING) {
+        this.ctx.suspend();
+      }
+    } else if (this.ctx.state === CONTEXT_STATES.SUSPENDED) {
+      this.ctx.resume();
+    }
   }
 
   setReducedMotion(reduced) {
@@ -39,7 +79,12 @@ export class AudioManager {
     if (this.muted || this.reducedMotion || !durationMs) {
       return;
     }
+    const nowMs = this.clock();
+    if (nowMs - this.lastHapticTime < this.config.hapticMinIntervalMs) {
+      return;
+    }
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      this.lastHapticTime = nowMs;
       try {
         navigator.vibrate(durationMs);
       } catch {
@@ -53,11 +98,26 @@ export class AudioManager {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
+        this.output = this.createLimiter(this.ctx);
       }
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
+    this.syncContextState();
+  }
+
+  /**
+   * Builds the master limiter every voice goes through, so stacked voices compress
+   * instead of clipping at the destination.
+   */
+  createLimiter(ctx) {
+    const lim = this.config.limiter;
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(lim.thresholdDb, ctx.currentTime);
+    compressor.knee.setValueAtTime(lim.kneeDb, ctx.currentTime);
+    compressor.ratio.setValueAtTime(lim.ratio, ctx.currentTime);
+    compressor.attack.setValueAtTime(lim.attackSec, ctx.currentTime);
+    compressor.release.setValueAtTime(lim.releaseSec, ctx.currentTime);
+    compressor.connect(ctx.destination);
+    return compressor;
   }
 
   stopAll() {
@@ -77,10 +137,15 @@ export class AudioManager {
     if (this.muted) {
       this.stopAll();
     }
+    this.syncContextState();
   }
 
   isMuted() {
     return this.muted;
+  }
+
+  getActiveVoiceCount() {
+    return this.activeOscillators.size;
   }
 
   playTone(type, startFreq, endFreq, duration, startOffset = 0, gainScale = 1.0) {
@@ -88,7 +153,7 @@ export class AudioManager {
       return;
     }
     this.ensureContext();
-    if (!this.ctx) {
+    if (!this.ctx || this.activeOscillators.size >= this.config.maxVoices) {
       return;
     }
 
@@ -108,7 +173,7 @@ export class AudioManager {
     gain.gain.exponentialRampToValueAtTime(minGain, stopTime);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.output);
 
     this.activeOscillators.add(osc);
     osc.onended = () => {
@@ -120,12 +185,26 @@ export class AudioManager {
     osc.stop(stopTime);
   }
 
+  /**
+   * Returns false when the same effect already played within the configured minimum
+   * interval, so a burst of identical events (an anvil crushing a row) plays once.
+   */
+  acceptEffect(effectName) {
+    const nowMs = this.clock();
+    const last = this.lastEffectTimes.get(effectName);
+    if (last !== undefined && nowMs - last < this.config.effectMinIntervalMs) {
+      return false;
+    }
+    this.lastEffectTimes.set(effectName, nowMs);
+    return true;
+  }
+
   playEffect(effectName, comboIndex = 0) {
     if (this.muted || !this.config) {
       return;
     }
     const fx = this.config.effects[effectName];
-    if (!fx) {
+    if (!fx || !this.acceptEffect(effectName)) {
       return;
     }
     this.triggerHaptic(fx.hapticMs);

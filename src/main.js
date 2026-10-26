@@ -15,12 +15,16 @@
  */
 
 import { configRegistry } from './core/ConfigRegistry.js';
-import { i18n, t } from './core/I18n.js';
+import { i18n, t, resolveInitialLocale } from './core/I18n.js';
 import { StorageManager } from './core/StorageManager.js';
 import { AudioManager } from './core/AudioManager.js';
 import { Renderer } from './game/Renderer.js';
 import { GameEngine } from './game/GameEngine.js';
 import { UIManager } from './ui/UIManager.js';
+import { createGameLoop } from './game/GameLoop.js';
+
+const BOOTSTRAP_ERROR_ELEMENT_ID = 'bootstrap-error';
+const HIDDEN_CLASS = 'hidden';
 
 class Application {
   async bootstrap() {
@@ -36,7 +40,11 @@ class Application {
       const storageManager = new StorageManager();
       storageManager.init();
 
-      const initialLang = storageManager.getLanguage();
+      const initialLang = resolveInitialLocale(
+        storageManager.getStoredLanguage(),
+        gameConfig.defaults.supportedLanguages,
+        gameConfig.defaults.language
+      );
       await i18n.init(initialLang);
 
       const audioManager = new AudioManager();
@@ -75,30 +83,26 @@ class Application {
 
       this.bindCanvasInput(canvas, engine, gameConfig, uiManager);
 
+      // High scores are only written at run end; also flush them when the page is left mid-run
+      window.addEventListener('pagehide', () => engine.persistRunHighScore());
+
       const startLevel = storageManager.getUnlockedLevel();
       engine.startCampaignLevel(startLevel);
 
-      const fixedStepMs = physicsConfig.simulation.fixedStepMs;
-      const maxAccumulatedMs = physicsConfig.simulation.maxAccumulatedMs;
-      let lastTime = performance.now();
-      let accumulator = 0;
-
-      const loop = (now) => {
-        const elapsed = Math.min(maxAccumulatedMs, Math.max(0, now - lastTime));
-        lastTime = now;
-        accumulator += elapsed;
-
-        while (accumulator >= fixedStepMs) {
-          engine.update();
-          accumulator -= fixedStepMs;
+      const gameLoop = createGameLoop({
+        engine,
+        renderer,
+        fixedStepMs: physicsConfig.simulation.fixedStepMs,
+        maxAccumulatedMs: physicsConfig.simulation.maxAccumulatedMs,
+        idleRenderIntervalMs: gameConfig.canvas.idleRenderIntervalMs,
+        scheduleFrame: (callback) => requestAnimationFrame(callback),
+        onFatalError: (err) => {
+          console.error('Game loop stopped after an unrecoverable error:', err);
+          this.renderBootstrapError();
         }
-
-        const alpha = fixedStepMs > 0 ? accumulator / fixedStepMs : 1.0;
-        renderer.render(engine, alpha);
-        requestAnimationFrame(loop);
-      };
-      requestAnimationFrame(loop);
-      this.registerServiceWorker();
+      });
+      gameLoop.start();
+      this.registerServiceWorker(gameConfig.serviceWorker);
     } catch (err) {
       console.error('Initialization failed:', err);
       this.renderBootstrapError();
@@ -109,25 +113,20 @@ class Application {
     if (typeof document === 'undefined') {
       return;
     }
-    const banner = document.createElement('div');
-    banner.setAttribute('role', 'alert');
-    banner.style.cssText =
-      'position:fixed;inset:16px;z-index:100;margin:auto;max-width:480px;max-height:200px;' +
-      'background:#111827;color:#f8fafc;border:2px solid #ef4444;border-radius:12px;padding:20px;' +
-      'display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:10px;';
-    const title = document.createElement('strong');
-    title.textContent = 'Erreur de chargement / Loading Error';
-    const msg = document.createElement('p');
-    msg.textContent =
-      'Impossible de charger les fichiers de configuration. Veuillez rafraîchir la page. / ' +
-      'Failed to load configuration files. Please refresh the page.';
-    banner.append(title, msg);
-    document.body.appendChild(banner);
+    const banner = document.getElementById(BOOTSTRAP_ERROR_ELEMENT_ID);
+    if (banner) {
+      banner.classList.remove(HIDDEN_CLASS);
+    }
   }
 
-  registerServiceWorker() {
-    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {
+  registerServiceWorker(swConfig) {
+    if (!('serviceWorker' in navigator)) {
+      return;
+    }
+    const isSecure = location.protocol === swConfig.secureProtocol;
+    const isDevHost = swConfig.insecureDevHostnames.includes(location.hostname);
+    if (isSecure || isDevHost) {
+      navigator.serviceWorker.register(swConfig.scriptPath).catch(() => {
         // Ignore service worker registration errors in local dev
       });
     }
@@ -184,6 +183,9 @@ class Application {
     let pointerDownPos = null;
 
     canvas.addEventListener('pointermove', (e) => {
+      if (!e.isPrimary) {
+        return;
+      }
       if (uiManager && uiManager.isAnyModalOpen()) {
         return;
       }
@@ -196,6 +198,9 @@ class Application {
     });
 
     canvas.addEventListener('pointerdown', (e) => {
+      if (!e.isPrimary) {
+        return;
+      }
       if (e.button !== undefined && e.button !== 0) {
         return;
       }
@@ -223,6 +228,9 @@ class Application {
     });
 
     canvas.addEventListener('pointerup', (e) => {
+      if (!e.isPrimary) {
+        return;
+      }
       if (e.button !== undefined && e.button !== 0) {
         return;
       }
@@ -260,6 +268,9 @@ class Application {
     });
 
     canvas.addEventListener('pointercancel', (e) => {
+      if (!e.isPrimary) {
+        return;
+      }
       isPointerDownOnCanvas = false;
       pointerDownPos = null;
       if (typeof canvas.releasePointerCapture === 'function' && e?.pointerId !== undefined) {
