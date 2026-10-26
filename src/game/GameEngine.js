@@ -20,9 +20,12 @@ import {
   OBSTACLE_TYPES,
   SPECIAL_TYPES,
   CLUSTER_MODIFIERS,
+  LAYOUT_TYPES,
+  DAILY_MUTATORS,
   MATH_CONSTANTS
 } from '../core/Constants.js';
 import { t } from '../core/I18n.js';
+import { SeededRandom } from '../core/SeededRandom.js';
 import { Ball } from '../entities/Ball.js';
 import { Obstacle } from '../entities/Obstacle.js';
 import { ParticleSystem } from '../entities/ParticleSystem.js';
@@ -63,6 +66,9 @@ export class GameEngine {
     this.shotsFiredInLevel = 0;
     this.activeTutorialKey = null;
     this.isAimCancelled = false;
+    this.isPolarityFlipped = false;
+    this.activeMutatorKey = null;
+    this.seededRng = null;
 
     this.activePalette = [];
     this.specialInventory = {};
@@ -70,6 +76,14 @@ export class GameEngine {
     this.nextBall = null;
     this.aimAngle = -Math.PI * MATH_CONSTANTS.HALF;
     this.aimPoints = [];
+  }
+
+  random() {
+    return this.seededRng ? this.seededRng.next() : Math.random();
+  }
+
+  isSurvivalMode() {
+    return this.mode === GAME_MODES.ENDLESS || this.mode === GAME_MODES.DAILY;
   }
 
   checkAndUnlockAchievement(achievementId) {
@@ -156,7 +170,7 @@ export class GameEngine {
 
     const candidates = [...this.activePalette];
     for (let i = candidates.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(this.random() * (i + 1));
       const tmp = candidates[i];
       candidates[i] = candidates[j];
       candidates[j] = tmp;
@@ -213,6 +227,9 @@ export class GameEngine {
     this.shotsFiredInLevel = 0;
     this.activeTutorialKey = levelDef.tutorialKey || null;
     this.isAimCancelled = false;
+    this.isPolarityFlipped = false;
+    this.activeMutatorKey = null;
+    this.seededRng = null;
     this.specialInventory = { ...levelDef.specialInventory };
 
     this.activePalette = this.ballsConfig.standardColors
@@ -240,8 +257,18 @@ export class GameEngine {
   }
 
   startEndlessMode() {
+    this.initSurvivalRun(GAME_MODES.ENDLESS, null);
+  }
+
+  startDailyChallenge(customSeed = null) {
+    const seed = customSeed || SeededRandom.getTodayDateKey();
+    this.initSurvivalRun(GAME_MODES.DAILY, seed);
+  }
+
+  initSurvivalRun(mode, seed = null) {
     const endlessCfg = this.gameConfig.endless;
-    this.mode = GAME_MODES.ENDLESS;
+    this.mode = mode;
+    this.seededRng = seed ? new SeededRandom(seed) : null;
     this.score = 0;
     this.combo = 0;
     this.overcharge = 0;
@@ -256,6 +283,7 @@ export class GameEngine {
     this.shotsFiredInLevel = 0;
     this.activeTutorialKey = null;
     this.isAimCancelled = false;
+    this.isPolarityFlipped = false;
     this.specialInventory = { ...endlessCfg.initialSpecialCounts };
 
     this.activePalette = this.ballsConfig.standardColors
@@ -265,6 +293,21 @@ export class GameEngine {
     this.audioManager.stopAll();
     this.physicsWorld.clear();
     this.particleSystem.clear();
+
+    this.activeMutatorKey = null;
+    if (mode === GAME_MODES.DAILY && this.gameConfig.daily?.mutators) {
+      const mutatorKeys = Object.keys(this.gameConfig.daily.mutators);
+      if (mutatorKeys.length > 0) {
+        this.activeMutatorKey = mutatorKeys[Math.floor(this.random() * mutatorKeys.length)];
+        const mutSpec = this.gameConfig.daily.mutators[this.activeMutatorKey];
+        if (mutSpec.clusterGravityMultiplier) {
+          this.physicsWorld.gravityMultiplier = mutSpec.clusterGravityMultiplier;
+        }
+        if (mutSpec.magnetismMultiplier) {
+          this.physicsWorld.magnetismMultiplier = mutSpec.magnetismMultiplier;
+        }
+      }
+    }
 
     const r = this.physicsConfig.ball.radius;
     const cols = endlessCfg.columns;
@@ -289,6 +332,22 @@ export class GameEngine {
       }
     }
 
+    if (mode === GAME_MODES.DAILY) {
+      const leftSingularity = new Obstacle(
+        { type: OBSTACLE_TYPES.SINGULARITY, x: r * 4, y: this.gameConfig.canvas.dangerLineY - r * 5 },
+        this.obstaclesConfig
+      );
+      const rightSingularity = new Obstacle(
+        {
+          type: OBSTACLE_TYPES.SINGULARITY,
+          x: this.gameConfig.canvas.logicalWidth - r * 4,
+          y: this.gameConfig.canvas.dangerLineY - r * 5
+        },
+        this.obstaclesConfig
+      );
+      this.physicsWorld.obstacles.push(leftSingularity, rightSingularity);
+    }
+
     this.physicsWorld.rebuildInitialBonds();
     this.currentBall = this.createRandomLauncherBall();
     this.nextBall = this.createRandomLauncherBall();
@@ -299,7 +358,7 @@ export class GameEngine {
   }
 
   rollModifier(weights) {
-    const rand = Math.random();
+    const rand = this.random();
     let cumulative = 0;
     for (const [modKey, weight] of Object.entries(weights)) {
       cumulative += weight;
@@ -311,7 +370,14 @@ export class GameEngine {
   }
 
   rollEndlessModifier() {
-    if (Math.random() > this.gameConfig.endless.modifierSpawnChance) {
+    let spawnChance = this.gameConfig.endless.modifierSpawnChance;
+    if (this.activeMutatorKey === DAILY_MUTATORS.VOLATILE_CLUSTER) {
+      const extra = this.gameConfig.daily?.mutators?.volatileCluster?.extraBombWeight || 0;
+      if (this.random() < extra) {
+        return CLUSTER_MODIFIERS.DORMANT_BOMB;
+      }
+    }
+    if (this.random() > spawnChance) {
       return null;
     }
     const mods = [
@@ -320,7 +386,7 @@ export class GameEngine {
       CLUSTER_MODIFIERS.CHAMELEON,
       CLUSTER_MODIFIERS.COIN_CORE
     ];
-    return mods[Math.floor(Math.random() * mods.length)];
+    return mods[Math.floor(this.random() * mods.length)];
   }
 
   buildLevelLayout(layout, modifierWeights = {}) {
@@ -328,7 +394,7 @@ export class GameEngine {
     const pivots = this.physicsWorld.obstacles.filter((o) => o.type === OBSTACLE_TYPES.PIVOT);
     const primaryPivot = pivots[0] || null;
 
-    if (layout.type === 'pendulum') {
+    if (layout.type === LAYOUT_TYPES.PENDULUM) {
       for (const anchorPos of layout.anchors) {
         const anchorBall = this.createClusterBall({
           x: anchorPos.x,
@@ -356,9 +422,9 @@ export class GameEngine {
           this.physicsWorld.addBall(ball);
         }
       }
-    } else if (layout.type === 'ring') {
+    } else if (layout.type === LAYOUT_TYPES.RING) {
       this.spawnConcentricRings(layout.centerX, layout.centerY, layout.rings, primaryPivot, modifierWeights);
-    } else if (layout.type === 'dualRing') {
+    } else if (layout.type === LAYOUT_TYPES.DUAL_RING) {
       layout.clusters.forEach((cluster, index) => {
         this.spawnConcentricRings(
           cluster.centerX,
@@ -368,7 +434,7 @@ export class GameEngine {
           modifierWeights
         );
       });
-    } else if (layout.type === 'hexagon') {
+    } else if (layout.type === LAYOUT_TYPES.HEXAGON) {
       const layers = layout.layers;
       const spacing = layout.spacing;
       for (let q = -layers; q <= layers; q++) {
@@ -398,7 +464,7 @@ export class GameEngine {
           this.physicsWorld.addBall(ball);
         }
       }
-    } else if (layout.type === 'spiral') {
+    } else if (layout.type === LAYOUT_TYPES.SPIRAL) {
       const arms = layout.arms;
       const ballsPerArm = layout.ballsPerArm;
       for (let arm = 0; arm < arms; arm++) {
@@ -424,9 +490,10 @@ export class GameEngine {
           this.physicsWorld.addBall(ball);
         }
       }
-    } else if (layout.type === 'cross') {
+    } else if (layout.type === LAYOUT_TYPES.CROSS) {
       const armLength = layout.armLength;
       const spacing = layout.spacing;
+      const perpFactor = layout.perpSpacingFactor;
       const directions = [
         { dx: 1, dy: 0 },
         { dx: -1, dy: 0 },
@@ -439,8 +506,8 @@ export class GameEngine {
             if (step === 1 && perp !== 0) {
               continue;
             }
-            const x = layout.centerX + (dir.dx * step - dir.dy * perp * 0.85) * spacing;
-            const y = layout.centerY + (dir.dy * step + dir.dx * perp * 0.85) * spacing;
+            const x = layout.centerX + (dir.dx * step - dir.dy * perp * perpFactor) * spacing;
+            const y = layout.centerY + (dir.dy * step + dir.dx * perp * perpFactor) * spacing;
             const dist = Math.hypot(x - layout.centerX, y - layout.centerY);
             const angle = Math.atan2(y - layout.centerY, x - layout.centerX);
             const isInner = step === 1;
@@ -488,7 +555,7 @@ export class GameEngine {
   }
 
   pickPaletteColor() {
-    return this.activePalette[Math.floor(Math.random() * this.activePalette.length)];
+    return this.activePalette[Math.floor(this.random() * this.activePalette.length)];
   }
 
   pickLauncherColor() {
@@ -499,7 +566,7 @@ export class GameEngine {
       }
     }
     const pool = existingColors.size > 0 ? Array.from(existingColors) : this.activePalette;
-    return pool[Math.floor(Math.random() * pool.length)];
+    return pool[Math.floor(this.random() * pool.length)];
   }
 
   createRandomLauncherBall(specialType = null) {
@@ -546,9 +613,29 @@ export class GameEngine {
     this.notifyUI();
   }
 
+  togglePolarityFlip() {
+    if (this.state !== GAME_STATES.PLAYING) {
+      return;
+    }
+    this.isPolarityFlipped = !this.isPolarityFlipped;
+    this.audioManager.playEffect('snap');
+    this.updateAimFromAngle(this.aimAngle);
+    this.notifyUI();
+  }
+
+  adjustAimByDelta(deltaRad) {
+    if (this.state !== GAME_STATES.PLAYING) {
+      return;
+    }
+    this.isAimCancelled = false;
+    const canvasCfg = this.gameConfig.canvas;
+    const clamped = Math.max(-canvasCfg.maxAimAngleRad, Math.min(-canvasCfg.minAimAngleRad, this.aimAngle + deltaRad));
+    this.updateAimFromAngle(clamped);
+  }
+
   updateAim(targetX, targetY) {
     const canvasCfg = this.gameConfig.canvas;
-    const cancelThresholdY = canvasCfg.launcherY + (canvasCfg.cancelAimOffsetY || 28);
+    const cancelThresholdY = canvasCfg.launcherY + canvasCfg.cancelAimOffsetY;
     if (targetY > cancelThresholdY) {
       this.isAimCancelled = true;
       return;
@@ -574,7 +661,8 @@ export class GameEngine {
       this.aimAngle,
       this.currentBall,
       bonuses.distanceBonus,
-      bonuses.bouncesBonus
+      bonuses.bouncesBonus,
+      this.isPolarityFlipped
     );
   }
 
@@ -592,8 +680,10 @@ export class GameEngine {
     const ballCfg = this.physicsConfig.ball;
     const projectile = this.currentBall;
     projectile.isProjectile = true;
+    projectile.isPolarityFlipped = this.isPolarityFlipped;
     projectile.x = this.gameConfig.canvas.launcherX;
     projectile.y = this.gameConfig.canvas.launcherY;
+    projectile.savePreviousPosition();
 
     const speed = projectile.specialType === SPECIAL_TYPES.ANVIL
       ? ballCfg.anvilSpeed
@@ -612,7 +702,7 @@ export class GameEngine {
 
     this.hasFiredInRound = true;
     this.shotsFiredInLevel++;
-    if (this.shotsFiredInLevel >= (this.gameConfig.canvas.tutorialDisplayShots || 2)) {
+    if (this.shotsFiredInLevel >= this.gameConfig.canvas.tutorialDisplayShots) {
       this.activeTutorialKey = null;
     }
     this.audioManager.playEffect('shoot');
@@ -704,15 +794,44 @@ export class GameEngine {
           anvilSpecs.highlight
         );
         this.particleSystem.addScreenShake(juice.anvilShake, juice.maxShakeOffset);
-        this.hitStopFrames = juice.hitStopFramesSpecial || 0;
+        this.hitStopFrames = juice.hitStopFramesSpecial;
         this.handlePostTurnCleanup(true);
       },
       onProjectileSnapped: (snappedBall) => {
         this.handleProjectileSnapped(snappedBall);
+      },
+      onProjectileMissed: () => {
+        this.combo = 0;
+        this.handlePostTurnCleanup(false);
+      },
+      onSingularityCapture: (capturedBall, singularityObs) => {
+        const singCfg = this.obstaclesConfig.types.singularity;
+        const baseDropPts = this.gameConfig.scoring.droppedBallPoints;
+        const bonusPts = Math.round(baseDropPts * singularityObs.scoreMultiplier * Math.max(1, this.combo));
+        this.addScore(bonusPts);
+        this.addOvercharge(singularityObs.bonusOvercharge);
+        this.audioManager.playEffect('portal');
+        this.particleSystem.spawnBurst(
+          singularityObs.x,
+          singularityObs.y,
+          singCfg.ringColor,
+          singCfg.burstCount,
+          singCfg.burstSpeed
+        );
+        this.particleSystem.spawnFloatingText(
+          singularityObs.x,
+          singularityObs.y + this.gameConfig.canvas.floatingTextOffsetY,
+          t('gameplay.feedback.singularity.absorbed', { points: bonusPts }),
+          this.gameConfig.theme.singularityPopupColor
+        );
+        this.notifyUI();
       }
     });
 
     if (!this.physicsWorld.projectile) {
+      if (!this.isAimCancelled) {
+        this.updateAimFromAngle(this.aimAngle);
+      }
       if (!this.hasFiredInRound) {
         this.physicsWorld.pendingChainCandidateIds.clear();
       } else {
@@ -785,10 +904,10 @@ export class GameEngine {
         );
         this.particleSystem.addScreenShake(juice.matchShake, juice.maxShakeOffset);
         this.audioManager.playEffect('match', this.combo);
-        if (this.combo >= (juice.hitStopMinCombo || 3)) {
-          this.hitStopFrames = juice.hitStopFramesCombo || 0;
+        if (this.combo >= juice.hitStopMinCombo) {
+          this.hitStopFrames = juice.hitStopFramesCombo;
         }
-        if (this.combo >= (this.gameConfig.achievements?.comboMaster?.threshold || 4)) {
+        if (this.combo >= this.gameConfig.achievements.comboMaster.threshold) {
           this.checkAndUnlockAchievement('comboMaster');
         }
       }
@@ -899,6 +1018,27 @@ export class GameEngine {
       if (bombResult.destroyed.length > 0) {
         this.addOvercharge(bombResult.destroyed.length * this.gameConfig.scoring.overchargePerMatchedBall);
       }
+    } else if (ball.clusterModifier === CLUSTER_MODIFIERS.LASER_LOCK) {
+      const lockSpec = this.ballsConfig.clusterModifiers.laserLock;
+      this.addScore(lockSpec.pointsBonus);
+      this.particleSystem.spawnShockwave(ball.x, ball.y, lockSpec.ringColor, lockSpec.shockwaveRadius);
+      const anyLockRemaining = this.physicsWorld.balls.some(
+        (b) => b.clusterModifier === CLUSTER_MODIFIERS.LASER_LOCK
+      );
+      if (!anyLockRemaining) {
+        for (const obs of this.physicsWorld.obstacles) {
+          if (obs.type === OBSTACLE_TYPES.BARRIER && !obs.disabled) {
+            obs.disabled = true;
+            this.particleSystem.spawnShockwave(obs.x, obs.y, lockSpec.ringColor, obs.width);
+            this.particleSystem.spawnFloatingText(
+              obs.x,
+              obs.y + canvasCfg.floatingTextOffsetY,
+              t('gameplay.feedback.lock.released'),
+              this.gameConfig.theme.lockPopupColor
+            );
+          }
+        }
+      }
     }
 
     return true;
@@ -921,12 +1061,12 @@ export class GameEngine {
       }
       if (result.destroyed.length > 0) {
         this.addOvercharge(result.destroyed.length * this.gameConfig.scoring.overchargePerMatchedBall);
-        this.hitStopFrames = this.gameConfig.juice.hitStopFramesSpecial || 0;
+        this.hitStopFrames = this.gameConfig.juice.hitStopFramesSpecial;
       }
       if (result.freezeTurns > 0) {
         this.freezeTurnsRemaining = result.freezeTurns;
       }
-      this.handlePostTurnCleanup(result.destroyed.length > 0);
+      this.handlePostTurnCleanup(result.destroyed.length > 0, result.freezeTurns > 0);
       return;
     }
 
@@ -966,10 +1106,10 @@ export class GameEngine {
         );
       }
 
-      if (this.combo >= (juice.hitStopMinCombo || 3)) {
-        this.hitStopFrames = juice.hitStopFramesCombo || 0;
+      if (this.combo >= juice.hitStopMinCombo) {
+        this.hitStopFrames = juice.hitStopFramesCombo;
       }
-      if (this.combo >= (this.gameConfig.achievements?.comboMaster?.threshold || 4)) {
+      if (this.combo >= this.gameConfig.achievements.comboMaster.threshold) {
         this.checkAndUnlockAchievement('comboMaster');
       }
 
@@ -1009,11 +1149,11 @@ export class GameEngine {
       );
       this.particleSystem.addScreenShake(juice.avalancheShake, juice.maxShakeOffset);
 
-      if (detached.length >= (this.gameConfig.achievements?.firstAvalanche?.threshold || 6)) {
+      if (detached.length >= this.gameConfig.achievements.firstAvalanche.threshold) {
         this.checkAndUnlockAchievement('firstAvalanche');
       }
 
-      if (this.mode === GAME_MODES.ENDLESS && Math.random() < scoring.specialDropChanceEndless) {
+      if (this.isSurvivalMode() && this.random() < scoring.specialDropChanceEndless) {
         this.grantRandomSpecialBall();
       }
     }
@@ -1022,8 +1162,8 @@ export class GameEngine {
   grantRandomSpecialBall() {
     const canvasCfg = this.gameConfig.canvas;
     const types = Object.values(SPECIAL_TYPES);
-    const granted = types[Math.floor(Math.random() * types.length)];
-    const amount = this.gameConfig.scoring.specialChargePerMatch || 1;
+    const granted = types[Math.floor(this.random() * types.length)];
+    const amount = this.gameConfig.scoring.specialChargePerMatch;
     this.specialInventory[granted] = (this.specialInventory[granted] || 0) + amount;
     this.audioManager.playEffect('overcharge');
     const specialName = t(`hud.powerups.${granted}.name`);
@@ -1057,7 +1197,7 @@ export class GameEngine {
     }
   }
 
-  handlePostTurnCleanup(madeMatch) {
+  handlePostTurnCleanup(madeMatch, appliedFreeze = false) {
     this.detachAndRewardAvalanche();
     this.shiftChameleonBalls();
 
@@ -1068,26 +1208,43 @@ export class GameEngine {
       }
     }
 
-    if (this.mode === GAME_MODES.ENDLESS) {
-      if (this.freezeTurnsRemaining > 0) {
-        this.freezeTurnsRemaining--;
-        if (this.freezeTurnsRemaining === 0) {
-          for (const b of this.physicsWorld.balls) {
-            b.isFrozen = false;
-          }
+    const wasFrozen = this.freezeTurnsRemaining > 0 || appliedFreeze;
+    if (!appliedFreeze && this.freezeTurnsRemaining > 0) {
+      this.freezeTurnsRemaining--;
+      if (this.freezeTurnsRemaining === 0) {
+        for (const b of this.physicsWorld.balls) {
+          b.isFrozen = false;
         }
-      } else if (!madeMatch) {
-        this.shotsUntilWave--;
-        if (this.shotsUntilWave <= 0) {
-          this.spawnEndlessWave();
-          this.shotsUntilWave = this.gameConfig.endless.shotsBeforeWave;
-        }
+      }
+    }
+
+    if (this.isSurvivalMode() && !wasFrozen && !madeMatch) {
+      this.shotsUntilWave--;
+      if (this.shotsUntilWave <= 0) {
+        this.spawnEndlessWave();
+        this.shotsUntilWave = this.gameConfig.endless.shotsBeforeWave;
       }
     }
 
     this.evaluateRoundEnd();
     this.updateAimFromAngle(this.aimAngle);
     this.notifyUI();
+  }
+
+  findClosestBall(sourceBall, candidates) {
+    if (!candidates || candidates.length === 0) {
+      return null;
+    }
+    let closest = candidates[0];
+    let minDist = Math.hypot(sourceBall.x - closest.x, sourceBall.y - closest.y);
+    for (let i = 1; i < candidates.length; i++) {
+      const d = Math.hypot(sourceBall.x - candidates[i].x, sourceBall.y - candidates[i].y);
+      if (d < minDist) {
+        minDist = d;
+        closest = candidates[i];
+      }
+    }
+    return closest;
   }
 
   spawnEndlessWave() {
@@ -1114,10 +1271,11 @@ export class GameEngine {
 
     const isBossWave = endlessCfg.bossWaveInterval > 0 && this.waveCount % endlessCfg.bossWaveInterval === 0;
     const isGoldRushWave = !isBossWave && endlessCfg.goldRushWaveInterval > 0 && this.waveCount % endlessCfg.goldRushWaveInterval === 0;
-    let remainingGoldCores = isGoldRushWave ? (endlessCfg.goldRushCoinCoreCount || 3) : 0;
+    let remainingGoldCores = isGoldRushWave ? endlessCfg.goldRushCoinCoreCount : 0;
     let bossCorePlaced = false;
 
     const newRowBalls = [];
+    const newRowIds = new Set();
     for (let col = 0; col < cols; col++) {
       const isAnchor = endlessCfg.anchorColumns.includes(col);
       let modifier = null;
@@ -1142,26 +1300,41 @@ export class GameEngine {
       });
       this.physicsWorld.addBall(newBall);
       newRowBalls.push(newBall);
+      newRowIds.add(newBall.id);
     }
 
     this.physicsWorld.rebuildInitialBonds();
 
-    for (const oldAnchor of previousAnchors) {
-      if (oldAnchor.bonds.size === 0 && newRowBalls.length > 0) {
-        let closest = newRowBalls[0];
-        let minDist = Math.hypot(oldAnchor.x - closest.x, oldAnchor.y - closest.y);
-        for (let i = 1; i < newRowBalls.length; i++) {
-          const d = Math.hypot(oldAnchor.x - newRowBalls[i].x, oldAnchor.y - newRowBalls[i].y);
-          if (d < minDist) {
-            minDist = d;
-            closest = newRowBalls[i];
+    if (newRowBalls.length > 0) {
+      for (const oldAnchor of previousAnchors) {
+        let linkedToNewRow = false;
+        for (const neighborId of oldAnchor.bonds) {
+          if (newRowIds.has(neighborId)) {
+            linkedToNewRow = true;
+            break;
           }
         }
-        this.physicsWorld.createBond(oldAnchor, closest, false);
+        if (!linkedToNewRow) {
+          const closest = this.findClosestBall(oldAnchor, newRowBalls);
+          if (closest) {
+            this.physicsWorld.createBond(oldAnchor, closest, false);
+          }
+        }
+      }
+
+      let anchoredSet = this.physicsWorld.getAnchoredBallIds();
+      for (const ball of this.physicsWorld.balls) {
+        if (!anchoredSet.has(ball.id)) {
+          const closest = this.findClosestBall(ball, newRowBalls);
+          if (closest) {
+            this.physicsWorld.createBond(ball, closest, false);
+            anchoredSet = this.physicsWorld.getAnchoredBallIds();
+          }
+        }
       }
     }
 
-    if (this.waveCount >= (this.gameConfig.achievements?.survivorWave10?.threshold || 10)) {
+    if (this.waveCount >= this.gameConfig.achievements.survivorWave10.threshold) {
       this.checkAndUnlockAchievement('survivorWave10');
     }
 
@@ -1197,18 +1370,18 @@ export class GameEngine {
     if (this.mode === GAME_MODES.CAMPAIGN) {
       if (this.physicsWorld.balls.length === 0) {
         this.outOfShotsGraceFrames = 0;
-        if (this.shotsRemaining >= (this.gameConfig.achievements?.sharpshooter?.threshold || 12)) {
+        if (this.shotsRemaining >= this.gameConfig.achievements.sharpshooter.threshold) {
           this.checkAndUnlockAchievement('sharpshooter');
         }
         const bonus = this.shotsRemaining * this.gameConfig.scoring.remainingShotBonus;
         this.addScore(bonus);
         const stars = this.computeStars(this.score);
         const { newlyEarnedStars } = this.storageManager.saveLevelResult(this.currentLevelId, this.score, stars);
-        const firstStarBonus = newlyEarnedStars * (this.gameConfig.scoring.firstTimeStarCoinBonus || 0);
+        const firstStarBonus = newlyEarnedStars * this.gameConfig.scoring.firstTimeStarCoinBonus;
         const earnedCoins = stars * this.gameConfig.scoring.coinsPerVictoryStar + firstStarBonus;
         this.storageManager.addCoins(earnedCoins);
         this.storageManager.unlockLevel(this.currentLevelId + 1);
-        if (this.storageManager.getTotalStars() >= (this.gameConfig.achievements?.starCollector?.threshold || 18)) {
+        if (this.storageManager.getTotalStars() >= this.gameConfig.achievements.starCollector.threshold) {
           this.checkAndUnlockAchievement('starCollector');
         }
         this.state = GAME_STATES.VICTORY;
@@ -1220,7 +1393,7 @@ export class GameEngine {
       if (this.shotsRemaining <= 0 && !this.physicsWorld.projectile && this.outOfShotsGraceFrames === 0) {
         this.outOfShotsGraceFrames = this.physicsConfig.simulation.outOfShotsGraceFrames;
       }
-    } else if (this.mode === GAME_MODES.ENDLESS && this.physicsWorld.balls.length === 0) {
+    } else if (this.isSurvivalMode() && this.physicsWorld.balls.length === 0) {
       this.spawnEndlessWave();
     }
   }
@@ -1247,9 +1420,15 @@ export class GameEngine {
   }
 
   addScore(points) {
-    this.score += points;
+    let mult = 1.0;
+    if (this.activeMutatorKey && this.gameConfig.daily?.mutators?.[this.activeMutatorKey]?.scoreMultiplier) {
+      mult = this.gameConfig.daily.mutators[this.activeMutatorKey].scoreMultiplier;
+    }
+    this.score += Math.round(points * mult);
     if (this.mode === GAME_MODES.ENDLESS) {
       this.storageManager.setEndlessHighScore(this.score);
+    } else if (this.mode === GAME_MODES.DAILY) {
+      this.storageManager.setDailyHighScore(this.score);
     }
   }
 
@@ -1266,6 +1445,8 @@ export class GameEngine {
   restartCurrent() {
     if (this.mode === GAME_MODES.CAMPAIGN) {
       this.startCampaignLevel(this.currentLevelId);
+    } else if (this.mode === GAME_MODES.DAILY) {
+      this.startDailyChallenge();
     } else {
       this.startEndlessMode();
     }

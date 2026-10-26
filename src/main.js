@@ -78,14 +78,37 @@ class Application {
       const startLevel = storageManager.getUnlockedLevel();
       engine.startCampaignLevel(startLevel);
 
-      const loop = () => {
-        engine.update();
-        renderer.render(engine);
+      const fixedStepMs = physicsConfig.simulation.fixedStepMs;
+      const maxAccumulatedMs = physicsConfig.simulation.maxAccumulatedMs;
+      let lastTime = performance.now();
+      let accumulator = 0;
+
+      const loop = (now) => {
+        const elapsed = Math.min(maxAccumulatedMs, Math.max(0, now - lastTime));
+        lastTime = now;
+        accumulator += elapsed;
+
+        while (accumulator >= fixedStepMs) {
+          engine.update();
+          accumulator -= fixedStepMs;
+        }
+
+        const alpha = fixedStepMs > 0 ? accumulator / fixedStepMs : 1.0;
+        renderer.render(engine, alpha);
         requestAnimationFrame(loop);
       };
       requestAnimationFrame(loop);
+      this.registerServiceWorker();
     } catch (err) {
       console.error(t('errors.config.loadFailed'), err);
+    }
+  }
+
+  registerServiceWorker() {
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {
+        // Ignore service worker registration errors in local dev
+      });
     }
   }
 
@@ -135,11 +158,22 @@ class Application {
       }
       const pos = toLogicalCoords(e.clientX, e.clientY);
       if (isSwapClick(pos.x, pos.y)) {
+        engine.isAimCancelled = false;
         engine.swapLauncherBalls();
+        if (uiManager) {
+          uiManager.updateAimState(engine);
+        }
         return;
       }
       engine.updateAim(pos.x, pos.y);
       engine.shoot();
+      if (uiManager) {
+        uiManager.updateAimState(engine);
+      }
+    });
+
+    canvas.addEventListener('pointercancel', () => {
+      engine.isAimCancelled = false;
       if (uiManager) {
         uiManager.updateAimState(engine);
       }

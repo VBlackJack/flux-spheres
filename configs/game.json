@@ -11,8 +11,9 @@
     "swapClickRadius": 54,
     "minAimAngleRad": 0.16,
     "maxAimAngleRad": 2.98,
+    "keyboardAimStepRad": 0.035,
+    "keyboardAimFastStepRad": 0.09,
     "aimRayMaxBounces": 2,
-    "aimRayStepLength": 10,
     "aimRayMaxDistance": 950,
     "wallMargin": 14,
     "floatingTextOffsetY": -16,
@@ -20,7 +21,22 @@
     "anvilPopupOffsetY": -120,
     "wavePopupOffsetY": 40,
     "cancelAimOffsetY": 28,
-    "tutorialDisplayShots": 2
+    "tutorialDisplayShots": 2,
+    "launcher": {
+      "cancelRingRadius": 42,
+      "cancelRingLineWidth": 3,
+      "cancelRingDash": [6, 4],
+      "barrelX": -22,
+      "barrelY": -46,
+      "barrelWidth": 44,
+      "barrelHeight": 52,
+      "barrelCornerRadius": 10,
+      "barrelBorderWidth": 2,
+      "baseRadius": 30,
+      "baseBorderWidth": 3,
+      "nextBallRingPadding": 5,
+      "nextBallRingWidth": 2
+    }
   },
   "scoring": {
     "baseMatchPoints": 100,
@@ -83,11 +99,13 @@
     "hitStopFramesCombo": 3,
     "hitStopFramesSpecial": 4,
     "particles": {
+      "shakeStopThreshold": 0.1,
       "trailSpread": 4,
       "trailRadiusFactor": 0.58,
       "trailInitialAlpha": 0.55,
       "trailRadiusDecay": 0.92,
       "trailAlphaDecay": 0.055,
+      "trailMinRadius": 1,
       "burstDefaultCount": 16,
       "burstDefaultSpeed": 5.5,
       "burstAngleJitter": 0.4,
@@ -104,14 +122,24 @@
       "shockwaveInitialAlpha": 0.95,
       "shockwaveExpandRate": 0.18,
       "shockwaveAlphaDecay": 0.045,
+      "shockwaveLineWidth": 3.5,
       "lightningSteps": 14,
       "lightningJitterY": 28,
       "lightningBranches": 3,
       "lightningBranchLength": 26,
       "lightningAlphaDecay": 0.06,
+      "lightningLineWidth": 4,
+      "lightningBranchLineWidth": 2,
+      "lightningBranchMinPad": 2,
+      "lightningBranchEndPad": 3,
+      "lightningBranchMidStepFactor": 0.65,
+      "lightningBranchMidLenFactor": 0.55,
+      "lightningBranchEndStepFactor": 1.3,
       "floatingTextVy": -1.4,
       "floatingTextAlphaDecay": 0.02,
-      "floatingTextDefaultColor": "#f8fafc"
+      "floatingTextDefaultColor": "#f8fafc",
+      "floatingTextFontSize": 17,
+      "floatingTextShadowOffset": 1
     }
   },
   "endless": {
@@ -135,6 +163,30 @@
     "goldRushWaveInterval": 3,
     "goldRushCoinCoreCount": 3,
     "bossWaveInterval": 5
+  },
+  "daily": {
+    "mutators": {
+      "hyperGravity": {
+        "id": "hyperGravity",
+        "clusterGravityMultiplier": 1.85,
+        "scoreMultiplier": 1.25
+      },
+      "turboRotors": {
+        "id": "turboRotors",
+        "rotorSpeedMultiplier": 1.8,
+        "scoreMultiplier": 1.2
+      },
+      "superMagnetism": {
+        "id": "superMagnetism",
+        "magnetismMultiplier": 1.65,
+        "scoreMultiplier": 1.2
+      },
+      "volatileCluster": {
+        "id": "volatileCluster",
+        "extraBombWeight": 0.16,
+        "scoreMultiplier": 1.3
+      }
+    }
   },
   "achievements": {
     "firstAvalanche": {
@@ -177,6 +229,7 @@
       "unlockedLevel": "unlocked_level",
       "levelStats": "level_stats",
       "endlessHighScore": "endless_high_score",
+      "dailyBest": "daily_best",
       "coins": "coins",
       "upgrades": "upgrades",
       "achievements": "achievements"
@@ -190,18 +243,33 @@
     "initialCoins": 50
   },
   "theme": {
+    "fontFamily": "system-ui, sans-serif",
     "backgroundTop": "#0b0f1d",
     "backgroundBottom": "#171f38",
     "gridLineColor": "rgba(100, 150, 255, 0.05)",
     "gridSize": 36,
+    "gridLineWidth": 1,
     "wallColor": "#2c3e66",
     "wallGlowColor": "rgba(88, 166, 255, 0.35)",
+    "wallGlowLineWidth": 8,
+    "wallLineWidth": 4,
     "dangerLineColor": "#ff4757",
+    "dangerLineDash": [10, 8],
+    "dangerLineWidth": 2,
     "dangerZoneFill": "rgba(255, 71, 87, 0.08)",
     "magneticLinkColor": "rgba(140, 210, 255, 0.38)",
     "magneticSameColorBase": "125, 211, 252",
     "magneticRepelColorBase": "251, 146, 60",
     "magneticFieldPulseSpeed": 0.004,
+    "magneticPulseBase": 0.65,
+    "magneticPulseAmp": 0.35,
+    "magneticFieldLineWidth": 1.2,
+    "magneticFieldDash": [3, 5],
+    "magneticFieldAlpha": 0.24,
+    "magneticBondLineWidth": 2.4,
+    "magneticBondSameColorAlpha": 0.55,
+    "magneticStressThresholdFactor": 1.22,
+    "magneticStressColor": "rgba(251, 113, 133, 0.82)",
     "anchorCoreColor": "#f1f5f9",
     "anchorRingColor": "#38bdf8",
     "frozenOverlayColor": "rgba(125, 211, 252, 0.55)",
@@ -210,6 +278,15 @@
     "launcherAccentColor": "#38bdf8",
     "cancelAimColor": "#ff4757",
     "targetHighlightColor": "#fef08a",
+    "aimLineWidth": 2.5,
+    "aimLineDash": [7, 7],
+    "aimGhostFillAlpha": 0.35,
+    "aimGhostStrokeAlpha": 0.85,
+    "aimGhostLineWidth": 2,
+    "aimTargetPulseSpeed": 0.012,
+    "aimTargetMatchLineWidth": 3,
+    "aimTargetNormalLineWidth": 2,
+    "aimTargetRingPadding": 4,
     "defaultTrailColor": "#38bdf8",
     "bounceParticleColor": "#93c5fd",
     "chainPopupColor": "#fde68a",
@@ -219,6 +296,8 @@
     "coinPopupColor": "#fbbf24",
     "bossPopupColor": "#f43f5e",
     "portalPopupColor": "#67e8f9",
+    "singularityPopupColor": "#c084fc",
+    "lockPopupColor": "#38bdf8",
     "floatingTextShadowColor": "#090d16",
     "starFilledSymbol": "★",
     "starEmptySymbol": "☆"

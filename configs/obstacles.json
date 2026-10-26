@@ -6,9 +6,14 @@
     "restitution": 1.0,
     "hitPulseDecay": 0.08,
     "fieldWaveSpeed": 0.04,
+    "fieldWaveAlpha": 0.35,
+    "fieldWaveMinRadius": 4,
     "bumperPulseScale": 0.25,
     "bumperCoreRadiusFactor": 0.48,
-    "barrierCornerRadius": 8
+    "barrierCornerRadius": 8,
+    "lineWidth": 2,
+    "ringLineWidth": 3,
+    "ringInset": 4
   },
   "types": {
     "pivot": {
@@ -23,7 +28,8 @@
       "coreColor": "#f43f5e",
       "outerColor": "#881337",
       "ringColor": "#fda4af",
-      "restitution": 1.32
+      "restitution": 1.32,
+      "ringLineWidth": 3.5
     },
     "repulsor": {
       "radius": 22,
@@ -56,7 +62,32 @@
       "teleportCooldownSteps": 10,
       "spinSpeed": 0.045,
       "burstCount": 12,
-      "burstSpeed": 4.2
+      "burstSpeed": 4.2,
+      "linkDash": [4, 8],
+      "fieldRadiusPadding": 8,
+      "ringInset": 3,
+      "ringDash": [10, 6],
+      "swirlRadiusFactor": 0.45,
+      "swirlArcAngleFactor": 1.35
+    },
+    "singularity": {
+      "radius": 22,
+      "captureRadius": 36,
+      "pullRadius": 150,
+      "pullForce": 0.85,
+      "scoreMultiplier": 1.5,
+      "bonusOvercharge": 6,
+      "spinSpeed": -0.06,
+      "coreColor": "#090d16",
+      "outerColor": "#4c1d95",
+      "ringColor": "#c084fc",
+      "fieldColor": "rgba(168, 85, 247, 0.16)",
+      "ringDash": [6, 6],
+      "ringInset": 3,
+      "swirlRadiusFactor": 0.55,
+      "swirlArcAngleFactor": 1.4,
+      "burstCount": 10,
+      "burstSpeed": 4.0
     }
   }
 }

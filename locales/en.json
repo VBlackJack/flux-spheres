@@ -13,6 +13,7 @@
       "button": {
         "levels": "Levels",
         "endless": "Survival",
+        "daily": "Daily",
         "shop": "Shop",
         "restart": "Restart",
         "pause": "Pause",
@@ -42,7 +43,8 @@
       },
       "mode": {
         "campaign": "Level {{level}}: {{name}}",
-        "endless": "Survival Mode • Wave {{wave}}"
+        "endless": "Survival Mode • Wave {{wave}}",
+        "daily": "Daily Challenge ({{mutator}}) • Wave {{wave}}"
       },
       "shots": {
         "label": "Shots Left",
@@ -58,6 +60,10 @@
     "launcher": {
       "swap": {
         "hint": "Swap (Space / Click)"
+      },
+      "polarity": {
+        "normal": "Polarity: Normal (F)",
+        "inverted": "Polarity: Inverted (F)"
       },
       "cancel": {
         "hint": "Release here to cancel shot"
@@ -116,6 +122,12 @@
       "portal": {
         "warp": "PORTAL WARP!"
       },
+      "lock": {
+        "released": "BARRIER UNLOCKED!"
+      },
+      "singularity": {
+        "absorbed": "VORTEX +{{points}}"
+      },
       "achievement": {
         "unlocked": "ACHIEVEMENT: {{name}} (+{{coins}} ⬡)"
       },
@@ -132,12 +144,20 @@
         "bossWave": "ANOMALY ALERT: Boss Core detected!"
       }
     },
+    "mutators": {
+      "hyperGravity": "Hyper Gravity",
+      "turboRotors": "Turbo Rotors",
+      "superMagnetism": "Super Magnetism",
+      "volatileCluster": "Volatile Cluster"
+    },
     "tutorial": {
       "pendulum": "Match 3+ same-color balls or sever upper anchors to trigger a magnetic avalanche!",
       "rotor": "The central rotor spins dynamically from ball weight balance and shot impact torque.",
       "repulsor": "Repulsive cores and like magnetic poles bend your shot—trust the curved laser!",
       "portal": "Shoot into a Quantum Portal to teleport your projectile past moving barriers!",
-      "boss": "Boss Cores (👑) have 3 shields and burst into a shower of coins when destroyed!"
+      "boss": "Boss Cores (👑) have 3 shields and burst into a shower of coins when destroyed!",
+      "laserLock": "Destroy all Lock Cores (🔒) to disable the energy barrier!",
+      "singularity": "Avalanche balls pulled into the Singularity Vortex grant bonus points & Overcharge!"
     }
   },
   "modals": {
@@ -261,6 +281,7 @@
       "instructions": {
         "aim": "Aim & Shoot: Mouse or Touch",
         "swap": "Swap Projectile: Click Launcher or Press Space",
+        "keyboard": "Keyboard: Left/Right to Aim, Enter to Shoot, F to Flip Polarity, 1-5 for Special Balls",
         "physics": "Tip: Sever anchor links or unbalance rotors to trigger chain reactions!"
       },
       "button": {
@@ -318,6 +339,22 @@
       "lvl12": {
         "name": "Sovereign Singularity",
         "description": "The final showdown: twin rotors, dimensional portals, and Boss Cores."
+      },
+      "lvl13": {
+        "name": "Quantum Locks",
+        "description": "Destroy all Lock Cores to disable the oscillating energy shield."
+      },
+      "lvl14": {
+        "name": "Singularity Well",
+        "description": "Feed falling magnetic avalanches into twin gravitational vortices."
+      },
+      "lvl15": {
+        "name": "Orbital Prism",
+        "description": "Five spiral arms guarded by portals, laser locks, and a central singularity."
+      },
+      "lvl16": {
+        "name": "Absolute Nexus",
+        "description": "Master the ultimate magnetic matrix of Boss Cores, portals, and twin singularities."
       }
     }
   },

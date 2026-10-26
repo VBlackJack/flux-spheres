@@ -40,6 +40,7 @@ export class UIManager {
       powerupsContainer: document.getElementById('powerups-bar'),
       btnLevels: document.getElementById('btn-levels'),
       btnEndless: document.getElementById('btn-endless'),
+      btnDaily: document.getElementById('btn-daily'),
       btnShop: document.getElementById('btn-shop'),
       btnRestart: document.getElementById('btn-restart'),
       btnPause: document.getElementById('btn-pause'),
@@ -47,6 +48,7 @@ export class UIManager {
       btnContrast: document.getElementById('btn-contrast'),
       btnLang: document.getElementById('btn-lang'),
       swapBtn: document.getElementById('btn-swap-ball'),
+      polarityBtn: document.getElementById('btn-polarity'),
       tutorialBanner: document.getElementById('tutorial-banner'),
       cancelAimBanner: document.getElementById('cancel-aim-banner'),
       modalLevels: document.getElementById('modal-levels'),
@@ -128,7 +130,7 @@ export class UIManager {
       const countSpan = document.createElement('span');
       countSpan.className = 'powerup-count';
       countSpan.id = `powerup-count-${type}`;
-      countSpan.textContent = '0';
+      countSpan.textContent = String(this.engine.specialInventory[type] || 0);
 
       btn.append(iconSpan, labelSpan, countSpan);
       btn.addEventListener('click', () => {
@@ -148,6 +150,13 @@ export class UIManager {
       this.hideAllModals();
       this.engine.startEndlessMode();
     });
+
+    if (this.elements.btnDaily) {
+      this.elements.btnDaily.addEventListener('click', () => {
+        this.hideAllModals();
+        this.engine.startDailyChallenge();
+      });
+    }
 
     this.elements.btnShop.addEventListener('click', () => {
       this.openShopModal();
@@ -193,12 +202,18 @@ export class UIManager {
       this.engine.swapLauncherBalls();
     });
 
+    if (this.elements.polarityBtn) {
+      this.elements.polarityBtn.addEventListener('click', () => {
+        this.engine.togglePolarityFlip();
+      });
+    }
+
     this.elements.btnCloseLevels.addEventListener('click', () => {
-      this.elements.modalLevels.classList.add('hidden');
+      this.closeOverlayModal(this.elements.modalLevels);
     });
 
     this.elements.btnCloseShop.addEventListener('click', () => {
-      this.elements.modalShop.classList.add('hidden');
+      this.closeOverlayModal(this.elements.modalShop);
     });
 
     this.elements.btnPlayEndlessModal.addEventListener('click', () => {
@@ -246,25 +261,71 @@ export class UIManager {
       this.engine.restartCurrent();
     });
 
+    const specialOrder = [
+      SPECIAL_TYPES.BOMB,
+      SPECIAL_TYPES.LIGHTNING,
+      SPECIAL_TYPES.RAINBOW,
+      SPECIAL_TYPES.ANVIL,
+      SPECIAL_TYPES.FREEZE
+    ];
+
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        if (this.isAnyModalOpen()) {
-          return;
-        }
-        e.preventDefault();
-        this.engine.swapLauncherBalls();
-      } else if (e.code === 'Escape') {
+      if (e.code === 'Escape') {
         if (!this.elements.modalLevels.classList.contains('hidden')) {
-          this.elements.modalLevels.classList.add('hidden');
+          this.closeOverlayModal(this.elements.modalLevels);
           return;
         }
         if (!this.elements.modalShop.classList.contains('hidden')) {
-          this.elements.modalShop.classList.add('hidden');
+          this.closeOverlayModal(this.elements.modalShop);
           return;
         }
-        this.engine.togglePause();
+        if (this.engine.state === GAME_STATES.PLAYING || this.engine.state === GAME_STATES.PAUSED) {
+          this.engine.togglePause();
+        }
+        return;
+      }
+
+      if (this.isAnyModalOpen()) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        this.engine.swapLauncherBalls();
+      } else if (e.code === 'KeyF') {
+        e.preventDefault();
+        this.engine.togglePolarityFlip();
+      } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+        e.preventDefault();
+        const step = e.shiftKey
+          ? this.gameConfig.canvas.keyboardAimFastStepRad
+          : this.gameConfig.canvas.keyboardAimStepRad;
+        const dir = e.code === 'ArrowLeft' ? -1 : 1;
+        this.engine.adjustAimByDelta(dir * step);
+        this.updateAimState(this.engine);
+      } else if (e.code === 'Enter') {
+        e.preventDefault();
+        this.engine.shoot();
+        this.updateAimState(this.engine);
+      } else if (e.code.startsWith('Digit')) {
+        const idx = Number.parseInt(e.code.replace('Digit', ''), 10) - 1;
+        if (idx >= 0 && idx < specialOrder.length) {
+          e.preventDefault();
+          this.engine.equipSpecialBall(specialOrder[idx]);
+        }
       }
     });
+  }
+
+  closeOverlayModal(modalElement) {
+    modalElement.classList.add('hidden');
+    if (this.engine.state === GAME_STATES.VICTORY) {
+      this.elements.modalVictory.classList.remove('hidden');
+    } else if (this.engine.state === GAME_STATES.GAME_OVER) {
+      this.elements.modalGameOver.classList.remove('hidden');
+    } else if (this.engine.state === GAME_STATES.PAUSED) {
+      this.elements.modalPause.classList.remove('hidden');
+    }
   }
 
   isAnyModalOpen() {
@@ -499,11 +560,24 @@ export class UIManager {
     this.elements.overchargePct.textContent = t('hud.stats.overcharge.pct', { pct: overchargePct });
     this.elements.overchargeFill.style.width = `${overchargePct}%`;
 
-    const bestScore = engine.mode === GAME_MODES.CAMPAIGN
-      ? (this.storageManager.getLevelStats()[engine.currentLevelId]?.bestScore || 0)
-      : this.storageManager.getEndlessHighScore();
+    let bestScore = 0;
+    if (engine.mode === GAME_MODES.CAMPAIGN) {
+      bestScore = this.storageManager.getLevelStats()[engine.currentLevelId]?.bestScore || 0;
+    } else if (engine.mode === GAME_MODES.DAILY) {
+      bestScore = this.storageManager.getDailyHighScore();
+    } else {
+      bestScore = this.storageManager.getEndlessHighScore();
+    }
 
     this.elements.highScoreValue.textContent = String(Math.max(bestScore, engine.score));
+
+    if (this.elements.polarityBtn) {
+      const polKey = engine.isPolarityFlipped
+        ? 'hud.launcher.polarity.inverted'
+        : 'hud.launcher.polarity.normal';
+      this.elements.polarityBtn.textContent = t(polKey);
+      this.elements.polarityBtn.classList.toggle('active', Boolean(engine.isPolarityFlipped));
+    }
 
     if (engine.mode === GAME_MODES.CAMPAIGN) {
       const lvl = this.levelsConfig.levels.find((l) => l.id === engine.currentLevelId);
@@ -512,6 +586,15 @@ export class UIManager {
         name: lvl ? t(lvl.nameKey) : ''
       });
       this.elements.shotsValue.textContent = String(engine.shotsRemaining);
+    } else if (engine.mode === GAME_MODES.DAILY) {
+      const mutatorLabel = engine.activeMutatorKey
+        ? t(`gameplay.mutators.${engine.activeMutatorKey}`)
+        : '';
+      this.elements.modeBanner.textContent = t('hud.stats.mode.daily', {
+        mutator: mutatorLabel,
+        wave: engine.waveCount
+      });
+      this.elements.shotsValue.textContent = t('hud.stats.shots.infinite');
     } else {
       this.elements.modeBanner.textContent = t('hud.stats.mode.endless', {
         wave: engine.waveCount

@@ -367,7 +367,8 @@
         "centerX": 270,
         "centerY": 235,
         "armLength": 4,
-        "spacing": 40
+        "spacing": 40,
+        "perpSpacingFactor": 0.85
       },
       "obstacles": [
         {
@@ -587,6 +588,243 @@
           "type": "bumper",
           "x": 444,
           "y": 380
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "nameKey": "levels.items.lvl13.name",
+      "descriptionKey": "levels.items.lvl13.description",
+      "tutorialKey": "gameplay.tutorial.laserLock",
+      "starThresholds": [0, 7400, 11800],
+      "maxShots": 40,
+      "paletteCount": 5,
+      "specialInventory": {
+        "bomb": 2,
+        "lightning": 2,
+        "rainbow": 2,
+        "anvil": 1,
+        "freeze": 1
+      },
+      "modifierWeights": {
+        "laserLock": 0.16,
+        "coinCore": 0.16,
+        "armored": 0.1
+      },
+      "layout": {
+        "type": "pendulum",
+        "anchors": [
+          { "x": 155, "y": 80 },
+          { "x": 270, "y": 80 },
+          { "x": 385, "y": 80 }
+        ],
+        "rows": 6,
+        "cols": 9,
+        "startX": 110,
+        "startY": 116,
+        "spacingX": 40,
+        "spacingY": 36
+      },
+      "obstacles": [
+        {
+          "type": "barrier",
+          "x": 270,
+          "y": 420,
+          "width": 175,
+          "oscillateRangeX": 85,
+          "oscillateSpeed": 0.026
+        },
+        {
+          "type": "bumper",
+          "x": 92,
+          "y": 360
+        },
+        {
+          "type": "bumper",
+          "x": 448,
+          "y": 360
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "nameKey": "levels.items.lvl14.name",
+      "descriptionKey": "levels.items.lvl14.description",
+      "tutorialKey": "gameplay.tutorial.singularity",
+      "starThresholds": [0, 8200, 13200],
+      "maxShots": 42,
+      "paletteCount": 5,
+      "specialInventory": {
+        "bomb": 2,
+        "lightning": 2,
+        "rainbow": 2,
+        "anvil": 2,
+        "freeze": 2
+      },
+      "modifierWeights": {
+        "coinCore": 0.18,
+        "dormantBomb": 0.12,
+        "chameleon": 0.1
+      },
+      "layout": {
+        "type": "pendulum",
+        "anchors": [
+          { "x": 175, "y": 82 },
+          { "x": 365, "y": 82 }
+        ],
+        "rows": 6,
+        "cols": 8,
+        "startX": 130,
+        "startY": 118,
+        "spacingX": 40,
+        "spacingY": 36
+      },
+      "obstacles": [
+        {
+          "type": "singularity",
+          "x": 135,
+          "y": 510
+        },
+        {
+          "type": "singularity",
+          "x": 405,
+          "y": 510
+        },
+        {
+          "type": "repulsor",
+          "x": 270,
+          "y": 395
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "nameKey": "levels.items.lvl15.name",
+      "descriptionKey": "levels.items.lvl15.description",
+      "starThresholds": [0, 8600, 13800],
+      "maxShots": 44,
+      "paletteCount": 6,
+      "specialInventory": {
+        "bomb": 3,
+        "lightning": 2,
+        "rainbow": 2,
+        "anvil": 2,
+        "freeze": 2
+      },
+      "modifierWeights": {
+        "laserLock": 0.14,
+        "dormantBomb": 0.1,
+        "coinCore": 0.16,
+        "armored": 0.12
+      },
+      "layout": {
+        "type": "spiral",
+        "centerX": 270,
+        "centerY": 230,
+        "arms": 5,
+        "ballsPerArm": 7,
+        "startRadius": 44,
+        "radiusStep": 19,
+        "angleStep": 0.34
+      },
+      "obstacles": [
+        {
+          "type": "pivot",
+          "x": 270,
+          "y": 230,
+          "angularSpeed": 0.0055
+        },
+        {
+          "type": "barrier",
+          "x": 270,
+          "y": 415,
+          "width": 165,
+          "oscillateRangeX": 90,
+          "oscillateSpeed": 0.028
+        },
+        {
+          "type": "portal",
+          "pairId": "sigma",
+          "x": 92,
+          "y": 485
+        },
+        {
+          "type": "portal",
+          "pairId": "sigma",
+          "x": 448,
+          "y": 145
+        },
+        {
+          "type": "singularity",
+          "x": 270,
+          "y": 535
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "nameKey": "levels.items.lvl16.name",
+      "descriptionKey": "levels.items.lvl16.description",
+      "starThresholds": [0, 9500, 15200],
+      "maxShots": 50,
+      "paletteCount": 6,
+      "specialInventory": {
+        "bomb": 3,
+        "lightning": 3,
+        "rainbow": 3,
+        "anvil": 2,
+        "freeze": 3
+      },
+      "modifierWeights": {
+        "bossCore": 0.14,
+        "laserLock": 0.14,
+        "dormantBomb": 0.12,
+        "chameleon": 0.12,
+        "coinCore": 0.18
+      },
+      "layout": {
+        "type": "hexagon",
+        "centerX": 270,
+        "centerY": 220,
+        "layers": 3,
+        "spacing": 40
+      },
+      "obstacles": [
+        {
+          "type": "pivot",
+          "x": 270,
+          "y": 220,
+          "angularSpeed": -0.006
+        },
+        {
+          "type": "barrier",
+          "x": 270,
+          "y": 395,
+          "width": 180,
+          "oscillateRangeX": 85,
+          "oscillateSpeed": 0.03
+        },
+        {
+          "type": "portal",
+          "pairId": "nexus",
+          "x": 90,
+          "y": 470
+        },
+        {
+          "type": "portal",
+          "pairId": "nexus",
+          "x": 270,
+          "y": 95
+        },
+        {
+          "type": "singularity",
+          "x": 165,
+          "y": 525
+        },
+        {
+          "type": "singularity",
+          "x": 375,
+          "y": 525
         }
       ]
     }

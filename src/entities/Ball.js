@@ -36,6 +36,8 @@ export class Ball {
     this.id = nextBallId++;
     this.x = x;
     this.y = y;
+    this.prevX = x;
+    this.prevY = y;
     this.vx = 0;
     this.vy = 0;
     this.radius = radius;
@@ -54,5 +56,10 @@ export class Ball {
     this.pivotRadius = pivotRadius;
     this.pivotAngle = pivotAngle;
     this.pulsePhase = Math.random() * MATH_CONSTANTS.TWO_PI;
+  }
+
+  savePreviousPosition() {
+    this.prevX = this.x;
+    this.prevY = this.y;
   }
 }

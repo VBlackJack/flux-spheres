@@ -49,23 +49,29 @@ export class Renderer {
     const key = `${palette.id}_${radius}`;
     let grad = this.ballGradientCache.get(key);
     if (!grad) {
+      const renderCfg = this.ballsConfig.render;
+      const offset = radius * renderCfg.gradientOffsetFactor;
       grad = this.ctx.createRadialGradient(
-        -radius * 0.35,
-        -radius * 0.35,
-        radius * 0.12,
+        offset,
+        offset,
+        radius * renderCfg.gradientInnerRadiusFactor,
         0,
         0,
         radius
       );
       grad.addColorStop(0, palette.highlight);
-      grad.addColorStop(0.55, palette.fill);
+      grad.addColorStop(renderCfg.gradientMidStop, palette.fill);
       grad.addColorStop(1, palette.shadow);
       this.ballGradientCache.set(key, grad);
     }
     return grad;
   }
 
-  render(engineState) {
+  interpolate(prev, curr, alpha) {
+    return prev !== undefined ? prev + (curr - prev) * alpha : curr;
+  }
+
+  render(engineState, alpha = 1.0) {
     const ctx = this.ctx;
     const { width, height } = this.canvas;
     const theme = this.gameConfig.theme;
@@ -84,15 +90,15 @@ export class Renderer {
 
     this.drawGrid(ctx, width, height, theme);
     this.drawWallsAndDangerZone(ctx, width, height, theme);
-    this.drawObstacles(ctx, engineState.physicsWorld.obstacles, now);
-    this.drawMagneticBonds(ctx, engineState.physicsWorld, theme, now);
+    this.drawObstacles(ctx, engineState.physicsWorld.obstacles, now, alpha);
+    this.drawMagneticBonds(ctx, engineState.physicsWorld, theme, now, alpha);
 
     for (const ball of engineState.physicsWorld.balls) {
-      this.drawBall(ctx, ball, now);
+      this.drawBall(ctx, ball, now, alpha);
     }
 
     for (const ball of engineState.physicsWorld.droppingBalls) {
-      this.drawBall(ctx, ball, now);
+      this.drawBall(ctx, ball, now, alpha);
     }
 
     if (engineState.aimPoints && !engineState.physicsWorld.projectile && !engineState.isAimCancelled) {
@@ -109,7 +115,7 @@ export class Renderer {
     this.drawTrail(ctx, engineState.particleSystem);
 
     if (engineState.physicsWorld.projectile) {
-      this.drawBall(ctx, engineState.physicsWorld.projectile, now);
+      this.drawBall(ctx, engineState.physicsWorld.projectile, now, alpha);
     }
 
     this.drawLauncher(ctx, engineState, theme, now);
@@ -119,7 +125,7 @@ export class Renderer {
 
   drawGrid(ctx, width, height, theme) {
     ctx.strokeStyle = theme.gridLineColor;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = theme.gridLineWidth;
     const step = theme.gridSize;
 
     ctx.beginPath();
@@ -142,9 +148,9 @@ export class Renderer {
     ctx.fillRect(margin, dangerY, width - margin * 2, height - dangerY);
 
     ctx.save();
-    ctx.setLineDash([10, 8]);
+    ctx.setLineDash(theme.dangerLineDash);
     ctx.strokeStyle = theme.dangerLineColor;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = theme.dangerLineWidth;
     ctx.beginPath();
     ctx.moveTo(margin, dangerY);
     ctx.lineTo(width - margin, dangerY);
@@ -152,50 +158,53 @@ export class Renderer {
     ctx.restore();
 
     ctx.strokeStyle = theme.wallGlowColor;
-    ctx.lineWidth = 8;
+    ctx.lineWidth = theme.wallGlowLineWidth;
     ctx.strokeRect(margin * MATH_CONSTANTS.HALF, margin * MATH_CONSTANTS.HALF, width - margin, height - margin);
 
     ctx.strokeStyle = theme.wallColor;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = theme.wallLineWidth;
     ctx.strokeRect(margin * MATH_CONSTANTS.HALF, margin * MATH_CONSTANTS.HALF, width - margin, height - margin);
   }
 
-  drawMagneticBonds(ctx, physicsWorld, theme, now) {
-    const pulse = 0.65 + 0.35 * Math.sin(now * theme.magneticFieldPulseSpeed);
+  drawMagneticBonds(ctx, physicsWorld, theme, now, alpha = 1.0) {
+    const pulse = theme.magneticPulseBase + theme.magneticPulseAmp * Math.sin(now * theme.magneticFieldPulseSpeed);
     const magCfg = physicsWorld.physicsConfig.magnetism;
+    const simCfg = physicsWorld.physicsConfig.simulation;
     const ballRadius = physicsWorld.physicsConfig.ball.radius;
     const fieldMaxDist = ballRadius * magCfg.fieldLineMaxDistanceFactor;
     const fieldMaxDistSq = fieldMaxDist * fieldMaxDist;
+    const stressDist = ballRadius * simCfg.bondRestDistanceFactor * theme.magneticStressThresholdFactor;
 
     ctx.save();
-    ctx.lineWidth = 1.2;
-    ctx.setLineDash([3, 5]);
-    for (let i = 0; i < physicsWorld.balls.length; i++) {
-      const a = physicsWorld.balls[i];
-      if (!a.colorId) {
-        continue;
+    ctx.lineWidth = theme.magneticFieldLineWidth;
+    ctx.setLineDash(theme.magneticFieldDash);
+    ctx.strokeStyle = `rgba(${theme.magneticSameColorBase}, ${theme.magneticFieldAlpha * pulse})`;
+    ctx.beginPath();
+    physicsWorld.spatialGrid.forEachNeighborPair(physicsWorld.balls, (a, b) => {
+      if (!a.colorId || a.colorId !== b.colorId || a.bonds.has(b.id)) {
+        return;
       }
-      for (let j = i + 1; j < physicsWorld.balls.length; j++) {
-        const b = physicsWorld.balls[j];
-        if (a.colorId !== b.colorId || a.bonds.has(b.id)) {
-          continue;
-        }
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const distSq = dx * dx + dy * dy;
-        if (distSq <= fieldMaxDistSq) {
-          ctx.strokeStyle = `rgba(${theme.magneticSameColorBase}, ${0.24 * pulse})`;
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.stroke();
-        }
+      const ax = this.interpolate(a.prevX, a.x, alpha);
+      const ay = this.interpolate(a.prevY, a.y, alpha);
+      const bx = this.interpolate(b.prevX, b.x, alpha);
+      const by = this.interpolate(b.prevY, b.y, alpha);
+      const dx = bx - ax;
+      const dy = by - ay;
+      if (dx * dx + dy * dy <= fieldMaxDistSq) {
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
       }
-    }
+    });
+    ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.lineWidth = 2.4;
+    ctx.lineWidth = theme.magneticBondLineWidth;
+    const sameColorStroke = `rgba(${theme.magneticSameColorBase}, ${theme.magneticBondSameColorAlpha * pulse})`;
+    const repelColorStroke = `rgba(${theme.magneticRepelColorBase}, ${theme.magneticFieldAlpha * pulse})`;
     for (const a of physicsWorld.balls) {
+      const polA = a.colorId ? (physicsWorld.polarityMap.get(a.colorId) || 0) : 0;
+      const ax = this.interpolate(a.prevX, a.x, alpha);
+      const ay = this.interpolate(a.prevY, a.y, alpha);
       for (const neighborId of a.bonds) {
         if (neighborId <= a.id) {
           continue;
@@ -204,27 +213,43 @@ export class Renderer {
         if (!b) {
           continue;
         }
+        const bx = this.interpolate(b.prevX, b.x, alpha);
+        const by = this.interpolate(b.prevY, b.y, alpha);
+        const dist = Math.hypot(bx - ax, by - ay);
+        const isStressed = !a.isAnchor && !b.isAnchor && dist > stressDist;
         const sameColor = a.colorId && a.colorId === b.colorId;
-        ctx.strokeStyle = sameColor
-          ? `rgba(${theme.magneticSameColorBase}, ${0.55 * pulse})`
-          : theme.magneticLinkColor;
+        const polB = b.colorId ? (physicsWorld.polarityMap.get(b.colorId) || 0) : 0;
+        const samePolarityRepel = !sameColor && polA * polB > 0;
+        if (isStressed) {
+          ctx.strokeStyle = theme.magneticStressColor;
+        } else if (sameColor) {
+          ctx.strokeStyle = sameColorStroke;
+        } else {
+          ctx.strokeStyle = samePolarityRepel ? repelColorStroke : theme.magneticLinkColor;
+        }
 
         ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
         ctx.stroke();
       }
     }
     ctx.restore();
   }
 
-  drawObstacles(ctx, obstacles, now) {
+  drawObstacles(ctx, obstacles, now, alpha = 1.0) {
     const typesCfg = this.obstaclesConfig.types;
     const obsDefaults = this.obstaclesConfig.defaults;
     const drawnPortalPairs = new Set();
 
     for (const obs of obstacles) {
+      if (obs.disabled) {
+        continue;
+      }
       const cfg = typesCfg[obs.type] || {};
+      const ox = this.interpolate(obs.prevX, obs.x, alpha);
+      const oy = this.interpolate(obs.prevY, obs.y, alpha);
+      const oAngle = this.interpolate(obs.prevAngle, obs.angle, alpha);
       ctx.save();
 
       if (obs.type === OBSTACLE_TYPES.PORTAL) {
@@ -234,10 +259,10 @@ export class Renderer {
           if (mate) {
             ctx.save();
             ctx.strokeStyle = cfg.fieldColor;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([4, 8]);
+            ctx.lineWidth = obsDefaults.lineWidth;
+            ctx.setLineDash(cfg.linkDash);
             ctx.beginPath();
-            ctx.moveTo(obs.x, obs.y);
+            ctx.moveTo(ox, oy);
             ctx.lineTo(mate.x, mate.y);
             ctx.stroke();
             ctx.restore();
@@ -245,12 +270,12 @@ export class Renderer {
         }
 
         const pulseScale = 1 + obs.hitPulse * obsDefaults.bumperPulseScale;
-        ctx.translate(obs.x, obs.y);
+        ctx.translate(ox, oy);
         ctx.scale(pulseScale, pulseScale);
 
         ctx.fillStyle = cfg.fieldColor;
         ctx.beginPath();
-        ctx.arc(0, 0, obs.radius + 8, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.arc(0, 0, obs.radius + cfg.fieldRadiusPadding, 0, MATH_CONSTANTS.TWO_PI);
         ctx.fill();
 
         ctx.fillStyle = cfg.outerColor;
@@ -258,20 +283,48 @@ export class Renderer {
         ctx.arc(0, 0, obs.radius, 0, MATH_CONSTANTS.TWO_PI);
         ctx.fill();
 
-        ctx.rotate(obs.angle);
+        ctx.rotate(oAngle);
         ctx.strokeStyle = cfg.ringColor;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([10, 6]);
+        ctx.lineWidth = obsDefaults.ringLineWidth;
+        ctx.setLineDash(cfg.ringDash);
         ctx.beginPath();
-        ctx.arc(0, 0, obs.radius - 3, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.arc(0, 0, obs.radius - cfg.ringInset, 0, MATH_CONSTANTS.TWO_PI);
         ctx.stroke();
         ctx.setLineDash([]);
 
         ctx.strokeStyle = cfg.coreColor;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = obsDefaults.lineWidth;
         ctx.beginPath();
-        ctx.arc(0, 0, obs.radius * 0.45, 0, Math.PI * 1.35);
+        ctx.arc(0, 0, obs.radius * cfg.swirlRadiusFactor, 0, Math.PI * cfg.swirlArcAngleFactor);
         ctx.stroke();
+      } else if (obs.type === OBSTACLE_TYPES.SINGULARITY) {
+        const pulseScale = 1 + obs.hitPulse * obsDefaults.bumperPulseScale;
+        ctx.translate(ox, oy);
+        ctx.scale(pulseScale, pulseScale);
+
+        ctx.fillStyle = cfg.fieldColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, obs.captureRadius, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.fill();
+
+        ctx.fillStyle = cfg.outerColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, obs.radius, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.fill();
+
+        ctx.rotate(oAngle);
+        ctx.strokeStyle = cfg.ringColor;
+        ctx.lineWidth = obsDefaults.ringLineWidth;
+        ctx.setLineDash(cfg.ringDash);
+        ctx.beginPath();
+        ctx.arc(0, 0, obs.radius - cfg.ringInset, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = cfg.coreColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, obs.radius * cfg.swirlRadiusFactor, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.fill();
       } else if (obs.type === OBSTACLE_TYPES.REPULSOR || obs.type === OBSTACLE_TYPES.ATTRACTOR) {
         const wave = (now * obsDefaults.fieldWaveSpeed) % obs.fieldRadius;
         const radiusWave = obs.type === OBSTACLE_TYPES.REPULSOR
@@ -280,45 +333,46 @@ export class Renderer {
 
         ctx.fillStyle = cfg.fieldColor;
         ctx.beginPath();
-        ctx.arc(obs.x, obs.y, obs.fieldRadius, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.arc(ox, oy, obs.fieldRadius, 0, MATH_CONSTANTS.TWO_PI);
         ctx.fill();
 
         ctx.strokeStyle = cfg.coreColor;
-        ctx.globalAlpha = 0.35;
-        ctx.lineWidth = 2;
+        ctx.globalAlpha = obsDefaults.fieldWaveAlpha;
+        ctx.lineWidth = obsDefaults.lineWidth;
         ctx.beginPath();
-        ctx.arc(obs.x, obs.y, Math.max(4, radiusWave), 0, MATH_CONSTANTS.TWO_PI);
+        ctx.arc(ox, oy, Math.max(obsDefaults.fieldWaveMinRadius, radiusWave), 0, MATH_CONSTANTS.TWO_PI);
         ctx.stroke();
         ctx.globalAlpha = 1;
 
         ctx.fillStyle = cfg.coreColor;
         ctx.beginPath();
-        ctx.arc(obs.x, obs.y, obs.radius, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.arc(ox, oy, obs.radius, 0, MATH_CONSTANTS.TWO_PI);
         ctx.fill();
       } else if (obs.type === OBSTACLE_TYPES.PIVOT) {
-        ctx.translate(obs.x, obs.y);
-        ctx.rotate(obs.angle);
+        const inset = obsDefaults.ringInset;
+        ctx.translate(ox, oy);
+        ctx.rotate(oAngle);
         ctx.fillStyle = cfg.outerColor;
         ctx.beginPath();
         ctx.arc(0, 0, obs.radius, 0, MATH_CONSTANTS.TWO_PI);
         ctx.fill();
 
         ctx.strokeStyle = cfg.ringColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = obsDefaults.ringLineWidth;
         ctx.beginPath();
-        ctx.arc(0, 0, obs.radius - 4, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.arc(0, 0, obs.radius - inset, 0, MATH_CONSTANTS.TWO_PI);
         ctx.stroke();
 
         ctx.strokeStyle = cfg.coreColor;
         ctx.beginPath();
-        ctx.moveTo(-obs.radius + 4, 0);
-        ctx.lineTo(obs.radius - 4, 0);
-        ctx.moveTo(0, -obs.radius + 4);
-        ctx.lineTo(0, obs.radius - 4);
+        ctx.moveTo(-obs.radius + inset, 0);
+        ctx.lineTo(obs.radius - inset, 0);
+        ctx.moveTo(0, -obs.radius + inset);
+        ctx.lineTo(0, obs.radius - inset);
         ctx.stroke();
       } else if (obs.type === OBSTACLE_TYPES.BUMPER) {
         const pulseScale = 1 + obs.hitPulse * obsDefaults.bumperPulseScale;
-        ctx.translate(obs.x, obs.y);
+        ctx.translate(ox, oy);
         ctx.scale(pulseScale, pulseScale);
         ctx.fillStyle = cfg.outerColor;
         ctx.beginPath();
@@ -326,9 +380,9 @@ export class Renderer {
         ctx.fill();
 
         ctx.strokeStyle = cfg.ringColor;
-        ctx.lineWidth = 3.5;
+        ctx.lineWidth = cfg.ringLineWidth;
         ctx.beginPath();
-        ctx.arc(0, 0, obs.radius - 4, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.arc(0, 0, obs.radius - obsDefaults.ringInset, 0, MATH_CONSTANTS.TWO_PI);
         ctx.stroke();
 
         ctx.fillStyle = cfg.coreColor;
@@ -340,9 +394,9 @@ export class Renderer {
         const halfH = obs.height * MATH_CONSTANTS.HALF;
         ctx.fillStyle = cfg.fillColor;
         ctx.strokeStyle = cfg.borderColor;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = obsDefaults.lineWidth;
         ctx.beginPath();
-        ctx.roundRect(obs.x - halfW, obs.y - halfH, obs.width, obs.height, obsDefaults.barrierCornerRadius);
+        ctx.roundRect(ox - halfW, oy - halfH, obs.width, obs.height, obsDefaults.barrierCornerRadius);
         ctx.fill();
         ctx.stroke();
       }
@@ -358,24 +412,37 @@ export class Renderer {
     return this.colorMap.get(ball.colorId) || this.ballsConfig.standardColors[0];
   }
 
-  drawBall(ctx, ball, now) {
+  drawBall(ctx, ball, now, alpha = 1.0) {
     const palette = this.getBallPalette(ball);
     const r = ball.radius;
     const theme = this.gameConfig.theme;
+    const renderCfg = this.ballsConfig.render;
+    const bxPos = this.interpolate(ball.prevX, ball.x, alpha);
+    const byPos = this.interpolate(ball.prevY, ball.y, alpha);
 
     ctx.save();
-    ctx.translate(ball.x, ball.y);
+    ctx.translate(bxPos, byPos);
+
+    if (palette.glow && (ball.specialType || ball.clusterModifier)) {
+      ctx.save();
+      ctx.fillStyle = palette.glow;
+      ctx.globalAlpha = renderCfg.glowAlpha;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * renderCfg.glowRadiusFactor, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.fill();
+      ctx.restore();
+    }
 
     if (ball.isAnchor) {
       ctx.strokeStyle = theme.anchorRingColor;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = renderCfg.anchorRingLineWidth;
       ctx.beginPath();
-      ctx.arc(0, 0, r + 3.5, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.arc(0, 0, r + renderCfg.anchorRingPadding, 0, MATH_CONSTANTS.TWO_PI);
       ctx.stroke();
 
       ctx.fillStyle = theme.anchorCoreColor;
       ctx.beginPath();
-      ctx.arc(0, -r - 3.5, 2.5, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.arc(0, -r - renderCfg.anchorRingPadding, renderCfg.anchorPinRadius, 0, MATH_CONSTANTS.TWO_PI);
       ctx.fill();
     }
 
@@ -384,18 +451,18 @@ export class Renderer {
     ctx.arc(0, 0, r, 0, MATH_CONSTANTS.TWO_PI);
     ctx.fill();
 
-    ctx.strokeStyle = this.highContrast ? '#ffffff' : 'rgba(255, 255, 255, 0.28)';
-    ctx.lineWidth = this.highContrast ? 2.5 : 1.25;
+    ctx.strokeStyle = this.highContrast ? renderCfg.borderStrokeHighContrast : renderCfg.borderStrokeNormal;
+    ctx.lineWidth = this.highContrast ? renderCfg.borderWidthHighContrast : renderCfg.borderWidthNormal;
     ctx.stroke();
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.fillStyle = renderCfg.shineColor;
     ctx.beginPath();
     ctx.ellipse(
-      -r * 0.32,
-      -r * 0.32,
-      r * 0.26,
-      r * 0.14,
-      -Math.PI / 4,
+      r * renderCfg.shineOffsetFactor,
+      r * renderCfg.shineOffsetFactor,
+      r * renderCfg.shineRadiusXFactor,
+      r * renderCfg.shineRadiusYFactor,
+      -MATH_CONSTANTS.QUARTER_PI,
       0,
       MATH_CONSTANTS.TWO_PI
     );
@@ -413,64 +480,64 @@ export class Renderer {
       : null;
 
     if (modSpec) {
-      const isCrackedArmor =
-        (ball.clusterModifier === CLUSTER_MODIFIERS.ARMORED || ball.clusterModifier === CLUSTER_MODIFIERS.BOSS_CORE) &&
-        ball.armorHits === 1;
+      const isArmoredType =
+        ball.clusterModifier === CLUSTER_MODIFIERS.ARMORED || ball.clusterModifier === CLUSTER_MODIFIERS.BOSS_CORE;
+      const isCrackedArmor = isArmoredType && ball.armorHits === 1;
       ctx.strokeStyle = isCrackedArmor && modSpec.crackedColor ? modSpec.crackedColor : modSpec.ringColor;
-      ctx.lineWidth =
-        (ball.clusterModifier === CLUSTER_MODIFIERS.ARMORED || ball.clusterModifier === CLUSTER_MODIFIERS.BOSS_CORE) &&
-        ball.armorHits > 1
-          ? 3.8
-          : 2.4;
+      ctx.lineWidth = isArmoredType && ball.armorHits > 1
+        ? renderCfg.armorIntactLineWidth
+        : renderCfg.modifierRingLineWidth;
       if (isCrackedArmor) {
-        ctx.setLineDash([5, 4]);
+        ctx.setLineDash(renderCfg.crackedArmorDash);
       }
       ctx.beginPath();
-      ctx.arc(0, 0, r - 2, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.arc(0, 0, r - renderCfg.modifierRingInset, 0, MATH_CONSTANTS.TWO_PI);
       ctx.stroke();
       ctx.setLineDash([]);
     }
 
     const primaryLabel = palette.icon || palette.symbol;
     if (primaryLabel) {
-      const fontScale = this.highContrast ? 0.78 : 0.68;
-      ctx.font = `bold ${Math.round(r * fontScale)}px system-ui, sans-serif`;
+      const fontScale = this.highContrast ? renderCfg.labelScaleHighContrast : renderCfg.labelScaleNormal;
+      ctx.font = `bold ${Math.round(r * fontScale)}px ${theme.fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (this.highContrast) {
         ctx.strokeStyle = theme.floatingTextShadowColor;
-        ctx.lineWidth = 3;
-        ctx.strokeText(primaryLabel, 0, 1);
+        ctx.lineWidth = renderCfg.labelStrokeWidth;
+        ctx.strokeText(primaryLabel, 0, renderCfg.labelOffsetY);
       }
-      ctx.fillStyle = this.highContrast ? '#ffffff' : 'rgba(255, 255, 255, 0.92)';
-      ctx.fillText(primaryLabel, 0, 1);
+      ctx.fillStyle = this.highContrast ? renderCfg.labelColorHighContrast : renderCfg.labelColorNormal;
+      ctx.fillText(primaryLabel, 0, renderCfg.labelOffsetY);
     }
 
     if (modSpec?.badge) {
-      const bx = r * 0.56;
-      const by = -r * 0.56;
+      const bx = r * renderCfg.badgeOffsetFactor;
+      const by = -r * renderCfg.badgeOffsetFactor;
       ctx.fillStyle = theme.floatingTextShadowColor;
       ctx.strokeStyle = modSpec.ringColor;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = renderCfg.badgeBorderWidth;
       ctx.beginPath();
-      ctx.arc(bx, by, r * 0.36, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.arc(bx, by, r * renderCfg.badgeRadiusFactor, 0, MATH_CONSTANTS.TWO_PI);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-      ctx.font = `bold ${Math.round(r * 0.42)}px system-ui, sans-serif`;
+      ctx.fillStyle = renderCfg.badgeColor;
+      ctx.font = `bold ${Math.round(r * renderCfg.badgeFontScale)}px ${theme.fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(modSpec.badge, bx, by + 0.5);
+      ctx.fillText(modSpec.badge, bx, by + renderCfg.badgeTextOffsetY);
     }
 
     if (ball.specialType) {
-      const glowPulse = 0.6 + 0.4 * Math.sin(now * 0.008 + ball.pulsePhase);
+      const glowPulse =
+        renderCfg.specialGlowBaseAlpha +
+        renderCfg.specialGlowPulseAmp * Math.sin(now * renderCfg.specialGlowPulseSpeed + ball.pulsePhase);
       ctx.strokeStyle = palette.highlight;
       ctx.globalAlpha = glowPulse;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = renderCfg.specialGlowLineWidth;
       ctx.beginPath();
-      ctx.arc(0, 0, r + 2.5, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.arc(0, 0, r + renderCfg.specialGlowRadiusOffset, 0, MATH_CONSTANTS.TWO_PI);
       ctx.stroke();
     }
 
@@ -500,8 +567,8 @@ export class Renderer {
 
     ctx.save();
     ctx.strokeStyle = palette.highlight;
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([7, 7]);
+    ctx.lineWidth = theme.aimLineWidth;
+    ctx.setLineDash(theme.aimLineDash);
     ctx.beginPath();
     ctx.moveTo(points[0].x, points[0].y);
     for (let i = 1; i < points.length; i++) {
@@ -516,14 +583,14 @@ export class Renderer {
 
     const endX = points.landingX !== undefined ? points.landingX : points[points.length - 1].x;
     const endY = points.landingY !== undefined ? points.landingY : points[points.length - 1].y;
-    ctx.globalAlpha = 0.35;
+    ctx.globalAlpha = theme.aimGhostFillAlpha;
     ctx.fillStyle = palette.fill;
     ctx.beginPath();
     ctx.arc(endX, endY, currentBall.radius, 0, MATH_CONSTANTS.TWO_PI);
     ctx.fill();
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = theme.aimGhostStrokeAlpha;
     ctx.strokeStyle = palette.highlight;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = theme.aimGhostLineWidth;
     ctx.stroke();
 
     if (points.snapTarget && physicsWorld) {
@@ -531,13 +598,13 @@ export class Renderer {
       const isMatchingColor = currentBall.colorId && currentBall.colorId === target.colorId;
       const cluster = isMatchingColor ? physicsWorld.findColorCluster(target) : [target];
       const willMatch = isMatchingColor && cluster.length + 1 >= this.gameConfig.defaults.matchMinCount;
-      const pulse = 0.65 + 0.35 * Math.sin(now * 0.012);
-      ctx.strokeStyle = willMatch ? (theme.targetHighlightColor || palette.highlight) : palette.highlight;
-      ctx.lineWidth = willMatch ? 3 : 2;
+      const pulse = theme.magneticPulseBase + theme.magneticPulseAmp * Math.sin(now * theme.aimTargetPulseSpeed);
+      ctx.strokeStyle = willMatch ? theme.targetHighlightColor : palette.highlight;
+      ctx.lineWidth = willMatch ? theme.aimTargetMatchLineWidth : theme.aimTargetNormalLineWidth;
       ctx.globalAlpha = pulse;
       for (const member of cluster) {
         ctx.beginPath();
-        ctx.arc(member.x, member.y, member.radius + 4, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.arc(member.x, member.y, member.radius + theme.aimTargetRingPadding, 0, MATH_CONSTANTS.TWO_PI);
         ctx.stroke();
       }
     }
@@ -547,6 +614,7 @@ export class Renderer {
 
   drawLauncher(ctx, engineState, theme, now) {
     const canvasCfg = this.gameConfig.canvas;
+    const launcherGeom = canvasCfg.launcher;
     const lx = canvasCfg.launcherX;
     const ly = canvasCfg.launcherY;
     const angle = engineState.aimAngle;
@@ -554,10 +622,10 @@ export class Renderer {
     if (engineState.isAimCancelled) {
       ctx.save();
       ctx.strokeStyle = theme.cancelAimColor;
-      ctx.lineWidth = 3;
-      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = launcherGeom.cancelRingLineWidth;
+      ctx.setLineDash(launcherGeom.cancelRingDash);
       ctx.beginPath();
-      ctx.arc(lx, ly, 42, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.arc(lx, ly, launcherGeom.cancelRingRadius, 0, MATH_CONSTANTS.TWO_PI);
       ctx.stroke();
       ctx.restore();
     }
@@ -568,9 +636,15 @@ export class Renderer {
 
     ctx.fillStyle = theme.launcherBarrelColor;
     ctx.strokeStyle = theme.launcherAccentColor;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = launcherGeom.barrelBorderWidth;
     ctx.beginPath();
-    ctx.roundRect(-22, -46, 44, 52, 10);
+    ctx.roundRect(
+      launcherGeom.barrelX,
+      launcherGeom.barrelY,
+      launcherGeom.barrelWidth,
+      launcherGeom.barrelHeight,
+      launcherGeom.barrelCornerRadius
+    );
     ctx.fill();
     ctx.stroke();
 
@@ -579,9 +653,9 @@ export class Renderer {
     ctx.save();
     ctx.fillStyle = theme.launcherBaseColor;
     ctx.strokeStyle = theme.launcherAccentColor;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = launcherGeom.baseBorderWidth;
     ctx.beginPath();
-    ctx.arc(lx, ly, 30, 0, MATH_CONSTANTS.TWO_PI);
+    ctx.arc(lx, ly, launcherGeom.baseRadius, 0, MATH_CONSTANTS.TWO_PI);
     ctx.fill();
     ctx.stroke();
     ctx.restore();
@@ -589,7 +663,19 @@ export class Renderer {
     if (engineState.currentBall && !engineState.physicsWorld.projectile) {
       engineState.currentBall.x = lx;
       engineState.currentBall.y = ly;
-      this.drawBall(ctx, engineState.currentBall, now);
+      engineState.currentBall.savePreviousPosition();
+      this.drawBall(ctx, engineState.currentBall, now, 1.0);
+      if (engineState.isPolarityFlipped) {
+        const renderCfg = this.ballsConfig.render;
+        ctx.save();
+        ctx.strokeStyle = renderCfg.polarityFlipRingColor;
+        ctx.lineWidth = launcherGeom.nextBallRingWidth;
+        ctx.setLineDash(renderCfg.polarityFlipDash);
+        ctx.beginPath();
+        ctx.arc(lx, ly, engineState.currentBall.radius + renderCfg.polarityFlipRadiusOffset, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     if (engineState.nextBall) {
@@ -597,25 +683,28 @@ export class Renderer {
       const ny = ly + canvasCfg.nextBallOffsetY;
       ctx.save();
       ctx.strokeStyle = theme.launcherAccentColor;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = launcherGeom.nextBallRingWidth;
       ctx.beginPath();
-      ctx.arc(nx, ny, engineState.nextBall.radius + 5, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.arc(nx, ny, engineState.nextBall.radius + launcherGeom.nextBallRingPadding, 0, MATH_CONSTANTS.TWO_PI);
       ctx.stroke();
       ctx.restore();
 
       engineState.nextBall.x = nx;
       engineState.nextBall.y = ny;
-      this.drawBall(ctx, engineState.nextBall, now);
+      engineState.nextBall.savePreviousPosition();
+      this.drawBall(ctx, engineState.nextBall, now, 1.0);
     }
   }
 
   drawParticles(ctx, particleSystem) {
+    const pCfg = this.gameConfig.juice.particles;
+    const theme = this.gameConfig.theme;
     ctx.save();
 
     for (const sw of particleSystem.shockwaves) {
       ctx.strokeStyle = sw.color;
       ctx.globalAlpha = Math.max(0, sw.alpha);
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = pCfg.shockwaveLineWidth;
       ctx.beginPath();
       ctx.arc(sw.x, sw.y, sw.radius, 0, MATH_CONSTANTS.TWO_PI);
       ctx.stroke();
@@ -627,7 +716,7 @@ export class Renderer {
       }
       ctx.strokeStyle = bolt.color;
       ctx.globalAlpha = Math.max(0, bolt.alpha);
-      ctx.lineWidth = 4;
+      ctx.lineWidth = pCfg.lightningLineWidth;
       ctx.beginPath();
       ctx.moveTo(bolt.segments[0].x, bolt.segments[0].y);
       for (let i = 1; i < bolt.segments.length; i++) {
@@ -636,7 +725,7 @@ export class Renderer {
       ctx.stroke();
 
       if (bolt.branches) {
-        ctx.lineWidth = 2;
+        ctx.lineWidth = pCfg.lightningBranchLineWidth;
         for (const branch of bolt.branches) {
           if (branch.length < 2) {
             continue;
@@ -659,13 +748,14 @@ export class Renderer {
       ctx.fill();
     }
 
-    const shadowColor = this.gameConfig.theme.floatingTextShadowColor;
+    const shadowColor = theme.floatingTextShadowColor;
+    const shadowOffset = pCfg.floatingTextShadowOffset;
+    ctx.font = `bold ${pCfg.floatingTextFontSize}px ${theme.fontFamily}`;
+    ctx.textAlign = 'center';
     for (const ft of particleSystem.floatingTexts) {
       ctx.globalAlpha = Math.max(0, ft.alpha);
-      ctx.font = 'bold 17px system-ui, sans-serif';
-      ctx.textAlign = 'center';
       ctx.fillStyle = shadowColor;
-      ctx.fillText(ft.text, ft.x + 1, ft.y + 1);
+      ctx.fillText(ft.text, ft.x + shadowOffset, ft.y + shadowOffset);
       ctx.fillStyle = ft.color;
       ctx.fillText(ft.text, ft.x, ft.y);
     }

@@ -30,7 +30,15 @@ export const LOCALE_PATHS = Object.freeze({
 
 export const GAME_MODES = Object.freeze({
   CAMPAIGN: 'campaign',
-  ENDLESS: 'endless'
+  ENDLESS: 'endless',
+  DAILY: 'daily'
+});
+
+export const DAILY_MUTATORS = Object.freeze({
+  HYPER_GRAVITY: 'hyperGravity',
+  TURBO_ROTORS: 'turboRotors',
+  SUPER_MAGNETISM: 'superMagnetism',
+  VOLATILE_CLUSTER: 'volatileCluster'
 });
 
 export const GAME_STATES = Object.freeze({
@@ -54,7 +62,8 @@ export const CLUSTER_MODIFIERS = Object.freeze({
   DORMANT_BOMB: 'dormantBomb',
   CHAMELEON: 'chameleon',
   COIN_CORE: 'coinCore',
-  BOSS_CORE: 'bossCore'
+  BOSS_CORE: 'bossCore',
+  LASER_LOCK: 'laserLock'
 });
 
 export const OBSTACLE_TYPES = Object.freeze({
@@ -63,11 +72,22 @@ export const OBSTACLE_TYPES = Object.freeze({
   REPULSOR: 'repulsor',
   ATTRACTOR: 'attractor',
   BARRIER: 'barrier',
-  PORTAL: 'portal'
+  PORTAL: 'portal',
+  SINGULARITY: 'singularity'
+});
+
+export const LAYOUT_TYPES = Object.freeze({
+  PENDULUM: 'pendulum',
+  RING: 'ring',
+  DUAL_RING: 'dualRing',
+  HEXAGON: 'hexagon',
+  SPIRAL: 'spiral',
+  CROSS: 'cross'
 });
 
 export const MATH_CONSTANTS = Object.freeze({
   HALF: 0.5,
+  QUARTER_PI: Math.PI / 4,
   TWO_PI: Math.PI * 2,
   DEG_TO_RAD: Math.PI / 180,
   EPSILON: 0.0001

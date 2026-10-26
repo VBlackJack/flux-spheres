@@ -9,10 +9,11 @@
     "wallRestitution": 0.96
   },
   "simulation": {
+    "fixedStepMs": 16.6667,
+    "maxAccumulatedMs": 100.0,
     "substeps": 3,
     "velocityDamping": 0.94,
     "frozenDamping": 0.72,
-    "angularDamping": 0.92,
     "maxVelocity": 26.0,
     "dropGravity": 0.58,
     "dropHorizontalSpread": 3.2,

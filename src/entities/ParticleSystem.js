@@ -25,24 +25,40 @@ export class ParticleSystem {
     this.shockwaves = [];
     this.floatingTexts = [];
     this.lightningBolts = [];
+    this.particlePool = [];
+    this.trailPool = [];
+    this.shockwavePool = [];
+    this.textPool = [];
     this.shakeIntensity = 0;
   }
 
   clear() {
-    this.particles.length = 0;
-    this.trailParticles.length = 0;
-    this.shockwaves.length = 0;
-    this.floatingTexts.length = 0;
+    while (this.particles.length > 0) {
+      this.particlePool.push(this.particles.pop());
+    }
+    while (this.trailParticles.length > 0) {
+      this.trailPool.push(this.trailParticles.pop());
+    }
+    while (this.shockwaves.length > 0) {
+      this.shockwavePool.push(this.shockwaves.pop());
+    }
+    while (this.floatingTexts.length > 0) {
+      this.textPool.push(this.floatingTexts.pop());
+    }
     this.lightningBolts.length = 0;
     this.shakeIntensity = 0;
   }
 
-  removeAt(list, index) {
+  removeAt(list, index, pool = null) {
+    const removed = list[index];
     const lastIndex = list.length - 1;
     if (index !== lastIndex) {
       list[index] = list[lastIndex];
     }
     list.pop();
+    if (pool && removed) {
+      pool.push(removed);
+    }
   }
 
   addScreenShake(amount, maxOffset = this.juiceConfig.maxShakeOffset) {
@@ -51,13 +67,13 @@ export class ParticleSystem {
 
   spawnTrail(x, y, radius, color) {
     const cfg = this.cfg;
-    this.trailParticles.push({
-      x: x + (Math.random() - MATH_CONSTANTS.HALF) * cfg.trailSpread,
-      y: y + (Math.random() - MATH_CONSTANTS.HALF) * cfg.trailSpread,
-      radius: radius * cfg.trailRadiusFactor,
-      color,
-      alpha: cfg.trailInitialAlpha
-    });
+    const item = this.trailPool.pop() || {};
+    item.x = x + (Math.random() - MATH_CONSTANTS.HALF) * cfg.trailSpread;
+    item.y = y + (Math.random() - MATH_CONSTANTS.HALF) * cfg.trailSpread;
+    item.radius = radius * cfg.trailRadiusFactor;
+    item.color = color;
+    item.alpha = cfg.trailInitialAlpha;
+    this.trailParticles.push(item);
   }
 
   spawnBurst(x, y, color, count = this.cfg.burstDefaultCount, speed = this.cfg.burstDefaultSpeed) {
@@ -65,29 +81,29 @@ export class ParticleSystem {
     for (let i = 0; i < count; i++) {
       const angle = (MATH_CONSTANTS.TWO_PI * i) / count + (Math.random() - MATH_CONSTANTS.HALF) * cfg.burstAngleJitter;
       const mag = (cfg.burstSpeedMinFactor + Math.random() * cfg.burstSpeedRangeFactor) * speed;
-      this.particles.push({
-        x,
-        y,
-        vx: Math.cos(angle) * mag,
-        vy: Math.sin(angle) * mag,
-        radius: cfg.burstMinRadius + Math.random() * cfg.burstRadiusRange,
-        color,
-        alpha: 1,
-        decay: cfg.burstBaseDecay + Math.random() * cfg.burstDecayRange
-      });
+      const item = this.particlePool.pop() || {};
+      item.x = x;
+      item.y = y;
+      item.vx = Math.cos(angle) * mag;
+      item.vy = Math.sin(angle) * mag;
+      item.radius = cfg.burstMinRadius + Math.random() * cfg.burstRadiusRange;
+      item.color = color;
+      item.alpha = 1;
+      item.decay = cfg.burstBaseDecay + Math.random() * cfg.burstDecayRange;
+      this.particles.push(item);
     }
   }
 
   spawnShockwave(x, y, color, maxRadius = this.cfg.shockwaveDefaultMaxRadius) {
     const cfg = this.cfg;
-    this.shockwaves.push({
-      x,
-      y,
-      radius: cfg.shockwaveInitialRadius,
-      maxRadius,
-      color,
-      alpha: cfg.shockwaveInitialAlpha
-    });
+    const item = this.shockwavePool.pop() || {};
+    item.x = x;
+    item.y = y;
+    item.radius = cfg.shockwaveInitialRadius;
+    item.maxRadius = maxRadius;
+    item.color = color;
+    item.alpha = cfg.shockwaveInitialAlpha;
+    this.shockwaves.push(item);
   }
 
   spawnLightning(y, leftX, rightX, color) {
@@ -102,21 +118,23 @@ export class ParticleSystem {
         y: y + (i === 0 || i === steps ? 0 : (Math.random() - MATH_CONSTANTS.HALF) * cfg.lightningJitterY)
       });
     }
-    const branchCount = cfg.lightningBranches || 0;
-    const branchLen = cfg.lightningBranchLength || 0;
+    const branchCount = cfg.lightningBranches;
+    const branchLen = cfg.lightningBranchLength;
+    const minPad = cfg.lightningBranchMinPad;
+    const endPad = cfg.lightningBranchEndPad;
     for (let b = 0; b < branchCount; b++) {
-      const idx = 2 + Math.floor(Math.random() * Math.max(1, steps - 3));
+      const idx = minPad + Math.floor(Math.random() * Math.max(1, steps - endPad));
       const root = segments[idx];
       if (root) {
         const dirY = b % 2 === 0 ? 1 : -1;
         branches.push([
           { x: root.x, y: root.y },
           {
-            x: root.x + stepX * 0.65,
-            y: root.y + dirY * branchLen * 0.55
+            x: root.x + stepX * cfg.lightningBranchMidStepFactor,
+            y: root.y + dirY * branchLen * cfg.lightningBranchMidLenFactor
           },
           {
-            x: root.x + stepX * 1.3,
+            x: root.x + stepX * cfg.lightningBranchEndStepFactor,
             y: root.y + dirY * branchLen
           }
         ]);
@@ -131,21 +149,21 @@ export class ParticleSystem {
   }
 
   spawnFloatingText(x, y, text, color = this.cfg.floatingTextDefaultColor) {
-    this.floatingTexts.push({
-      x,
-      y,
-      text,
-      color,
-      vy: this.cfg.floatingTextVy,
-      alpha: 1.0
-    });
+    const item = this.textPool.pop() || {};
+    item.x = x;
+    item.y = y;
+    item.text = text;
+    item.color = color;
+    item.vy = this.cfg.floatingTextVy;
+    item.alpha = 1.0;
+    this.floatingTexts.push(item);
   }
 
   update(shakeDecay = this.juiceConfig.shakeDecay) {
     const cfg = this.cfg;
     if (this.shakeIntensity > MATH_CONSTANTS.EPSILON) {
       this.shakeIntensity *= shakeDecay;
-      if (this.shakeIntensity < 0.1) {
+      if (this.shakeIntensity < cfg.shakeStopThreshold) {
         this.shakeIntensity = 0;
       }
     } else {
@@ -156,8 +174,8 @@ export class ParticleSystem {
       const tp = this.trailParticles[i];
       tp.radius *= cfg.trailRadiusDecay;
       tp.alpha -= cfg.trailAlphaDecay;
-      if (tp.alpha <= 0 || tp.radius < 1) {
-        this.removeAt(this.trailParticles, i);
+      if (tp.alpha <= 0 || tp.radius < cfg.trailMinRadius) {
+        this.removeAt(this.trailParticles, i, this.trailPool);
       }
     }
 
@@ -169,7 +187,7 @@ export class ParticleSystem {
       p.vx *= cfg.burstDrag;
       p.alpha -= p.decay;
       if (p.alpha <= 0) {
-        this.removeAt(this.particles, i);
+        this.removeAt(this.particles, i, this.particlePool);
       }
     }
 
@@ -178,7 +196,7 @@ export class ParticleSystem {
       sw.radius += (sw.maxRadius - sw.radius) * cfg.shockwaveExpandRate;
       sw.alpha -= cfg.shockwaveAlphaDecay;
       if (sw.alpha <= 0) {
-        this.removeAt(this.shockwaves, i);
+        this.removeAt(this.shockwaves, i, this.shockwavePool);
       }
     }
 
@@ -195,7 +213,7 @@ export class ParticleSystem {
       ft.y += ft.vy;
       ft.alpha -= cfg.floatingTextAlphaDecay;
       if (ft.alpha <= 0) {
-        this.removeAt(this.floatingTexts, i);
+        this.removeAt(this.floatingTexts, i, this.textPool);
       }
     }
   }

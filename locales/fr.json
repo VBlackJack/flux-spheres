@@ -13,6 +13,7 @@
       "button": {
         "levels": "Niveaux",
         "endless": "Survie",
+        "daily": "Défi du Jour",
         "shop": "Boutique",
         "restart": "Recommencer",
         "pause": "Pause",
@@ -42,7 +43,8 @@
       },
       "mode": {
         "campaign": "Niveau {{level}} : {{name}}",
-        "endless": "Mode Survie • Vague {{wave}}"
+        "endless": "Mode Survie • Vague {{wave}}",
+        "daily": "Défi du Jour ({{mutator}}) • Vague {{wave}}"
       },
       "shots": {
         "label": "Tirs restants",
@@ -58,6 +60,10 @@
     "launcher": {
       "swap": {
         "hint": "Échanger (Espace / Clic)"
+      },
+      "polarity": {
+        "normal": "Polarité : Normale (F)",
+        "inverted": "Polarité : Inversée (F)"
       },
       "cancel": {
         "hint": "Relâcher ici pour annuler le tir"
@@ -116,6 +122,12 @@
       "portal": {
         "warp": "TÉLÉPORTATION !"
       },
+      "lock": {
+        "released": "BARRIÈRE DÉSACTIVÉE !"
+      },
+      "singularity": {
+        "absorbed": "VORTEX +{{points}}"
+      },
       "achievement": {
         "unlocked": "SUCCÈS : {{name}} (+{{coins}} ⬡)"
       },
@@ -132,12 +144,20 @@
         "bossWave": "ALERTE ANOMALIE : Noyau Boss détecté !"
       }
     },
+    "mutators": {
+      "hyperGravity": "Hyper-Gravité",
+      "turboRotors": "Rotors Turbo",
+      "superMagnetism": "Super-Magnétisme",
+      "volatileCluster": "Amas Volatil"
+    },
     "tutorial": {
       "pendulum": "Visez 3 billes de même couleur ou coupez les ancres supérieures pour déclencher une avalanche !",
       "rotor": "Le rotor central tourne selon le poids des billes et la force d'impact de vos tirs.",
       "repulsor": "Les cœurs répulsifs et les pôles identiques courbent votre trajectoire : fiez-vous au laser !",
       "portal": "Tirez dans un Portail Quantique pour téléporter votre bille derrière les barrières !",
-      "boss": "Les Noyaux Boss (👑) possèdent 3 boucliers et libèrent une pluie de pièces à leur destruction !"
+      "boss": "Les Noyaux Boss (👑) possèdent 3 boucliers et libèrent une pluie de pièces à leur destruction !",
+      "laserLock": "Détruisez tous les Verrous (🔒) pour désactiver la barrière énergétique !",
+      "singularity": "Les billes d'avalanche aspirées par la Singularité donnent un bonus de score et de Surcharge !"
     }
   },
   "modals": {
@@ -261,6 +281,7 @@
       "instructions": {
         "aim": "Viser et tirer : Souris ou tactile",
         "swap": "Changer de bille : Clic sur le chargeur ou Espace",
+        "keyboard": "Clavier : Flèches pour viser, Entrée pour tirer, F pour inverser la polarité, 1-5 pour les billes spéciales",
         "physics": "Astuce : Détachez les ancres ou déséquilibrez les rotors pour créer des réactions en chaîne !"
       },
       "button": {
@@ -318,6 +339,22 @@
       "lvl12": {
         "name": "Singularité Souveraine",
         "description": "L'affrontement final : rotors jumeaux, portails dimensionnels et Noyaux Boss."
+      },
+      "lvl13": {
+        "name": "Verrous Quantiques",
+        "description": "Détruisez tous les Noyaux Verrous pour désactiver le bouclier oscillant."
+      },
+      "lvl14": {
+        "name": "Puits de Singularité",
+        "description": "Précipitez vos avalanches magnétiques dans les deux vortex gravitationnels."
+      },
+      "lvl15": {
+        "name": "Prisme Orbital",
+        "description": "Cinq bras spiralés protégés par des portails, des verrous et une singularité."
+      },
+      "lvl16": {
+        "name": "Nexus Absolu",
+        "description": "Maîtrisez la matrice ultime alliant Noyaux Boss, portails et singularités jumelles."
       }
     }
   },

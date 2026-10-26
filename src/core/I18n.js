@@ -104,6 +104,13 @@ class I18nService {
         el.setAttribute('content', this.t(key));
       }
     }
+    const ariaElements = root.querySelectorAll('[data-i18n-aria-label]');
+    for (const el of ariaElements) {
+      const key = el.getAttribute('data-i18n-aria-label');
+      if (key) {
+        el.setAttribute('aria-label', this.t(key));
+      }
+    }
   }
 }
 

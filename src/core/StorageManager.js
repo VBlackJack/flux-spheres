@@ -21,6 +21,8 @@ export class StorageManager {
     this.storageConfig = null;
     this.defaultsConfig = null;
     this.upgradesConfig = null;
+    this.achievementsConfig = null;
+    this.memoryFallback = new Map();
   }
 
   init() {
@@ -35,35 +37,59 @@ export class StorageManager {
     return `${this.storageConfig.prefix}${shortKey}`;
   }
 
+  safeGetItem(shortKey) {
+    const fullKey = this.buildKey(shortKey);
+    try {
+      const val = localStorage.getItem(fullKey);
+      if (val !== null) {
+        return val;
+      }
+    } catch {
+      // Fallback to in-memory storage when localStorage is restricted
+    }
+    return this.memoryFallback.has(fullKey) ? this.memoryFallback.get(fullKey) : null;
+  }
+
+  safeSetItem(shortKey, value) {
+    const fullKey = this.buildKey(shortKey);
+    const strValue = String(value);
+    this.memoryFallback.set(fullKey, strValue);
+    try {
+      localStorage.setItem(fullKey, strValue);
+    } catch {
+      // Ignore storage quota or security restrictions; kept in memoryFallback
+    }
+  }
+
   getLanguage() {
-    const raw = localStorage.getItem(this.buildKey(this.storageConfig.keys.language));
+    const raw = this.safeGetItem(this.storageConfig.keys.language);
     return raw || this.defaultsConfig.language;
   }
 
   setLanguage(lang) {
-    localStorage.setItem(this.buildKey(this.storageConfig.keys.language), lang);
+    this.safeSetItem(this.storageConfig.keys.language, lang);
   }
 
   getMuted() {
-    const raw = localStorage.getItem(this.buildKey(this.storageConfig.keys.muted));
+    const raw = this.safeGetItem(this.storageConfig.keys.muted);
     return raw === 'true';
   }
 
   setMuted(muted) {
-    localStorage.setItem(this.buildKey(this.storageConfig.keys.muted), String(Boolean(muted)));
+    this.safeSetItem(this.storageConfig.keys.muted, Boolean(muted));
   }
 
   getHighContrast() {
-    const raw = localStorage.getItem(this.buildKey(this.storageConfig.keys.highContrast));
+    const raw = this.safeGetItem(this.storageConfig.keys.highContrast);
     return raw === 'true';
   }
 
   setHighContrast(enabled) {
-    localStorage.setItem(this.buildKey(this.storageConfig.keys.highContrast), String(Boolean(enabled)));
+    this.safeSetItem(this.storageConfig.keys.highContrast, Boolean(enabled));
   }
 
   getUnlockedLevel() {
-    const raw = localStorage.getItem(this.buildKey(this.storageConfig.keys.unlockedLevel));
+    const raw = this.safeGetItem(this.storageConfig.keys.unlockedLevel);
     const parsed = Number.parseInt(raw, 10);
     return Number.isFinite(parsed) && parsed >= 1 ? parsed : this.defaultsConfig.initialUnlockedLevel;
   }
@@ -71,12 +97,12 @@ export class StorageManager {
   unlockLevel(levelId) {
     const current = this.getUnlockedLevel();
     if (levelId > current) {
-      localStorage.setItem(this.buildKey(this.storageConfig.keys.unlockedLevel), String(levelId));
+      this.safeSetItem(this.storageConfig.keys.unlockedLevel, levelId);
     }
   }
 
   getLevelStats() {
-    const raw = localStorage.getItem(this.buildKey(this.storageConfig.keys.levelStats));
+    const raw = this.safeGetItem(this.storageConfig.keys.levelStats);
     if (!raw) {
       return {};
     }
@@ -95,7 +121,7 @@ export class StorageManager {
       bestScore: Math.max(existing.bestScore, score),
       stars: Math.max(existing.stars, stars)
     };
-    localStorage.setItem(this.buildKey(this.storageConfig.keys.levelStats), JSON.stringify(stats));
+    this.safeSetItem(this.storageConfig.keys.levelStats, JSON.stringify(stats));
     return { newlyEarnedStars };
   }
 
@@ -109,7 +135,7 @@ export class StorageManager {
   }
 
   getUnlockedAchievements() {
-    const raw = localStorage.getItem(this.buildKey(this.storageConfig.keys.achievements));
+    const raw = this.safeGetItem(this.storageConfig.keys.achievements);
     if (!raw) {
       return {};
     }
@@ -130,7 +156,7 @@ export class StorageManager {
       return false;
     }
     unlocked[achievementId] = true;
-    localStorage.setItem(this.buildKey(this.storageConfig.keys.achievements), JSON.stringify(unlocked));
+    this.safeSetItem(this.storageConfig.keys.achievements, JSON.stringify(unlocked));
     if (spec.rewardCoins > 0) {
       this.addCoins(spec.rewardCoins);
     }
@@ -138,7 +164,7 @@ export class StorageManager {
   }
 
   getEndlessHighScore() {
-    const raw = localStorage.getItem(this.buildKey(this.storageConfig.keys.endlessHighScore));
+    const raw = this.safeGetItem(this.storageConfig.keys.endlessHighScore);
     const parsed = Number.parseInt(raw, 10);
     return Number.isFinite(parsed) ? parsed : 0;
   }
@@ -146,12 +172,25 @@ export class StorageManager {
   setEndlessHighScore(score) {
     const current = this.getEndlessHighScore();
     if (score > current) {
-      localStorage.setItem(this.buildKey(this.storageConfig.keys.endlessHighScore), String(score));
+      this.safeSetItem(this.storageConfig.keys.endlessHighScore, score);
+    }
+  }
+
+  getDailyHighScore() {
+    const raw = this.safeGetItem(this.storageConfig.keys.dailyBest);
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  setDailyHighScore(score) {
+    const current = this.getDailyHighScore();
+    if (score > current) {
+      this.safeSetItem(this.storageConfig.keys.dailyBest, score);
     }
   }
 
   getCoins() {
-    const raw = localStorage.getItem(this.buildKey(this.storageConfig.keys.coins));
+    const raw = this.safeGetItem(this.storageConfig.keys.coins);
     if (raw === null) {
       return this.defaultsConfig.initialCoins;
     }
@@ -160,7 +199,7 @@ export class StorageManager {
   }
 
   setCoins(amount) {
-    localStorage.setItem(this.buildKey(this.storageConfig.keys.coins), String(Math.max(0, Math.floor(amount))));
+    this.safeSetItem(this.storageConfig.keys.coins, Math.max(0, Math.floor(amount)));
   }
 
   addCoins(delta) {
@@ -170,7 +209,7 @@ export class StorageManager {
   }
 
   getUpgrades() {
-    const raw = localStorage.getItem(this.buildKey(this.storageConfig.keys.upgrades));
+    const raw = this.safeGetItem(this.storageConfig.keys.upgrades);
     let parsed = {};
     if (raw) {
       try {
@@ -216,7 +255,7 @@ export class StorageManager {
     this.setCoins(coins - cost);
     const upgrades = this.getUpgrades();
     upgrades[upgradeKey] = currentLevel + 1;
-    localStorage.setItem(this.buildKey(this.storageConfig.keys.upgrades), JSON.stringify(upgrades));
+    this.safeSetItem(this.storageConfig.keys.upgrades, JSON.stringify(upgrades));
     return true;
   }
 }

@@ -25,10 +25,14 @@ export class Obstacle {
     this.baseY = def.y;
     this.x = def.x;
     this.y = def.y;
+    this.prevX = def.x;
+    this.prevY = def.y;
     this.radius = def.radius || typeSpec.radius || defaults.radius;
     this.width = def.width || defaults.width;
     this.height = def.height || typeSpec.height || defaults.height;
     this.angle = 0;
+    this.prevAngle = 0;
+    this.disabled = false;
     this.pairId = def.pairId || null;
     this.motorAngularSpeed = def.angularSpeed !== undefined ? def.angularSpeed : (typeSpec.defaultAngularSpeed || 0);
     this.angularVelocity = this.motorAngularSpeed;
@@ -39,6 +43,11 @@ export class Obstacle {
     this.oscillatePhase = 0;
     this.fieldRadius = def.fieldRadius || typeSpec.fieldRadius || 0;
     this.force = def.force !== undefined ? def.force : (typeSpec.force || 0);
+    this.captureRadius = def.captureRadius || typeSpec.captureRadius || this.radius;
+    this.pullRadius = def.pullRadius || typeSpec.pullRadius || 0;
+    this.pullForce = def.pullForce || typeSpec.pullForce || 0;
+    this.scoreMultiplier = typeSpec.scoreMultiplier || 1.0;
+    this.bonusOvercharge = typeSpec.bonusOvercharge || 0;
     this.restitution = typeSpec.restitution || defaults.restitution;
     this.speedBoostMultiplier = typeSpec.speedBoostMultiplier || 1.0;
     this.exitOffsetFactor = typeSpec.exitOffsetFactor || 1.0;
@@ -48,17 +57,28 @@ export class Obstacle {
   }
 
   applyTorque(torque, maxSpeed) {
-    if (this.type !== OBSTACLE_TYPES.PIVOT) {
+    if (this.type !== OBSTACLE_TYPES.PIVOT || this.disabled) {
       return;
     }
     this.angularVelocity = Math.max(-maxSpeed, Math.min(maxSpeed, this.angularVelocity + torque));
   }
 
   update(damping) {
+    this.prevX = this.x;
+    this.prevY = this.y;
+    this.prevAngle = this.angle;
+
+    if (this.hitPulse > 0) {
+      this.hitPulse = Math.max(0, this.hitPulse - this.hitPulseDecay);
+    }
+    if (this.disabled) {
+      return;
+    }
+
     if (this.type === OBSTACLE_TYPES.PIVOT) {
       this.angularVelocity = this.angularVelocity * damping + this.motorAngularSpeed * (1 - damping);
       this.angle += this.angularVelocity;
-    } else if (this.type === OBSTACLE_TYPES.PORTAL) {
+    } else if (this.type === OBSTACLE_TYPES.PORTAL || this.type === OBSTACLE_TYPES.SINGULARITY) {
       this.angle += this.spinSpeed;
     }
     if (this.type === OBSTACLE_TYPES.BARRIER && (this.oscillateRangeX > 0 || this.oscillateRangeY > 0)) {
@@ -70,9 +90,6 @@ export class Obstacle {
       if (this.oscillateRangeY > 0) {
         this.y = this.baseY + sinPhase * this.oscillateRangeY;
       }
-    }
-    if (this.hitPulse > 0) {
-      this.hitPulse = Math.max(0, this.hitPulse - this.hitPulseDecay);
     }
   }
 }
