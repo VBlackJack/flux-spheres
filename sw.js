@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 const CACHE_NAME = `flux-spheres-cache-v${APP_VERSION}`;
 
 const PRECACHE_ASSETS = [

@@ -170,7 +170,7 @@ export class Renderer {
   drawWallsAndDangerZone(ctx, width, height, theme, balls = [], now = 0, alpha = 1.0) {
     const margin = this.gameConfig.canvas.wallMargin;
     const dangerY = this.gameConfig.canvas.dangerLineY;
-    const warningMargin = this.gameConfig.canvas.dangerWarningMarginY || 72;
+    const warningMargin = this.gameConfig.canvas.dangerWarningMarginY;
     const warningThresholdY = dangerY - warningMargin;
 
     const closeBalls = [];
@@ -186,7 +186,7 @@ export class Renderer {
 
     const isWarning = closeBalls.length > 0;
     const pulse = isWarning
-      ? theme.magneticPulseBase + theme.magneticPulseAmp * Math.sin(now * (theme.dangerWarningPulseSpeed || 0.01))
+      ? theme.magneticPulseBase + theme.magneticPulseAmp * Math.sin(now * theme.dangerWarningPulseSpeed)
       : 1.0;
 
     ctx.fillStyle = isWarning && theme.dangerZoneWarningFill ? theme.dangerZoneWarningFill : theme.dangerZoneFill;
@@ -195,7 +195,7 @@ export class Renderer {
     ctx.save();
     ctx.setLineDash(theme.dangerLineDash);
     ctx.strokeStyle = theme.dangerLineColor;
-    ctx.lineWidth = isWarning ? theme.dangerLineWidth + 1.5 : theme.dangerLineWidth;
+    ctx.lineWidth = isWarning ? theme.dangerLineWidth + theme.dangerWarningLineWidthExtra : theme.dangerLineWidth;
     ctx.globalAlpha = isWarning ? pulse : 1.0;
     ctx.beginPath();
     ctx.moveTo(margin, dangerY);
@@ -664,14 +664,14 @@ export class Renderer {
         const aoeRadius = currentBall.radius * radiusFactor * blastRadiusMultiplier;
         ctx.save();
         ctx.fillStyle = palette.highlight;
-        ctx.globalAlpha = theme.specialAoeFillAlpha || 0.14;
+        ctx.globalAlpha = theme.specialAoeFillAlpha;
         ctx.beginPath();
         ctx.arc(endX, endY, aoeRadius, 0, MATH_CONSTANTS.TWO_PI);
         ctx.fill();
         ctx.strokeStyle = palette.highlight;
-        ctx.globalAlpha = (theme.specialAoeStrokeAlpha || 0.72) * pulse;
+        ctx.globalAlpha = theme.specialAoeStrokeAlpha * pulse;
         ctx.lineWidth = theme.aimGhostLineWidth;
-        ctx.setLineDash(theme.specialAoeDash || [5, 5]);
+        ctx.setLineDash(theme.specialAoeDash);
         ctx.stroke();
         ctx.restore();
 
@@ -689,12 +689,12 @@ export class Renderer {
         const bandWidth = this.logicalWidth - margin * 2;
         ctx.save();
         ctx.fillStyle = palette.highlight;
-        ctx.globalAlpha = theme.specialAoeFillAlpha || 0.14;
+        ctx.globalAlpha = theme.specialAoeFillAlpha;
         ctx.fillRect(margin, endY - bandHalf, bandWidth, bandHalf * 2);
         ctx.strokeStyle = palette.highlight;
-        ctx.globalAlpha = (theme.specialAoeStrokeAlpha || 0.72) * pulse;
+        ctx.globalAlpha = theme.specialAoeStrokeAlpha * pulse;
         ctx.lineWidth = theme.aimGhostLineWidth;
-        ctx.setLineDash(theme.specialAoeDash || [5, 5]);
+        ctx.setLineDash(theme.specialAoeDash);
         ctx.strokeRect(margin, endY - bandHalf, bandWidth, bandHalf * 2);
         ctx.restore();
 
@@ -769,11 +769,11 @@ export class Renderer {
         ctx.save();
         ctx.strokeStyle = theme.avalancheDropHighlightColor || theme.anchorRingColor;
         ctx.lineWidth = theme.aimTargetNormalLineWidth;
-        ctx.setLineDash(theme.specialAoeDash || [5, 5]);
+        ctx.setLineDash(theme.specialAoeDash);
         ctx.globalAlpha = pulse;
         for (const ab of avalancheBalls) {
           ctx.beginPath();
-          ctx.arc(ab.x, ab.y, ab.radius + theme.aimTargetRingPadding + 2, 0, MATH_CONSTANTS.TWO_PI);
+          ctx.arc(ab.x, ab.y, ab.radius + theme.aimTargetRingPadding + theme.avalancheRingPaddingExtra, 0, MATH_CONSTANTS.TWO_PI);
           ctx.stroke();
         }
         ctx.restore();
