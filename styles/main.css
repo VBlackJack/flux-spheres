@@ -396,12 +396,19 @@ body {
   color: #fecaca;
 }
 
+/*
+ * Sits just above the danger line, where the board is emptiest at the start of a
+ * level, instead of over the cluster the player has to aim at. It lets the pointer
+ * through so aiming keeps working under it; only its close button is interactive.
+ * --tutorial-bottom is set by the UI from the canvas configuration.
+ */
 .tutorial-banner {
   position: absolute;
-  top: 12px;
+  bottom: calc(var(--tutorial-bottom) + 8px);
   left: 14px;
   right: 14px;
-  background: rgba(15, 23, 42, 0.94);
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.86);
   color: #e2e8f0;
   border: 1px solid rgba(56, 189, 248, 0.55);
   border-radius: 10px;
@@ -427,6 +434,7 @@ body {
   cursor: pointer;
   flex-shrink: 0;
   position: relative;
+  pointer-events: auto;
 }
 
 /* Invisible extension so the hit area reaches the minimum touch target. */

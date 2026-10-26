@@ -97,6 +97,7 @@ export class UIManager {
 
     this.elements = {
       appShell: document.querySelector('.app-shell'),
+      canvasWrapper: document.querySelector('.canvas-wrapper'),
       scoreValue: document.getElementById('hud-score-value'),
       starProgress: document.getElementById('hud-star-progress'),
       highScoreValue: document.getElementById('hud-best-value'),
@@ -180,6 +181,7 @@ export class UIManager {
   }
 
   init() {
+    this.applyCanvasLayoutVariables();
     this.buildPowerupButtons();
     this.bindEvents();
     this.updateSoundButton();
@@ -195,6 +197,15 @@ export class UIManager {
       this.updateLanguageButton();
       this.refresh(this.engine, this.lastExtra);
     });
+  }
+
+  /** Exposes canvas geometry to CSS: overlays are placed relative to the danger line. */
+  applyCanvasLayoutVariables() {
+    const { logicalHeight, dangerLineY } = this.gameConfig.canvas;
+    if (this.elements.canvasWrapper) {
+      const belowDangerPct = ((logicalHeight - dangerLineY) / logicalHeight) * 100;
+      this.elements.canvasWrapper.style.setProperty('--tutorial-bottom', `${belowDangerPct}%`);
+    }
   }
 
   buildPowerupButtons() {
