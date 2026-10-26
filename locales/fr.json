@@ -38,6 +38,18 @@
         "languageAria": "Langue : FR (français). Changer de langue",
         "languageCaption": "Langue"
       }
+    },
+    "drawer": {
+      "aria": {
+        "label": "Menu"
+      },
+      "button": {
+        "openAria": "Ouvrir le menu",
+        "closeAria": "Fermer le menu"
+      },
+      "stats": {
+        "round": "Partie en cours"
+      }
     }
   },
   "hud": {
@@ -76,12 +88,14 @@
     },
     "launcher": {
       "swap": {
-        "label": "⇄ Échanger",
+        "icon": "⇄",
+        "label": "Échanger",
         "shortcut": "Espace"
       },
       "polarity": {
-        "normal": "🧲 Polarité : Normale",
-        "inverted": "🧲 Polarité : Inversée",
+        "icon": "🧲",
+        "normal": "Polarité : Normale",
+        "inverted": "Polarité : Inversée",
         "shortcut": "F"
       },
       "cancel": {

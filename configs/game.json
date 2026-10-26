@@ -280,7 +280,8 @@
     "matchMinCount": 3,
     "initialCoins": 50,
     "reducedMotionMediaQuery": "(prefers-reduced-motion: reduce)",
-    "coarsePointerMediaQuery": "(pointer: coarse)"
+    "coarsePointerMediaQuery": "(pointer: coarse)",
+    "drawerMediaQuery": "(max-width: 680px)"
   },
   "theme": {
     "fontFamily": "system-ui, sans-serif",

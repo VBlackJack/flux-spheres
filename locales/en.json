@@ -38,6 +38,18 @@
         "languageAria": "Language: EN (English). Switch language",
         "languageCaption": "Language"
       }
+    },
+    "drawer": {
+      "aria": {
+        "label": "Menu"
+      },
+      "button": {
+        "openAria": "Open menu",
+        "closeAria": "Close menu"
+      },
+      "stats": {
+        "round": "Current run"
+      }
     }
   },
   "hud": {
@@ -76,12 +88,14 @@
     },
     "launcher": {
       "swap": {
-        "label": "⇄ Swap",
+        "icon": "⇄",
+        "label": "Swap",
         "shortcut": "Space"
       },
       "polarity": {
-        "normal": "🧲 Polarity: Normal",
-        "inverted": "🧲 Polarity: Inverted",
+        "icon": "🧲",
+        "normal": "Polarity: Normal",
+        "inverted": "Polarity: Inverted",
         "shortcut": "F"
       },
       "cancel": {
