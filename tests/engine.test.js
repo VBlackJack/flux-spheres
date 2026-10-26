@@ -113,6 +113,34 @@ test('Victory is resolved once: a second evaluateRoundEnd on an empty board cred
   assert.equal(engine.score, scoreAfterFirst, 'Score must be frozen after victory');
 });
 
+test('Victory keeps the scene animating for the celebration before revealing the modal', () => {
+  const engine = createTestEngine();
+  const notifications = [];
+  engine.onStateChange = (_engine, extra) => notifications.push(extra);
+  engine.startCampaignLevel(1);
+  engine.physicsWorld.clear();
+  const fallingBall = makeBoardBall(FAR_POSITION, FAR_POSITION);
+  engine.physicsWorld.droppingBalls.push(fallingBall);
+
+  engine.evaluateRoundEnd();
+  assert.equal(engine.state, GAME_STATES.VICTORY);
+  assert.ok(engine.isVictoryCelebrating());
+  assert.ok(engine.victorySummary.stars >= gameConfig.scoring.minVictoryStars);
+
+  engine.update();
+  assert.ok(fallingBall.y > FAR_POSITION, 'falling balls keep moving after the victory');
+
+  notifications.length = 0;
+  for (let i = 1; i < gameConfig.victory.celebrationFrames; i++) {
+    engine.update();
+  }
+  assert.equal(engine.isVictoryCelebrating(), false);
+  assert.equal(notifications.length, 1, 'the UI is notified once, when the celebration ends');
+
+  engine.startCampaignLevel(1);
+  assert.equal(engine.victorySummary, null);
+});
+
 test('No victory, score or coins after Game Over, even if the board is emptied', () => {
   const engine = createTestEngine();
   engine.startCampaignLevel(1);

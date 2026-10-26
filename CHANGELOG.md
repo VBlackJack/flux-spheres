@@ -27,6 +27,7 @@ All notable changes to **FluxSpheres** are documented in this file.
 - **Offline Mode**: Service Worker cache writes complete reliably, navigations fall back to the cached page, and slow networks fall back to the cache after a timeout.
 
 ### Changed
+- **Victory Celebration**: Clearing a level no longer cuts straight to the victory window. The last falling spheres and particles keep animating for two seconds under a "Board cleared!" popup, then the window opens; the delay is `victory.celebrationFrames` in `configs/game.json`.
 - **First Visit Language**: The interface language follows the browser language until the player picks one.
 - **Installable PWA**: New sphere icon with 192 px, 512 px and maskable variants.
 - **Desktop Layout**: Landscape desktops and tablets put the header and HUD in a side column so the board uses the full window height (about 60 % larger on a 1366x768 laptop).

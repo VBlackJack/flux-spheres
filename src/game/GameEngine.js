@@ -66,6 +66,8 @@ export class GameEngine {
     this.freezeTurnsRemaining = 0;
     this.chainCooldown = 0;
     this.outOfShotsGraceFrames = 0;
+    this.victoryCelebrationFrames = 0;
+    this.victorySummary = null;
     this.hitStopFrames = 0;
     this.trailFrameCounter = 0;
     this.hasFiredInRound = false;
@@ -102,6 +104,14 @@ export class GameEngine {
    */
   isRunPlaying() {
     return this.state === GAME_STATES.PLAYING;
+  }
+
+  /**
+   * True during the short pause after a campaign victory in which the last matches,
+   * falling balls and particles keep animating before the victory modal is shown.
+   */
+  isVictoryCelebrating() {
+    return this.state === GAME_STATES.VICTORY && this.victoryCelebrationFrames > 0;
   }
 
   /**
@@ -174,6 +184,8 @@ export class GameEngine {
     this.freezeTurnsRemaining = 0;
     this.chainCooldown = 0;
     this.outOfShotsGraceFrames = 0;
+    this.victoryCelebrationFrames = 0;
+    this.victorySummary = null;
     this.hitStopFrames = 0;
     this.hasFiredInRound = false;
     this.shotsFiredInLevel = 0;
@@ -916,6 +928,10 @@ export class GameEngine {
   }
 
   update() {
+    if (this.isVictoryCelebrating()) {
+      this.updateVictoryCelebration();
+      return;
+    }
     if (this.state !== GAME_STATES.PLAYING) {
       return;
     }
@@ -1075,6 +1091,19 @@ export class GameEngine {
 
     this.particleSystem.update(juice.shakeDecay);
     this.checkDangerLineBreach();
+  }
+
+  /**
+   * Advances the post-victory scene only: falling balls and particles. Nothing is scored
+   * because the run has ended; the victory modal is revealed when the countdown expires.
+   */
+  updateVictoryCelebration() {
+    this.physicsWorld.stepDroppingBalls();
+    this.particleSystem.update(this.gameConfig.juice.shakeDecay);
+    this.victoryCelebrationFrames--;
+    if (this.victoryCelebrationFrames === 0) {
+      this.notifyUI(this.victorySummary);
+    }
   }
 
   /**
@@ -1613,7 +1642,15 @@ export class GameEngine {
         this.persistRunHighScore();
         this.storageManager.clearRunSnapshot();
         this.audioManager.playEffect('victory');
-        this.notifyUI({ victoryBonus: bonus, stars, earnedCoins });
+        this.victorySummary = { victoryBonus: bonus, stars, earnedCoins };
+        this.victoryCelebrationFrames = this.gameConfig.victory.celebrationFrames;
+        this.particleSystem.spawnFloatingText(
+          this.gameConfig.canvas.logicalWidth * MATH_CONSTANTS.HALF,
+          this.gameConfig.canvas.logicalHeight * MATH_CONSTANTS.HALF,
+          t('gameplay.feedback.victory.cleared'),
+          this.gameConfig.theme.victoryPopupColor
+        );
+        this.notifyUI(this.victorySummary);
         return;
       }
 

@@ -216,6 +216,7 @@ export class UIManager {
     this.autoPausedByOverlay = false;
     this.lastFocusedElement = null;
     this.prevEngineState = null;
+    this.isVictoryModalRevealed = false;
     this.inputMode = this.detectInitialInputMode();
     this.isDrawerOpen = false;
     this.drawerMedia = null;
@@ -1030,7 +1031,8 @@ export class UIManager {
       this.autoPausedByOverlay = false;
       this.engine.state = GAME_STATES.PLAYING;
       this.elements.modalPause.classList.add('hidden');
-    } else if (this.engine.state === GAME_STATES.VICTORY) {
+    } else if (this.engine.state === GAME_STATES.VICTORY && !this.engine.isVictoryCelebrating()) {
+      this.isVictoryModalRevealed = true;
       this.elements.modalVictory.classList.remove('hidden');
     } else if (this.engine.state === GAME_STATES.GAME_OVER) {
       this.elements.modalGameOver.classList.remove('hidden');
@@ -1741,16 +1743,29 @@ export class UIManager {
       this.elements.modalPause.classList.add('hidden');
     }
 
-    if (engine.state === GAME_STATES.VICTORY) {
-      const stars = extra.stars || engine.computeStars(engine.score);
+    // The modal waits for the post-victory celebration, and for any menu opened meanwhile:
+    // closing that menu reveals it (see closeOverlayModal).
+    const canRevealVictory =
+      engine.state === GAME_STATES.VICTORY &&
+      !engine.isVictoryCelebrating() &&
+      this.elements.modalLevels.classList.contains('hidden') &&
+      this.elements.modalShop.classList.contains('hidden');
+    const isVictoryJustRevealed = canRevealVictory && !this.isVictoryModalRevealed;
+    if (engine.state !== GAME_STATES.VICTORY || canRevealVictory) {
+      this.isVictoryModalRevealed = canRevealVictory;
+    }
+
+    if (canRevealVictory) {
+      const summary = engine.victorySummary || extra;
+      const stars = summary.stars || engine.computeStars(engine.score);
       const maxStars = this.gameConfig.scoring.maxStars;
       const scoreText = formatNumber(engine.score);
       setTextIfChanged(this.elements.victoryScore, t('modals.victory.stats.score', { score: scoreText }));
       setTextIfChanged(
         this.elements.victoryBonus,
         t('modals.victory.stats.shotsBonus', {
-          bonus: formatNumber(extra.victoryBonus || 0),
-          coins: formatNumber(extra.earnedCoins || 0)
+          bonus: formatNumber(summary.victoryBonus || 0),
+          coins: formatNumber(summary.earnedCoins || 0)
         })
       );
       // Star glyphs are decorative; the sentence next to them carries the count.
@@ -1761,12 +1776,12 @@ export class UIManager {
       starsLabel.className = 'victory-stars-label';
       starsLabel.textContent = t('modals.victory.stats.stars', { stars, maxStars });
       this.elements.victoryStars.replaceChildren(starsGlyphs, starsLabel);
-      if (transitionedState) {
+      if (isVictoryJustRevealed) {
         this.saveLastFocusedElement();
         this.announce(t('hud.announcer.round.victory', { score: scoreText, stars, maxStars }));
       }
       this.elements.modalVictory.classList.remove('hidden');
-      if (transitionedState && this.elements.btnNextLevel) {
+      if (isVictoryJustRevealed && this.elements.btnNextLevel) {
         this.elements.btnNextLevel.focus();
       }
     }
