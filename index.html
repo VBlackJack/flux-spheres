@@ -59,7 +59,7 @@
       <div class="hud-stat-box">
         <span class="hud-label" data-i18n="hud.stats.score.label"></span>
         <span id="hud-score-value" class="hud-value"></span>
-        <span id="hud-star-progress" class="hud-subvalue gold-text"></span>
+        <span id="hud-star-progress" class="hud-subvalue gold-text"><span id="hud-star-glyphs" class="hud-subvalue-part"></span> <span id="hud-star-next" class="hud-subvalue-part"></span></span>
       </div>
       <div class="hud-center-info">
         <div id="hud-mode-banner" class="hud-mode-banner"></div>
@@ -197,10 +197,22 @@
         <li data-i18n="modals.pause.instructions.physics"></li>
       </ul>
       <div class="pause-settings-row">
-        <button id="btn-sound-pause" type="button" class="nav-btn icon-btn"></button>
-        <button id="btn-contrast-pause" type="button" class="nav-btn icon-btn"></button>
-        <button id="btn-motion-pause" type="button" class="nav-btn icon-btn"></button>
-        <button id="btn-lang-pause" type="button" class="nav-btn badge-btn"></button>
+        <div class="pause-setting">
+          <button id="btn-sound-pause" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-sound-pause" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-contrast-pause" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-contrast-pause" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-motion-pause" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-motion-pause" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-lang-pause" type="button" class="nav-btn badge-btn"></button>
+          <span class="pause-setting-caption" data-i18n="app.nav.button.languageCaption" aria-hidden="true"></span>
+        </div>
       </div>
       <div class="modal-actions">
         <button id="btn-resume" type="button" class="modal-btn primary" data-i18n="modals.pause.button.resume"></button>

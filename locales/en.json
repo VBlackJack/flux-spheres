@@ -35,7 +35,8 @@
         "soundAria": "Sound",
         "contrastAria": "High contrast",
         "motionAria": "Reduced motion",
-        "languageAria": "Language: EN (English). Switch language"
+        "languageAria": "Language: EN (English). Switch language",
+        "languageCaption": "Language"
       }
     }
   },
@@ -43,8 +44,8 @@
     "stats": {
       "score": {
         "label": "Score",
-        "starProgress": "{{stars}} • Next: {{next}}",
-        "starMax": "{{stars}} • MAX"
+        "nextThreshold": "• Next: {{next}}",
+        "maxReached": "• MAX"
       },
       "highScore": {
         "label": "Best"
@@ -217,7 +218,7 @@
       "starsTotal": "Campaign Stars: {{stars}} / {{maxStars}} ★",
       "card": {
         "levelNumber": "Level {{id}}",
-        "locked": "Locked",
+        "locked": "Locked: clear level {{previous}}",
         "bestScore": "Best: {{score}}",
         "starsAria": "Stars: {{stars}} of {{maxStars}}"
       },

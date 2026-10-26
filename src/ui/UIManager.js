@@ -122,6 +122,8 @@ export class UIManager {
       canvasWrapper: document.querySelector('.canvas-wrapper'),
       scoreValue: document.getElementById('hud-score-value'),
       starProgress: document.getElementById('hud-star-progress'),
+      starGlyphs: document.getElementById('hud-star-glyphs'),
+      starNext: document.getElementById('hud-star-next'),
       highScoreValue: document.getElementById('hud-best-value'),
       coinsValue: document.getElementById('hud-coins-value'),
       overchargePct: document.getElementById('hud-overcharge-pct'),
@@ -893,6 +895,8 @@ export class UIManager {
         setAttributeIfChanged(btn, 'aria-label', ariaLabel);
         setAttributeIfChanged(btn, 'aria-pressed', String(pressed));
         btn.title = tooltip;
+        // Touch screens never show the title, so the Pause copies spell the state out.
+        setTextIfChanged(document.querySelector(`[data-caption-for="${btn.id}"]`), tooltip);
       }
     }
   }
@@ -1319,7 +1323,7 @@ export class UIManager {
       } else {
         const lockEl = document.createElement('span');
         lockEl.className = 'level-locked-badge';
-        lockEl.textContent = t('modals.levelSelect.card.locked');
+        lockEl.textContent = t('modals.levelSelect.card.locked', { previous: lvl.id - 1 });
         footer.appendChild(lockEl);
       }
 
@@ -1421,11 +1425,13 @@ export class UIManager {
         const currentStars = engine.computeStars(engine.score);
         const starsStr = this.formatStars(currentStars, maxStars);
         const nextThreshold = thresholds.find((th) => th > engine.score);
+        // Two unbreakable parts, so a narrow HUD wraps between them and never inside one.
+        setTextIfChanged(this.elements.starGlyphs, starsStr);
         setTextIfChanged(
-          this.elements.starProgress,
+          this.elements.starNext,
           nextThreshold !== undefined
-            ? t('hud.stats.score.starProgress', { stars: starsStr, next: formatNumber(nextThreshold) })
-            : t('hud.stats.score.starMax', { stars: starsStr })
+            ? t('hud.stats.score.nextThreshold', { next: formatNumber(nextThreshold) })
+            : t('hud.stats.score.maxReached')
         );
         this.elements.starProgress.classList.remove('hidden');
       }

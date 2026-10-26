@@ -35,7 +35,8 @@
         "soundAria": "Son",
         "contrastAria": "Contraste élevé",
         "motionAria": "Mouvements réduits",
-        "languageAria": "Langue : FR (français). Changer de langue"
+        "languageAria": "Langue : FR (français). Changer de langue",
+        "languageCaption": "Langue"
       }
     }
   },
@@ -43,8 +44,8 @@
     "stats": {
       "score": {
         "label": "Score",
-        "starProgress": "{{stars}} • Prochain : {{next}}",
-        "starMax": "{{stars}} • MAX"
+        "nextThreshold": "• Prochain : {{next}}",
+        "maxReached": "• MAX"
       },
       "highScore": {
         "label": "Record"
@@ -217,7 +218,7 @@
       "starsTotal": "Étoiles de Campagne : {{stars}} / {{maxStars}} ★",
       "card": {
         "levelNumber": "Niveau {{id}}",
-        "locked": "Verrouillé",
+        "locked": "Verrouillé : terminez le niveau {{previous}}",
         "bestScore": "Record : {{score}}",
         "starsAria": "Étoiles : {{stars}} sur {{maxStars}}"
       },
