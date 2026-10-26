@@ -2,6 +2,55 @@
 
 All notable changes to **FluxSpheres** are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Round End Idempotence**: A victory can no longer be paid twice in one frame, a lost level can no longer turn into a victory, and the score is frozen once a run ends.
+- **Storage Resilience**: A failed `localStorage` write no longer resurrects the previous coin balance, and stored values of the wrong shape no longer crash the game.
+- **Economy Guards**: Special Ammo can only be bought during an active run; special shots and all-armored matches that destroy nothing no longer count as matches.
+- **Daily Challenge Determinism**: Avalanche drift uses the daily seed, and restarting a Daily Challenge keeps its seed without paying the first-play bonus again.
+- **Projectile Physics**: Projectile speed is capped, fast shots no longer pass through barriers, portal loops terminate, and snapping picks the nearest sphere.
+- **Rotor Torque**: Rotors are only turned by spheres actually bonded to them.
+- **Game Loop**: A runtime error now stops the loop cleanly and shows the error banner instead of freezing silently; spheres no longer jitter during hit-stop or pause.
+- **Layout**: Zero-scroll layout on desktop, phones and landscape phones; modals fit the viewport and keep their Close button reachable.
+- **Accessibility**: Stable labels with `aria-pressed` on toggles, accessible names for power-ups and level stars, focus trap fixes, polite announcements for achievements and round results, reduced-motion support in CSS, 44 px touch targets and WCAG AA button contrast.
+- **Keyboard**: Holding Space, F, Enter or a digit key no longer repeats the action.
+- **Offline Mode**: Service Worker cache writes complete reliably, navigations fall back to the cached page, and slow networks fall back to the cache after a timeout.
+
+### Changed
+- **First Visit Language**: The interface language follows the browser language until the player picks one.
+- **Installable PWA**: New sphere icon with 192 px, 512 px and maskable variants.
+- **Performance**: Aim preview, avalanche prediction and cluster searches are cached; the spatial grid is rebuilt once per substep; the static background is pre-rendered; the canvas backing store follows its displayed size.
+- **Audio**: Simultaneous voices are capped, effects are throttled behind a limiter, and the audio context is suspended while hidden or muted.
+- **High Scores**: Written when a run ends or the page is left instead of on every scoring event.
+- **Tooling**: CI runs on Node.js 24 with every test suite, plus guards for typography and offline asset coverage; French README added.
+
+## [1.2.5] - 2026-10-26
+
+### Fixed
+- **Rotor Layout Stability**: Spiral and Cross rotor levels no longer collapse on their own before the first shot.
+- **Tension Breaks**: Clusters detached by an over-stretched bond now fall as a scored Magnetic Avalanche.
+
+## [1.2.4] - 2026-10-26
+
+### Added
+- **Mobile Zero-Scroll Layout**: `100dvh` layout for phones, thumb aiming capture, haptic feedback, and ceiling bounce for projectiles.
+
+## [1.2.3] - 2026-10-26
+
+### Changed
+- **Obstacle Deflection**: Stronger repulsor and attractor deflection, and a curved projectile path around singularities.
+
+## [1.2.2] - 2026-10-26
+
+### Changed
+- **Renderer Configuration**: Removed the remaining literal fallbacks in the renderer and tuned the Daily Challenge rotor clearance.
+
+## [1.2.1] - 2026-10-26
+
+### Fixed
+- **Daily Rotor Placement**: The Daily Challenge rotor now sits below the initial rows; refined `:focus-visible` handling and removed configuration fallbacks.
+
 ## [1.2.0] - 2026-10-26
 
 ### Added
@@ -27,4 +76,4 @@ All notable changes to **FluxSpheres** are documented in this file.
 ## [1.0.0] - 2026-10-26
 
 ### Added
-- Initial release of **FluxSpheres — Magnetic Physics Edition** with 16 Campaign levels, Survival mode, Daily Challenge, 5 Special Balls, 6 Cluster Modifiers, 7 Obstacle types, Web Audio synth effects, and FR/EN localization.
+- Initial release of **FluxSpheres: Magnetic Physics Edition** with 16 Campaign levels, Survival mode, Daily Challenge, 5 Special Balls, 6 Cluster Modifiers, 7 Obstacle types, Web Audio synth effects, and FR/EN localization.

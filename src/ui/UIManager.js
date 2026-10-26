@@ -21,8 +21,65 @@ import {
   SPECIAL_TYPES_ORDER,
   OBSTACLE_TYPES_ORDER
 } from '../core/Constants.js';
-import { i18n, t } from '../core/I18n.js';
+import { i18n, t, formatNumber } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
+
+/** Elements a modal focus trap may cycle through (inactive tabs use tabindex="-1"). */
+export const MODAL_FOCUSABLE_SELECTOR =
+  'button:not(:disabled):not([tabindex="-1"]), [href]:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
+
+/** Ancestors that remove an element from the interactive tree. */
+const NON_INTERACTIVE_ANCESTOR_SELECTOR = '.hidden, [hidden], [inert]';
+
+/** Root class mirroring the in-app reduced motion setting for CSS. */
+export const REDUCED_MOTION_CLASS = 'reduced-motion';
+
+/** Keys whose action is a one-shot toggle or trigger; auto-repeat must not re-fire them. */
+const REPEAT_SENSITIVE_KEY_CODES = new Set(['Space', 'KeyF', 'Enter', 'NumpadEnter', 'Escape']);
+const SPECIAL_BALL_KEY_PATTERN = /^Digit\d$/;
+
+/**
+ * Keeps only elements a keyboard user can actually reach: not disabled,
+ * not tabindex="-1", not inside a hidden or inert subtree, and rendered.
+ */
+export function filterFocusTrapCandidates(elements) {
+  return Array.from(elements).filter((el) => {
+    if (!el || el.disabled || el.hidden) {
+      return false;
+    }
+    if (typeof el.getAttribute === 'function' && el.getAttribute('tabindex') === '-1') {
+      return false;
+    }
+    if (typeof el.closest === 'function' && el.closest(NON_INTERACTIVE_ANCESTOR_SELECTOR)) {
+      return false;
+    }
+    if (typeof el.getClientRects === 'function' && el.getClientRects().length === 0) {
+      return false;
+    }
+    return true;
+  });
+}
+
+/** True when a held-down key repeat must be ignored (aiming arrows keep repeating). */
+export function shouldIgnoreRepeatedKey(code, isRepeat) {
+  if (!isRepeat || typeof code !== 'string') {
+    return false;
+  }
+  return REPEAT_SENSITIVE_KEY_CODES.has(code) || SPECIAL_BALL_KEY_PATTERN.test(code);
+}
+
+/** Writes text only when it differs, so live regions are not re-announced needlessly. */
+function setTextIfChanged(element, text) {
+  if (element && element.textContent !== text) {
+    element.textContent = text;
+  }
+}
+
+function setAttributeIfChanged(element, name, value) {
+  if (element && element.getAttribute(name) !== value) {
+    element.setAttribute(name, value);
+  }
+}
 
 /**
  * Manages DOM HUD updates, accessible modal dialogs, shop/codex tabs,
@@ -108,9 +165,12 @@ export class UIManager {
       btnLangPause: document.getElementById('btn-lang-pause'),
       modalConfirm: document.getElementById('modal-confirm'),
       btnConfirmYes: document.getElementById('btn-confirm-yes'),
-      btnConfirmNo: document.getElementById('btn-confirm-no')
+      btnConfirmNo: document.getElementById('btn-confirm-no'),
+      srAnnouncer: document.getElementById('sr-announcer')
     };
 
+    this.pendingAnnouncements = [];
+    this.isAnnouncementScheduled = false;
     this.lastExtra = {};
     this.pendingConfirmCallback = null;
     this.activeShopTab = 'upgrades';
@@ -154,14 +214,21 @@ export class UIManager {
       iconSpan.style.background = `radial-gradient(circle at 30% 30%, ${spec.highlight}, ${spec.fill})`;
       iconSpan.textContent = spec.icon;
 
+      iconSpan.setAttribute('aria-hidden', 'true');
+
       const labelSpan = document.createElement('span');
       labelSpan.className = 'powerup-name';
       labelSpan.textContent = t(`hud.powerups.${type}.name`);
 
+      const count = this.engine.specialInventory[type] || 0;
       const countSpan = document.createElement('span');
       countSpan.className = 'powerup-count';
       countSpan.id = `powerup-count-${type}`;
-      countSpan.textContent = String(this.engine.specialInventory[type] || 0);
+      countSpan.textContent = String(count);
+
+      // The visible name is hidden on narrow screens, so the name and stock
+      // are carried by an explicit label rather than by the content.
+      btn.setAttribute('aria-label', this.getPowerupAriaLabel(type, count));
 
       btn.append(iconSpan, labelSpan, countSpan);
       btn.addEventListener('click', () => {
@@ -170,6 +237,45 @@ export class UIManager {
 
       container.appendChild(btn);
     }
+  }
+
+  getPowerupAriaLabel(type, count) {
+    return t('hud.powerups.button.aria', {
+      name: t(`hud.powerups.${type}.name`),
+      count: formatNumber(count)
+    });
+  }
+
+  /**
+   * Queues a message for the visually hidden polite live region. Messages
+   * raised in the same frame are joined so none of them is dropped.
+   */
+  announce(message) {
+    const region = this.elements.srAnnouncer;
+    if (!region || !message) {
+      return;
+    }
+    this.pendingAnnouncements.push(message);
+    if (this.isAnnouncementScheduled) {
+      return;
+    }
+    this.isAnnouncementScheduled = true;
+    // Clearing first lets an identical message be announced again.
+    region.textContent = '';
+    const flush = () => {
+      this.isAnnouncementScheduled = false;
+      region.textContent = this.pendingAnnouncements.join(' ');
+      this.pendingAnnouncements = [];
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(flush);
+    } else {
+      flush();
+    }
+  }
+
+  isRunActive() {
+    return this.engine.state === GAME_STATES.PLAYING || this.engine.state === GAME_STATES.PAUSED;
   }
 
   bindEvents() {
@@ -416,6 +522,10 @@ export class UIManager {
         return;
       }
 
+      if (shouldIgnoreRepeatedKey(e.code, e.repeat)) {
+        return;
+      }
+
       if (e.code === 'Escape') {
         if (this.elements.modalConfirm && !this.elements.modalConfirm.classList.contains('hidden')) {
           this.pendingConfirmCallback = null;
@@ -517,17 +627,21 @@ export class UIManager {
     }
   }
 
-  getActiveTopModal() {
-    const priorityModals = [
+  /** All modals, topmost first: the first open one is the active dialog. */
+  getModalsByPriority() {
+    return [
       this.elements.modalConfirm,
       this.elements.modalLevels,
       this.elements.modalShop,
       this.elements.modalVictory,
       this.elements.modalGameOver,
       this.elements.modalPause
-    ];
-    for (const m of priorityModals) {
-      if (m && !m.classList.contains('hidden')) {
+    ].filter(Boolean);
+  }
+
+  getActiveTopModal() {
+    for (const m of this.getModalsByPriority()) {
+      if (!m.classList.contains('hidden')) {
         return m;
       }
     }
@@ -539,16 +653,17 @@ export class UIManager {
     if (!activeModal) {
       return;
     }
-    const selector = 'button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])';
-    const focusables = Array.from(activeModal.querySelectorAll(selector)).filter(
-      (el) => !el.closest('.hidden')
-    );
+    const focusables = filterFocusTrapCandidates(activeModal.querySelectorAll(MODAL_FOCUSABLE_SELECTOR));
     if (focusables.length === 0) {
+      e.preventDefault();
       return;
     }
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
+    if (!activeModal.contains(document.activeElement)) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    } else if (e.shiftKey && document.activeElement === first) {
       e.preventDefault();
       last.focus();
     } else if (!e.shiftKey && document.activeElement === last) {
@@ -565,6 +680,18 @@ export class UIManager {
         this.elements.appShell.setAttribute('aria-hidden', 'true');
       } else {
         this.elements.appShell.removeAttribute('aria-hidden');
+      }
+    }
+    // A modal stacked on another (Confirm over Pause or Levels) leaves the
+    // one underneath visible but unreachable.
+    const topModal = this.getActiveTopModal();
+    for (const modal of this.getModalsByPriority()) {
+      const isCovered = Boolean(topModal) && modal !== topModal && !modal.classList.contains('hidden');
+      modal.inert = isCovered;
+      if (isCovered) {
+        modal.setAttribute('aria-hidden', 'true');
+      } else {
+        modal.removeAttribute('aria-hidden');
       }
     }
     if (!anyOpen && this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
@@ -662,42 +789,51 @@ export class UIManager {
     return theme.starFilledSymbol.repeat(filled) + theme.starEmptySymbol.repeat(maxStars - filled);
   }
 
-  updateSoundButton() {
-    const isMuted = this.audioManager.isMuted();
-    const label = t(isMuted ? 'app.nav.button.soundOff' : 'app.nav.button.soundOn');
-    const aria = t(isMuted ? 'app.nav.button.soundOffAria' : 'app.nav.button.soundOnAria');
-    for (const btn of [this.elements.btnSound, this.elements.btnSoundPause]) {
+  /**
+   * Toggle buttons keep a stable accessible name and expose their state
+   * through aria-pressed; the tooltip still spells the current value out.
+   */
+  applyToggleState(buttons, { label, ariaLabel, tooltip, pressed }) {
+    for (const btn of buttons) {
       if (btn) {
-        btn.textContent = label;
-        btn.setAttribute('aria-label', aria);
-        btn.title = aria;
+        setTextIfChanged(btn, label);
+        setAttributeIfChanged(btn, 'aria-label', ariaLabel);
+        setAttributeIfChanged(btn, 'aria-pressed', String(pressed));
+        btn.title = tooltip;
       }
     }
+  }
+
+  updateSoundButton() {
+    const isMuted = this.audioManager.isMuted();
+    this.applyToggleState([this.elements.btnSound, this.elements.btnSoundPause], {
+      label: t(isMuted ? 'app.nav.button.soundOff' : 'app.nav.button.soundOn'),
+      ariaLabel: t('app.nav.button.soundAria'),
+      tooltip: t(isMuted ? 'app.nav.button.soundOffAria' : 'app.nav.button.soundOnAria'),
+      pressed: !isMuted
+    });
   }
 
   updateContrastButton() {
     const isHigh = this.storageManager.getHighContrast();
-    const label = t(isHigh ? 'app.nav.button.contrastOn' : 'app.nav.button.contrastOff');
-    const aria = t(isHigh ? 'app.nav.button.contrastOnAria' : 'app.nav.button.contrastOffAria');
-    for (const btn of [this.elements.btnContrast, this.elements.btnContrastPause]) {
-      if (btn) {
-        btn.textContent = label;
-        btn.setAttribute('aria-label', aria);
-        btn.title = aria;
-      }
-    }
+    this.applyToggleState([this.elements.btnContrast, this.elements.btnContrastPause], {
+      label: t(isHigh ? 'app.nav.button.contrastOn' : 'app.nav.button.contrastOff'),
+      ariaLabel: t('app.nav.button.contrastAria'),
+      tooltip: t(isHigh ? 'app.nav.button.contrastOnAria' : 'app.nav.button.contrastOffAria'),
+      pressed: isHigh
+    });
   }
 
   updateMotionButton() {
     const isReduced = this.storageManager.getReducedMotion();
-    const label = t(isReduced ? 'app.nav.button.motionReduced' : 'app.nav.button.motionOn');
-    const aria = t(isReduced ? 'app.nav.button.motionReducedAria' : 'app.nav.button.motionOnAria');
-    for (const btn of [this.elements.btnMotion, this.elements.btnMotionPause]) {
-      if (btn) {
-        btn.textContent = label;
-        btn.setAttribute('aria-label', aria);
-        btn.title = aria;
-      }
+    this.applyToggleState([this.elements.btnMotion, this.elements.btnMotionPause], {
+      label: t(isReduced ? 'app.nav.button.motionReduced' : 'app.nav.button.motionOn'),
+      ariaLabel: t('app.nav.button.motionAria'),
+      tooltip: t(isReduced ? 'app.nav.button.motionReducedAria' : 'app.nav.button.motionOnAria'),
+      pressed: isReduced
+    });
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.classList.toggle(REDUCED_MOTION_CLASS, isReduced);
     }
   }
 
@@ -708,11 +844,17 @@ export class UIManager {
   }
 
   updateLanguageButton() {
+    const locale = i18n.getLocale();
     const label = t('app.nav.button.language');
+    const ariaLabel = t('app.nav.button.languageAria');
     for (const btn of [this.elements.btnLang, this.elements.btnLangPause]) {
       if (btn) {
-        btn.textContent = label;
-        btn.setAttribute('aria-label', label);
+        const codeSpan = document.createElement('span');
+        codeSpan.lang = locale;
+        codeSpan.textContent = label;
+        btn.replaceChildren(codeSpan);
+        btn.setAttribute('aria-label', ariaLabel);
+        btn.title = ariaLabel;
       }
     }
     if (this.elements.btnDismissTutorial) {
@@ -741,8 +883,43 @@ export class UIManager {
       this.autoPausedByOverlay = true;
       this.engine.state = GAME_STATES.PAUSED;
     }
+    this.renderShopContents();
+    if (this.elements.codexPane) {
+      this.buildCodexPane();
+    }
+
+    this.switchShopTab(this.activeShopTab);
+    this.elements.modalShop.classList.remove('hidden');
+    this.syncModalInertState();
+    if (this.elements.btnCloseShop) {
+      this.elements.btnCloseShop.focus();
+    }
+  }
+
+  /**
+   * Re-renders the shop after a purchase without reopening it, then puts
+   * focus back on the same buy button (or the nearest usable one when that
+   * button just became disabled).
+   */
+  rerenderShopKeepingFocus(focusSelector) {
+    this.renderShopContents();
+    const modal = this.elements.modalShop;
+    const target = modal.querySelector(focusSelector);
+    if (target && !target.disabled) {
+      target.focus();
+      return;
+    }
+    const fallback =
+      filterFocusTrapCandidates(modal.querySelectorAll('.shop-pane button'))[0] ||
+      this.elements.btnCloseShop;
+    if (fallback) {
+      fallback.focus();
+    }
+  }
+
+  renderShopContents() {
     const coins = this.storageManager.getCoins();
-    this.elements.shopBalance.textContent = t('modals.shop.balance.label', { coins });
+    this.elements.shopBalance.textContent = t('modals.shop.balance.label', { coins: formatNumber(coins) });
     const grid = this.elements.shopGrid;
     grid.innerHTML = '';
 
@@ -772,17 +949,18 @@ export class UIManager {
       const buyBtn = document.createElement('button');
       buyBtn.type = 'button';
       buyBtn.className = 'modal-btn primary';
+      buyBtn.dataset.upgradeKey = upgradeKey;
       buyBtn.disabled = isMaxed || coins < cost;
       buyBtn.textContent = isMaxed
         ? t('modals.shop.card.maxed')
-        : t('modals.shop.card.buy', { cost });
+        : t('modals.shop.card.buy', { cost: formatNumber(cost) });
 
       buyBtn.addEventListener('click', () => {
         if (this.storageManager.purchaseUpgrade(upgradeKey)) {
           this.audioManager.playEffect('match', currentLevel + 1);
           this.engine.updateAimFromAngle(this.engine.aimAngle);
-          this.openShopModal();
           this.refresh(this.engine, this.lastExtra);
+          this.rerenderShopKeepingFocus(`[data-upgrade-key="${upgradeKey}"]`);
         }
       });
 
@@ -793,6 +971,8 @@ export class UIManager {
     if (this.elements.shopAmmoGrid && this.gameConfig.specialShopCosts) {
       const ammoGrid = this.elements.shopAmmoGrid;
       ammoGrid.innerHTML = '';
+      // Ammo is stocked into the current run, so it cannot be bought between runs.
+      const canBuyAmmo = this.isRunActive();
       for (const type of SPECIAL_TYPES_ORDER) {
         const spec = this.ballsConfig.specialTypes[type];
         const cost = this.gameConfig.specialShopCosts[type];
@@ -805,6 +985,7 @@ export class UIManager {
         iconSpan.className = 'powerup-icon';
         iconSpan.style.background = `radial-gradient(circle at 30% 30%, ${spec.highlight}, ${spec.fill})`;
         iconSpan.textContent = spec.icon;
+        iconSpan.setAttribute('aria-hidden', 'true');
 
         const titleEl = document.createElement('div');
         titleEl.className = 'ammo-card-title';
@@ -812,27 +993,30 @@ export class UIManager {
 
         const stockEl = document.createElement('div');
         stockEl.className = 'ammo-card-stock';
-        stockEl.textContent = t('modals.shop.specialAmmo.stock', { count });
+        stockEl.textContent = t('modals.shop.specialAmmo.stock', { count: formatNumber(count) });
 
         const buyAmmoBtn = document.createElement('button');
         buyAmmoBtn.type = 'button';
         buyAmmoBtn.className = 'modal-btn primary ammo-buy-btn';
-        buyAmmoBtn.disabled = coins < cost;
-        buyAmmoBtn.textContent = t('modals.shop.specialAmmo.buy', { cost });
+        buyAmmoBtn.dataset.specialType = type;
+        buyAmmoBtn.disabled = !canBuyAmmo || coins < cost;
+        buyAmmoBtn.classList.toggle('unavailable', !canBuyAmmo);
+        if (canBuyAmmo) {
+          buyAmmoBtn.textContent = t('modals.shop.specialAmmo.buy', { cost: formatNumber(cost) });
+        } else {
+          buyAmmoBtn.textContent = t('modals.shop.specialAmmo.unavailable');
+          buyAmmoBtn.title = t('modals.shop.specialAmmo.unavailableHint');
+        }
 
         buyAmmoBtn.addEventListener('click', () => {
           if (this.engine.buySpecialAmmo(type)) {
-            this.openShopModal();
+            this.rerenderShopKeepingFocus(`.ammo-buy-btn[data-special-type="${type}"]`);
           }
         });
 
         card.append(iconSpan, titleEl, stockEl, buyAmmoBtn);
         ammoGrid.appendChild(card);
       }
-    }
-
-    if (this.elements.codexPane) {
-      this.buildCodexPane();
     }
 
     if (this.elements.achievementsGrid && this.gameConfig.achievements) {
@@ -881,13 +1065,6 @@ export class UIManager {
           total: achEntries.length
         });
       }
-    }
-
-    this.switchShopTab(this.activeShopTab);
-    this.elements.modalShop.classList.remove('hidden');
-    this.syncModalInertState();
-    if (this.elements.btnCloseShop) {
-      this.elements.btnCloseShop.focus();
     }
   }
 
@@ -1003,14 +1180,24 @@ export class UIManager {
       footer.className = 'level-card-footer';
 
       if (isUnlocked) {
-        const starsText = this.formatStars(lvlStat.stars, this.gameConfig.scoring.maxStars);
+        const maxStars = this.gameConfig.scoring.maxStars;
         const starsEl = document.createElement('span');
         starsEl.className = 'level-stars';
-        starsEl.textContent = starsText;
+        // Star glyphs are decorative; the hidden text states the count.
+        const starsGlyphs = document.createElement('span');
+        starsGlyphs.setAttribute('aria-hidden', 'true');
+        starsGlyphs.textContent = this.formatStars(lvlStat.stars, maxStars);
+        const starsText = document.createElement('span');
+        starsText.className = 'visually-hidden';
+        starsText.textContent = t('modals.levelSelect.card.starsAria', {
+          stars: Math.max(0, Math.min(maxStars, lvlStat.stars)),
+          maxStars
+        });
+        starsEl.append(starsGlyphs, starsText);
 
         const scoreEl = document.createElement('span');
         scoreEl.className = 'level-best';
-        scoreEl.textContent = t('modals.levelSelect.card.bestScore', { score: lvlStat.bestScore });
+        scoreEl.textContent = t('modals.levelSelect.card.bestScore', { score: formatNumber(lvlStat.bestScore) });
 
         footer.append(starsEl, scoreEl);
         card.setAttribute('role', 'button');
@@ -1055,16 +1242,23 @@ export class UIManager {
   }
 
   refresh(engine, extra = {}) {
-    this.lastExtra = extra;
-    this.elements.scoreValue.textContent = String(engine.score);
-    this.elements.coinsValue.textContent = t('hud.stats.coins.value', {
-      coins: this.storageManager.getCoins()
-    });
+    // One-shot extras must not replay when refresh is re-run with lastExtra
+    // (language change, shop purchase).
+    const { unlockedAchievementId, ...persistentExtra } = extra;
+    this.lastExtra = persistentExtra;
+    setTextIfChanged(this.elements.scoreValue, formatNumber(engine.score));
+    setTextIfChanged(
+      this.elements.coinsValue,
+      t('hud.stats.coins.value', { coins: formatNumber(this.storageManager.getCoins()) })
+    );
 
     const affordableCount = this.getAffordableUpgradeCount();
-    this.elements.btnShop.textContent = affordableCount > 0
-      ? t('app.nav.button.shopBadge', { count: affordableCount })
-      : t('app.nav.button.shop');
+    setTextIfChanged(
+      this.elements.btnShop,
+      affordableCount > 0
+        ? t('app.nav.button.shopBadge', { count: affordableCount })
+        : t('app.nav.button.shop')
+    );
     this.elements.btnShop.classList.toggle('has-affordable', affordableCount > 0);
 
     this.elements.btnLevels.classList.toggle('active-mode', engine.mode === GAME_MODES.CAMPAIGN);
@@ -1074,16 +1268,19 @@ export class UIManager {
       const todayKey = SeededRandom.getTodayDateKey();
       const dailyBonusCoins = this.gameConfig.daily?.firstPlayBonusCoins || 0;
       const canClaimDaily = dailyBonusCoins > 0 && !this.storageManager.hasPlayedDailyToday(todayKey);
-      this.elements.btnDaily.textContent = canClaimDaily
-        ? t('app.nav.button.dailyBonusBadge', { coins: dailyBonusCoins })
-        : t('app.nav.button.daily');
+      setTextIfChanged(
+        this.elements.btnDaily,
+        canClaimDaily
+          ? t('app.nav.button.dailyBonusBadge', { coins: dailyBonusCoins })
+          : t('app.nav.button.daily')
+      );
     }
 
     const overchargePct = Math.min(
       100,
       Math.round((engine.overcharge / this.gameConfig.scoring.overchargeMax) * 100)
     );
-    this.elements.overchargePct.textContent = t('hud.stats.overcharge.pct', { pct: overchargePct });
+    setTextIfChanged(this.elements.overchargePct, t('hud.stats.overcharge.pct', { pct: overchargePct }));
     this.elements.overchargeFill.style.width = `${overchargePct}%`;
 
     let bestScore = 0;
@@ -1095,13 +1292,13 @@ export class UIManager {
       bestScore = this.storageManager.getEndlessHighScore();
     }
 
-    this.elements.highScoreValue.textContent = String(Math.max(bestScore, engine.score));
+    setTextIfChanged(this.elements.highScoreValue, formatNumber(Math.max(bestScore, engine.score)));
 
     if (this.elements.polarityBtn) {
       const polKey = engine.isPolarityFlipped
         ? 'hud.launcher.polarity.inverted'
         : 'hud.launcher.polarity.normal';
-      this.elements.polarityBtn.textContent = t(polKey);
+      setTextIfChanged(this.elements.polarityBtn, t(polKey));
       this.elements.polarityBtn.classList.toggle('active', Boolean(engine.isPolarityFlipped));
     }
 
@@ -1109,14 +1306,17 @@ export class UIManager {
 
     if (engine.mode === GAME_MODES.CAMPAIGN) {
       const lvl = this.levelsConfig.levels.find((l) => l.id === engine.currentLevelId);
-      this.elements.modeBanner.textContent = t('hud.stats.mode.campaign', {
-        level: engine.currentLevelId,
-        name: lvl ? t(lvl.nameKey) : ''
-      });
+      setTextIfChanged(
+        this.elements.modeBanner,
+        t('hud.stats.mode.campaign', {
+          level: engine.currentLevelId,
+          name: lvl ? t(lvl.nameKey) : ''
+        })
+      );
       if (this.elements.shotsLabel) {
-        this.elements.shotsLabel.textContent = t('hud.stats.shots.label');
+        setTextIfChanged(this.elements.shotsLabel, t('hud.stats.shots.label'));
       }
-      this.elements.shotsValue.textContent = String(engine.shotsRemaining);
+      setTextIfChanged(this.elements.shotsValue, formatNumber(engine.shotsRemaining));
       this.elements.shotsValue.classList.toggle(
         'warning',
         engine.shotsRemaining <= warningShotsThreshold
@@ -1128,9 +1328,12 @@ export class UIManager {
         const currentStars = engine.computeStars(engine.score);
         const starsStr = this.formatStars(currentStars, maxStars);
         const nextThreshold = thresholds.find((th) => th > engine.score);
-        this.elements.starProgress.textContent = nextThreshold !== undefined
-          ? t('hud.stats.score.starProgress', { stars: starsStr, next: nextThreshold })
-          : t('hud.stats.score.starMax', { stars: starsStr });
+        setTextIfChanged(
+          this.elements.starProgress,
+          nextThreshold !== undefined
+            ? t('hud.stats.score.starProgress', { stars: starsStr, next: formatNumber(nextThreshold) })
+            : t('hud.stats.score.starMax', { stars: starsStr })
+        );
         this.elements.starProgress.classList.remove('hidden');
       }
     } else {
@@ -1138,19 +1341,25 @@ export class UIManager {
         const mutatorLabel = engine.activeMutatorKey
           ? t(`gameplay.mutators.${engine.activeMutatorKey}`)
           : '';
-        this.elements.modeBanner.textContent = t('hud.stats.mode.daily', {
-          mutator: mutatorLabel,
-          wave: engine.waveCount
-        });
+        setTextIfChanged(
+          this.elements.modeBanner,
+          t('hud.stats.mode.daily', {
+            mutator: mutatorLabel,
+            wave: engine.waveCount
+          })
+        );
       } else {
-        this.elements.modeBanner.textContent = t('hud.stats.mode.endless', {
-          wave: engine.waveCount
-        });
+        setTextIfChanged(
+          this.elements.modeBanner,
+          t('hud.stats.mode.endless', {
+            wave: engine.waveCount
+          })
+        );
       }
       if (this.elements.shotsLabel) {
-        this.elements.shotsLabel.textContent = t('hud.stats.shots.waveLabel');
+        setTextIfChanged(this.elements.shotsLabel, t('hud.stats.shots.waveLabel'));
       }
-      this.elements.shotsValue.textContent = String(engine.shotsUntilWave);
+      setTextIfChanged(this.elements.shotsValue, formatNumber(engine.shotsUntilWave));
       this.elements.shotsValue.classList.toggle(
         'warning',
         engine.shotsUntilWave <= warningShotsThreshold
@@ -1161,24 +1370,27 @@ export class UIManager {
     }
 
     if (engine.combo > 1) {
-      this.elements.comboBadge.textContent = t('hud.stats.combo.label', { count: engine.combo });
+      setTextIfChanged(this.elements.comboBadge, t('hud.stats.combo.label', { count: engine.combo }));
       this.elements.comboBadge.classList.remove('hidden');
     } else {
       this.elements.comboBadge.classList.add('hidden');
     }
 
     if (engine.freezeTurnsRemaining > 0) {
-      this.elements.frozenBadge.textContent = t('hud.stats.frozen.label', { turns: engine.freezeTurnsRemaining });
+      setTextIfChanged(
+        this.elements.frozenBadge,
+        t('hud.stats.frozen.label', { turns: engine.freezeTurnsRemaining })
+      );
       this.elements.frozenBadge.classList.remove('hidden');
     } else {
       this.elements.frozenBadge.classList.add('hidden');
     }
 
+    // Both banners are polite live regions: rewriting identical text on every
+    // engine event would make screen readers repeat them.
     if (this.elements.tutorialBanner) {
       if (engine.activeTutorialKey && engine.state === GAME_STATES.PLAYING) {
-        if (this.elements.tutorialBannerText) {
-          this.elements.tutorialBannerText.textContent = t(engine.activeTutorialKey);
-        }
+        setTextIfChanged(this.elements.tutorialBannerText, t(engine.activeTutorialKey));
         this.elements.tutorialBanner.classList.remove('hidden');
       } else {
         this.elements.tutorialBanner.classList.add('hidden');
@@ -1189,11 +1401,14 @@ export class UIManager {
       const equippedType = engine.currentBall?.specialType;
       if (equippedType && engine.state === GAME_STATES.PLAYING) {
         const spec = this.ballsConfig.specialTypes[equippedType];
-        this.elements.specialEquippedBanner.textContent = t('hud.launcher.specialEquipped.hint', {
-          icon: spec?.icon || '',
-          name: t(`hud.powerups.${equippedType}.name`),
-          desc: t(`hud.powerups.${equippedType}.tooltip`)
-        });
+        setTextIfChanged(
+          this.elements.specialEquippedBanner,
+          t('hud.launcher.specialEquipped.hint', {
+            icon: spec?.icon || '',
+            name: t(`hud.powerups.${equippedType}.name`),
+            desc: t(`hud.powerups.${equippedType}.tooltip`)
+          })
+        );
         this.elements.specialEquippedBanner.classList.remove('hidden');
       } else {
         this.elements.specialEquippedBanner.classList.add('hidden');
@@ -1207,23 +1422,36 @@ export class UIManager {
       const type = btn.dataset.specialType;
       const count = engine.specialInventory[type] || 0;
       const countEl = document.getElementById(`powerup-count-${type}`);
-      if (countEl) {
-        countEl.textContent = String(count);
-      }
-      const isEquipped = engine.currentBall && engine.currentBall.specialType === type;
-      btn.classList.toggle('equipped', Boolean(isEquipped));
+      setTextIfChanged(countEl, String(count));
+      setAttributeIfChanged(btn, 'aria-label', this.getPowerupAriaLabel(type, count));
+      const isEquipped = Boolean(engine.currentBall && engine.currentBall.specialType === type);
+      btn.classList.toggle('equipped', isEquipped);
+      setAttributeIfChanged(btn, 'aria-pressed', String(isEquipped));
       btn.disabled = count <= 0 && !isEquipped;
     }
 
     const transitionedState = this.prevEngineState !== engine.state;
     this.prevEngineState = engine.state;
 
+    if (unlockedAchievementId) {
+      const spec = this.gameConfig.achievements?.[unlockedAchievementId];
+      this.announce(
+        t('hud.announcer.achievement.unlocked', {
+          name: t(`modals.shop.achievements.items.${unlockedAchievementId}.name`),
+          coins: formatNumber(spec?.rewardCoins || 0)
+        })
+      );
+    }
+
     if (engine.state === GAME_STATES.PAUSED && !this.autoPausedByOverlay) {
       if (this.elements.pauseLevelTip) {
         if (engine.levelTutorialKey) {
-          this.elements.pauseLevelTip.textContent = t('modals.pause.levelTip', {
-            tip: t(engine.levelTutorialKey)
-          });
+          setTextIfChanged(
+            this.elements.pauseLevelTip,
+            t('modals.pause.levelTip', {
+              tip: t(engine.levelTutorialKey)
+            })
+          );
           this.elements.pauseLevelTip.classList.remove('hidden');
         } else {
           this.elements.pauseLevelTip.classList.add('hidden');
@@ -1243,15 +1471,26 @@ export class UIManager {
     if (engine.state === GAME_STATES.VICTORY) {
       const stars = extra.stars || engine.computeStars(engine.score);
       const maxStars = this.gameConfig.scoring.maxStars;
-      this.elements.victoryScore.textContent = t('modals.victory.stats.score', { score: engine.score });
-      this.elements.victoryBonus.textContent = t('modals.victory.stats.shotsBonus', {
-        bonus: extra.victoryBonus || 0,
-        coins: extra.earnedCoins || 0
-      });
-      this.elements.victoryStars.textContent =
-        `${this.formatStars(stars, maxStars)}  ${t('modals.victory.stats.stars', { stars, maxStars })}`;
+      const scoreText = formatNumber(engine.score);
+      setTextIfChanged(this.elements.victoryScore, t('modals.victory.stats.score', { score: scoreText }));
+      setTextIfChanged(
+        this.elements.victoryBonus,
+        t('modals.victory.stats.shotsBonus', {
+          bonus: formatNumber(extra.victoryBonus || 0),
+          coins: formatNumber(extra.earnedCoins || 0)
+        })
+      );
+      // Star glyphs are decorative; the sentence next to them carries the count.
+      const starsGlyphs = document.createElement('span');
+      starsGlyphs.setAttribute('aria-hidden', 'true');
+      starsGlyphs.textContent = this.formatStars(stars, maxStars);
+      const starsLabel = document.createElement('span');
+      starsLabel.className = 'victory-stars-label';
+      starsLabel.textContent = t('modals.victory.stats.stars', { stars, maxStars });
+      this.elements.victoryStars.replaceChildren(starsGlyphs, starsLabel);
       if (transitionedState) {
         this.saveLastFocusedElement();
+        this.announce(t('hud.announcer.round.victory', { score: scoreText, stars, maxStars }));
       }
       this.elements.modalVictory.classList.remove('hidden');
       if (transitionedState && this.elements.btnNextLevel) {
@@ -1263,13 +1502,18 @@ export class UIManager {
       const reasonKey = extra.gameOverReason === 'outOfShots'
         ? 'modals.gameOver.reason.outOfShots'
         : 'modals.gameOver.reason.lineCrossed';
-      this.elements.gameOverReason.textContent = t(reasonKey);
-      this.elements.gameOverScore.textContent = t('modals.gameOver.stats.score', { score: engine.score });
-      this.elements.gameOverBest.textContent = t('modals.gameOver.stats.highScore', {
-        highScore: Math.max(bestScore, engine.score)
-      });
+      const scoreText = formatNumber(engine.score);
+      setTextIfChanged(this.elements.gameOverReason, t(reasonKey));
+      setTextIfChanged(this.elements.gameOverScore, t('modals.gameOver.stats.score', { score: scoreText }));
+      setTextIfChanged(
+        this.elements.gameOverBest,
+        t('modals.gameOver.stats.highScore', {
+          highScore: formatNumber(Math.max(bestScore, engine.score))
+        })
+      );
       if (transitionedState) {
         this.saveLastFocusedElement();
+        this.announce(t('hud.announcer.round.gameOver', { reason: t(reasonKey), score: scoreText }));
       }
       this.elements.modalGameOver.classList.remove('hidden');
       if (transitionedState && this.elements.btnRetry) {

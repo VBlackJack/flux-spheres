@@ -95,6 +95,8 @@ export class ParticleSystem {
       const item = this.particlePool.pop() || {};
       item.x = x;
       item.y = y;
+      item.prevX = x;
+      item.prevY = y;
       item.vx = Math.cos(angle) * mag;
       item.vy = Math.sin(angle) * mag;
       item.radius = cfg.burstMinRadius + Math.random() * cfg.burstRadiusRange;
@@ -163,6 +165,7 @@ export class ParticleSystem {
     const item = this.textPool.pop() || {};
     item.x = x;
     item.y = y;
+    item.prevY = y;
     item.text = text;
     item.color = color;
     item.vy = this.cfg.floatingTextVy;
@@ -192,6 +195,8 @@ export class ParticleSystem {
 
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
+      p.prevX = p.x;
+      p.prevY = p.y;
       p.x += p.vx;
       p.y += p.vy;
       p.vy += cfg.burstGravity;
@@ -221,6 +226,7 @@ export class ParticleSystem {
 
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ft = this.floatingTexts[i];
+      ft.prevY = ft.y;
       ft.y += ft.vy;
       ft.alpha -= cfg.floatingTextAlphaDecay;
       if (ft.alpha <= 0) {

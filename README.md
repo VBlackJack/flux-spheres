@@ -1,4 +1,6 @@
-# FluxSpheres — Magnetic Physics Edition
+# FluxSpheres: Magnetic Physics Edition
+
+*Read this in [French](README.fr.md).*
 
 [![Play Online](https://img.shields.io/badge/Play_Online-GitHub_Pages-38bdf8?style=for-the-badge&logo=github)](https://vblackjack.github.io/flux-spheres/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](http://www.apache.org/licenses/LICENSE-2.0)
@@ -24,10 +26,15 @@
   - Permanent upgrades (*Curved Laser Sight*, *Magnetic Amplifier*, *Overcharge Capacitor*, *Projectile Reserve*).
   - In-run Special Ammo refills, Bounties/Achievements, and an illustrated **Codex & Guide**.
 - **Accessibility & Comfort**:
-  - Bilingual interface (**FR** / **EN**) with zero hardcoded strings.
-  - **High Contrast** mode with enhanced borders and polarity symbols.
+  - Bilingual interface (**FR** / **EN**) with zero hardcoded strings; the first visit follows the browser language.
+  - **High Contrast** mode with enhanced borders and polarity symbols; buttons meet WCAG AA contrast.
   - **Reduced Motion** toggle (`prefers-reduced-motion` aware) and automatic pause on tab switch.
-  - Full mouse, touch (with vertical finger offset and pull-down shot cancellation), and keyboard controls.
+  - Screen reader support: labelled toggles with `aria-pressed`, named power-ups and level stars, and polite announcements for achievements and round results.
+  - Full mouse, touch (with vertical finger offset and pull-down shot cancellation), and keyboard controls; held action keys do not auto-repeat.
+  - Zero-scroll layout on desktop, phones and landscape phones, with 44 px touch targets. On phones, Restart, Sound, Contrast, Motion and Language live in the **Pause** menu.
+- **Installable & Offline**:
+  - Installable Progressive Web App with standard and maskable icons.
+  - Network-first Service Worker that falls back to the cached copy when offline or when the network is too slow.
 
 ---
 
@@ -37,11 +44,12 @@
 | :--- | :--- | :--- |
 | **Aim** | Move pointer / Drag finger | `Left` / `Right` (`+ Shift` for fast aim) |
 | **Shoot** | Release pointer / finger | `Enter` |
-| **Cancel Aim** | Drag below the launcher ring | — |
+| **Cancel Aim** | Drag below the launcher ring | - |
 | **Swap Ball** | Click secondary ball or **Swap** button | `Space` |
 | **Flip Polarity** | Click **Polarity** button | `F` |
-| **Equip / Unequip Special Ball** | Click Special Ball slot (click again to stash) | `1` – `5` |
+| **Equip / Unequip Special Ball** | Click Special Ball slot (click again to stash) | `1` to `5` |
 | **Pause / Close Modal** | Click **Pause** or modal backdrop | `Escape` |
+| **Settings (phones)** | Open **Pause** | - |
 
 ---
 
@@ -51,9 +59,10 @@ The codebase follows a modular, zero-dependency ES module architecture with stri
 
 ```text
 ├── configs/                  # Externalized game, physics, ball, obstacle, audio & level data
+├── icons/                    # PWA icons (SVG, maskable SVG, 192 px and 512 px PNG)
 ├── locales/                  # Bilingual translation dictionaries (fr.json, en.json)
 ├── src/
-│   ├── main.js               # Application bootstrap, fixed-step loop & pointer input guards
+│   ├── main.js               # Application bootstrap, pointer input guards & Service Worker registration
 │   ├── core/
 │   │   ├── ConfigRegistry.js # Parallel JSON configuration loader
 │   │   ├── Constants.js      # Frozen enums and mathematical constants
@@ -70,26 +79,38 @@ The codebase follows a modular, zero-dependency ES module architecture with stri
 │   │   └── SpatialHashGrid.js# Collision-free 2D spatial hash grid for neighbor queries
 │   ├── game/
 │   │   ├── GameEngine.js     # Game state machine, wave spawner, scoring & achievements
+│   │   ├── GameLoop.js       # Fixed-step loop with interpolation, idle throttling and fatal error stop
 │   │   ├── Renderer.js       # HiDPI Canvas 2D renderer with alpha interpolation & AOE preview
 │   │   └── SpecialBallController.js # Bomb, Lightning, Prism, Anvil & Cryo impact resolution
 │   └── ui/
 │       └── UIManager.js      # HUD updates, accessible modals (focus trap + inert) & Codex
 ├── styles/main.css           # Responsive layout and design tokens
-├── sw.js                     # Network-first Service Worker with versioned offline fallback
-└── tests/game.test.js        # Automated Node.js test suite
+├── index.html                # Application shell and static bootstrap error banner
+├── manifest.webmanifest      # PWA manifest
+├── sw.js                     # Network-first Service Worker with timeout and versioned offline fallback
+└── tests/                    # Automated Node.js test suites
 ```
 
 ---
 
 ## Local Development
 
+Requires Node.js 22 or later (CI runs Node.js 24).
+
 ```bash
 # Run local static server on port 4200
 npm start
 
-# Run automated test suite
+# Run every automated test suite
 npm test
 ```
+
+The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, and two repository guards:
+
+- `typography.test.js` rejects typographic look-alikes of ASCII characters (long dashes, curly quotes, ellipsis, special spaces, ligatures) in every text file.
+- `pwa.test.js` checks that every file under `src/`, `configs/`, `locales/` and `icons/` is precached by `sw.js`, and that the Service Worker cache version matches `package.json`.
+
+When adding a runtime file, list it in `PRECACHE_ASSETS` in `sw.js`. When releasing, bump `APP_VERSION` in `sw.js` together with `package.json`.
 
 ---
 

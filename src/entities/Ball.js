@@ -55,6 +55,10 @@ export class Ball {
     this.pivotRef = pivotRef;
     this.pivotRadius = pivotRadius;
     this.pivotAngle = pivotAngle;
+    this.bounces = 0;
+    this.portalWarps = 0;
+    this.portalCooldown = 0;
+    this.flightSteps = 0;
     this.pulsePhase = Math.random() * MATH_CONSTANTS.TWO_PI;
   }
 

@@ -100,6 +100,60 @@ export class SpatialHashGrid {
    */
   forEachNeighborPair(balls, callback) {
     this.rebuild(balls);
+    this.forEachCandidatePair(balls, callback);
+  }
+
+  /**
+   * Rebuilds the grid once and collects every unique neighbor pair closer than the given
+   * distance into two parallel output arrays, so hot loops can iterate the pairs several
+   * times without rebuilding the grid or allocating closures.
+   * @param {Array<import('../entities/Ball.js').Ball>} balls - Active balls in the world.
+   * @param {number} maxDistSq - Squared distance below which a pair is kept.
+   * @param {Array<import('../entities/Ball.js').Ball>} outA - Receives the first ball of each pair.
+   * @param {Array<import('../entities/Ball.js').Ball>} outB - Receives the second ball of each pair.
+   * @returns {number} Number of collected pairs.
+   */
+  collectPairs(balls, maxDistSq, outA, outB) {
+    this.rebuild(balls);
+    let count = 0;
+    for (let i = 0; i < balls.length; i++) {
+      const a = balls[i];
+      const cx = Math.floor(a.x * this.invCellSize);
+      const cy = Math.floor(a.y * this.invCellSize);
+
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const bucket = this.cells.get(this.hashCoords(cx + dx, cy + dy));
+          if (!bucket) {
+            continue;
+          }
+          for (let k = 0; k < bucket.length; k++) {
+            const b = bucket[k];
+            if (b.id <= a.id) {
+              continue;
+            }
+            const ox = b.x - a.x;
+            const oy = b.y - a.y;
+            if (ox * ox + oy * oy < maxDistSq) {
+              outA[count] = a;
+              outB[count] = b;
+              count++;
+            }
+          }
+        }
+      }
+    }
+    outA.length = count;
+    outB.length = count;
+    return count;
+  }
+
+  /**
+   * Iterates candidate neighbor pairs against the current grid contents without rebuilding.
+   * @param {Array<import('../entities/Ball.js').Ball>} balls - Balls to query from.
+   * @param {(a: import('../entities/Ball.js').Ball, b: import('../entities/Ball.js').Ball) => void} callback - Pair handler.
+   */
+  forEachCandidatePair(balls, callback) {
     for (let i = 0; i < balls.length; i++) {
       const a = balls[i];
       const cx = Math.floor(a.x * this.invCellSize);

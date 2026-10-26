@@ -47,17 +47,52 @@ export class StorageManager {
     return `${this.storageConfig.prefix}${shortKey}`;
   }
 
+  /**
+   * Reads a value with the in-memory copy as the source of truth, so a write that
+   * localStorage rejected (quota, security) is never shadowed by an older persisted value.
+   * The memory copy is seeded from localStorage on the first read of each key.
+   */
   safeGetItem(shortKey) {
     const fullKey = this.buildKey(shortKey);
-    try {
-      const val = localStorage.getItem(fullKey);
-      if (val !== null) {
-        return val;
-      }
-    } catch {
-      // Fallback to in-memory storage when localStorage is restricted
+    if (this.memoryFallback.has(fullKey)) {
+      return this.memoryFallback.get(fullKey);
     }
-    return this.memoryFallback.has(fullKey) ? this.memoryFallback.get(fullKey) : null;
+    let val = null;
+    try {
+      val = localStorage.getItem(fullKey);
+    } catch {
+      // localStorage is restricted; only the in-memory copy is available
+    }
+    if (val !== null) {
+      this.memoryFallback.set(fullKey, val);
+    }
+    return val;
+  }
+
+  /**
+   * Parses a stored JSON value and only accepts a plain object; any other shape
+   * (null, array, number, string, corrupted text) yields an empty object.
+   */
+  readJsonObject(shortKey) {
+    const raw = this.safeGetItem(shortKey);
+    if (!raw) {
+      return {};
+    }
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return {};
+    }
+    return StorageManager.isPlainObject(parsed) ? parsed : {};
+  }
+
+  static isPlainObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  static toNonNegativeNumber(value) {
+    return Number.isFinite(value) && value >= 0 ? value : 0;
   }
 
   safeSetItem(shortKey, value) {
@@ -69,6 +104,10 @@ export class StorageManager {
     } catch {
       // Ignore storage quota or security restrictions; kept in memoryFallback
     }
+  }
+
+  getStoredLanguage() {
+    return this.safeGetItem(this.storageConfig.keys.language);
   }
 
   getLanguage() {
@@ -104,7 +143,7 @@ export class StorageManager {
       return raw === 'true';
     }
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-      return Boolean(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      return Boolean(window.matchMedia(this.defaultsConfig.reducedMotionMediaQuery).matches);
     }
     return false;
   }
@@ -147,15 +186,18 @@ export class StorageManager {
   }
 
   getLevelStats() {
-    const raw = this.safeGetItem(this.storageConfig.keys.levelStats);
-    if (!raw) {
-      return {};
+    const parsed = this.readJsonObject(this.storageConfig.keys.levelStats);
+    const stats = {};
+    for (const [levelId, entry] of Object.entries(parsed)) {
+      if (!StorageManager.isPlainObject(entry)) {
+        continue;
+      }
+      stats[levelId] = {
+        bestScore: StorageManager.toNonNegativeNumber(entry.bestScore),
+        stars: StorageManager.toNonNegativeNumber(entry.stars)
+      };
     }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return {};
-    }
+    return stats;
   }
 
   saveLevelResult(levelId, score, stars) {
@@ -174,21 +216,20 @@ export class StorageManager {
     const stats = this.getLevelStats();
     let total = 0;
     for (const entry of Object.values(stats)) {
-      total += entry.stars || 0;
+      total += entry.stars;
     }
     return total;
   }
 
   getUnlockedAchievements() {
-    const raw = this.safeGetItem(this.storageConfig.keys.achievements);
-    if (!raw) {
-      return {};
+    const parsed = this.readJsonObject(this.storageConfig.keys.achievements);
+    const unlocked = {};
+    for (const [achievementId, value] of Object.entries(parsed)) {
+      if (value === true) {
+        unlocked[achievementId] = true;
+      }
     }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return {};
-    }
+    return unlocked;
   }
 
   unlockAchievement(achievementId) {
@@ -263,18 +304,10 @@ export class StorageManager {
     if (this.upgradesCache) {
       return { ...this.upgradesCache };
     }
-    const raw = this.safeGetItem(this.storageConfig.keys.upgrades);
-    let parsed = {};
-    if (raw) {
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        parsed = {};
-      }
-    }
+    const parsed = this.readJsonObject(this.storageConfig.keys.upgrades);
     const result = {};
     for (const key of Object.keys(this.upgradesConfig)) {
-      result[key] = Number.isFinite(parsed[key]) && parsed[key] >= 0 ? parsed[key] : 0;
+      result[key] = StorageManager.toNonNegativeNumber(parsed[key]);
     }
     this.upgradesCache = result;
     return { ...this.upgradesCache };

@@ -17,10 +17,21 @@
 const APP_VERSION = '1.2.5';
 const CACHE_NAME = `flux-spheres-cache-v${APP_VERSION}`;
 
+// The service worker cannot read configs/*.json before it has a cache, so its
+// tuning lives here as named constants.
+const NETWORK_TIMEOUT_MS = 4000;
+const NAVIGATION_FALLBACK_URL = './index.html';
+const CACHE_MATCH_OPTIONS = Object.freeze({ ignoreSearch: true });
+const HTTP_STATUS_OK = 200;
+
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './icons/icon.svg',
+  './icons/icon-maskable.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   './styles/main.css',
   './src/main.js',
   './src/core/AudioManager.js',
@@ -33,6 +44,7 @@ const PRECACHE_ASSETS = [
   './src/entities/Obstacle.js',
   './src/entities/ParticleSystem.js',
   './src/game/GameEngine.js',
+  './src/game/GameLoop.js',
   './src/game/Renderer.js',
   './src/game/SpecialBallController.js',
   './src/physics/PhysicsWorld.js',
@@ -68,19 +80,64 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+async function matchCached(request) {
+  const cached = await caches.match(request, CACHE_MATCH_OPTIONS);
+  if (cached) {
+    return cached;
+  }
+  if (request.mode === 'navigate') {
+    return caches.match(NAVIGATION_FALLBACK_URL, CACHE_MATCH_OPTIONS);
+  }
+  return undefined;
+}
+
+/**
+ * Network first, but a slow network does not hold the page hostage: after
+ * NETWORK_TIMEOUT_MS the cached copy is served if there is one.
+ */
+async function respondNetworkFirst(request, networkFetch) {
+  let timeoutId = null;
+  const timeout = new Promise((resolve) => {
+    timeoutId = setTimeout(() => resolve(null), NETWORK_TIMEOUT_MS);
+  });
+  try {
+    const response = await Promise.race([networkFetch, timeout]);
+    if (response) {
+      return response;
+    }
+  } catch {
+    // Offline or network error: fall through to the cache.
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  const cached = await matchCached(request);
+  if (cached) {
+    return cached;
+  }
+  try {
+    return await networkFetch;
+  } catch {
+    return Response.error();
+  }
+}
+
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') {
+  const { request } = event;
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) {
     return;
   }
-  event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return networkResponse;
-      })
-      .catch(() => caches.match(event.request))
-  );
+  const networkFetch = fetch(request);
+  // Clone synchronously, before the page can start reading the body, and keep
+  // the worker alive until the cache write has finished.
+  const cacheUpdate = networkFetch
+    .then((response) => {
+      if (!response || response.status !== HTTP_STATUS_OK) {
+        return undefined;
+      }
+      const copy = response.clone();
+      return caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+    })
+    .catch(() => undefined);
+  event.waitUntil(cacheUpdate);
+  event.respondWith(respondNetworkFirst(request, networkFetch));
 });

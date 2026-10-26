@@ -44,6 +44,8 @@ export class GameEngine {
     this.onStateChange = onStateChange;
 
     this.physicsWorld = new PhysicsWorld(physicsConfig, gameConfig, ballsConfig);
+    // Daily runs draw avalanche drift from the seeded stream so scores stay reproducible
+    this.physicsWorld.setRandomSource(() => this.random());
     this.particleSystem = new ParticleSystem(gameConfig.juice);
     if (this.storageManager && typeof this.storageManager.getReducedMotion === 'function') {
       this.particleSystem.setReducedMotion(this.storageManager.getReducedMotion());
@@ -67,6 +69,7 @@ export class GameEngine {
     this.trailFrameCounter = 0;
     this.hasFiredInRound = false;
     this.shotsFiredInLevel = 0;
+    this.bossesDestroyedInRun = 0;
     this.activeTutorialKey = null;
     this.levelTutorialKey = null;
     this.isAimCancelled = false;
@@ -90,6 +93,53 @@ export class GameEngine {
 
   isSurvivalMode() {
     return this.mode === GAME_MODES.ENDLESS || this.mode === GAME_MODES.DAILY;
+  }
+
+  /**
+   * True only while a run is being played; every score, coin and state transition
+   * is gated on it so that a finished run can never be resolved or rewarded twice.
+   */
+  isRunPlaying() {
+    return this.state === GAME_STATES.PLAYING;
+  }
+
+  /**
+   * Persists the current survival run score as a high score when it beats the stored one.
+   * Called when a run ends or is left, never on every score event.
+   */
+  persistRunHighScore() {
+    if (this.mode === GAME_MODES.ENDLESS) {
+      this.storageManager.setEndlessHighScore(this.score);
+    } else if (this.mode === GAME_MODES.DAILY) {
+      this.storageManager.setDailyHighScore(this.score, this.dailySeedKey);
+    }
+  }
+
+  /**
+   * Saves the outgoing run's high score, then resets every per-run counter shared by all modes.
+   * @param {string} mode - Game mode of the run being started.
+   */
+  resetRunState(mode) {
+    this.persistRunHighScore();
+    this.mode = mode;
+    this.score = 0;
+    this.combo = 0;
+    this.overcharge = 0;
+    this.freezeTurnsRemaining = 0;
+    this.chainCooldown = 0;
+    this.outOfShotsGraceFrames = 0;
+    this.hitStopFrames = 0;
+    this.hasFiredInRound = false;
+    this.shotsFiredInLevel = 0;
+    this.bossesDestroyedInRun = 0;
+    this.activeTutorialKey = null;
+    this.levelTutorialKey = null;
+    this.isAimCancelled = false;
+    this.isPolarityFlipped = false;
+    this.activeMutatorKey = null;
+    this.dailySeedKey = null;
+    this.seededRng = null;
+    this.stashedRegularColorId = null;
   }
 
   checkAndUnlockAchievement(achievementId) {
@@ -219,27 +269,12 @@ export class GameEngine {
     const levels = this.levelsConfig.levels;
     const levelDef = levels.find((l) => l.id === levelId) || levels[0];
 
-    this.mode = GAME_MODES.CAMPAIGN;
+    this.resetRunState(GAME_MODES.CAMPAIGN);
     this.currentLevelId = levelDef.id;
-    this.score = 0;
-    this.combo = 0;
-    this.overcharge = 0;
     this.shotsRemaining = levelDef.maxShots + this.getStartingShotsBonus();
-    this.freezeTurnsRemaining = 0;
-    this.chainCooldown = 0;
-    this.outOfShotsGraceFrames = 0;
-    this.hitStopFrames = 0;
-    this.hasFiredInRound = false;
-    this.shotsFiredInLevel = 0;
     this.activeTutorialKey = levelDef.tutorialKey || null;
     this.levelTutorialKey = levelDef.tutorialKey || null;
-    this.isAimCancelled = false;
-    this.isPolarityFlipped = false;
-    this.activeMutatorKey = null;
-    this.dailySeedKey = null;
-    this.seededRng = null;
     this.specialInventory = { ...levelDef.specialInventory };
-    this.stashedRegularColorId = null;
 
     this.activePalette = this.ballsConfig.standardColors
       .slice(0, levelDef.paletteCount)
@@ -267,13 +302,19 @@ export class GameEngine {
 
   startEndlessMode() {
     this.initSurvivalRun(GAME_MODES.ENDLESS, null);
+    this.notifyUI();
   }
 
-  startDailyChallenge(customSeed = null) {
+  /**
+   * Starts the Daily Challenge for a seed (today's UTC date key by default).
+   * @param {string|null} customSeed - Seed key; restarts pass the running seed so the board stays identical.
+   * @param {boolean} isRestart - True when replaying the same seed; the first-play bonus is never re-granted.
+   */
+  startDailyChallenge(customSeed = null, isRestart = false) {
     const seed = customSeed || SeededRandom.getTodayDateKey();
     this.initSurvivalRun(GAME_MODES.DAILY, seed);
-    const bonusCoins = this.gameConfig.daily?.firstPlayBonusCoins || 0;
-    if (bonusCoins > 0 && this.storageManager.claimDailyPlayBonus(seed, bonusCoins)) {
+    const bonusCoins = this.gameConfig.daily.firstPlayBonusCoins;
+    if (!isRestart && bonusCoins > 0 && this.storageManager.claimDailyPlayBonus(seed, bonusCoins)) {
       this.audioManager.playEffect('achievement');
       this.particleSystem.spawnFloatingText(
         this.gameConfig.canvas.logicalWidth * MATH_CONSTANTS.HALF,
@@ -281,34 +322,20 @@ export class GameEngine {
         t('gameplay.feedback.dailyBonus.claimed', { coins: bonusCoins }),
         this.gameConfig.theme.coinPopupColor
       );
-      this.notifyUI();
     }
+    this.notifyUI();
   }
 
   initSurvivalRun(mode, seed = null) {
     const endlessCfg = this.gameConfig.endless;
     const dailyCfg = this.gameConfig.daily;
-    this.mode = mode;
+    this.resetRunState(mode);
     this.dailySeedKey = mode === GAME_MODES.DAILY ? seed : null;
     this.seededRng = seed ? new SeededRandom(seed) : null;
-    this.score = 0;
-    this.combo = 0;
-    this.overcharge = 0;
     this.waveCount = 1;
     this.endlessRowParity = 0;
     this.shotsUntilWave = endlessCfg.shotsBeforeWave;
-    this.freezeTurnsRemaining = 0;
-    this.chainCooldown = 0;
-    this.outOfShotsGraceFrames = 0;
-    this.hitStopFrames = 0;
-    this.hasFiredInRound = false;
-    this.shotsFiredInLevel = 0;
-    this.activeTutorialKey = null;
-    this.levelTutorialKey = null;
-    this.isAimCancelled = false;
-    this.isPolarityFlipped = false;
     this.specialInventory = { ...endlessCfg.initialSpecialCounts };
-    this.stashedRegularColorId = null;
 
     this.activePalette = this.ballsConfig.standardColors
       .slice(0, endlessCfg.paletteCount)
@@ -318,7 +345,6 @@ export class GameEngine {
     this.physicsWorld.clear();
     this.particleSystem.clear();
 
-    this.activeMutatorKey = null;
     let rotorMult = 1.0;
     if (mode === GAME_MODES.DAILY && dailyCfg.mutators) {
       const mutatorKeys = Object.keys(dailyCfg.mutators);
@@ -339,26 +365,9 @@ export class GameEngine {
     }
 
     const r = this.physicsConfig.ball.radius;
-    const cols = endlessCfg.columns;
-    const spacingX = r * this.physicsConfig.simulation.bondRestDistanceFactor;
-    const totalW = (cols - 1) * spacingX;
-    const startX = (this.gameConfig.canvas.logicalWidth - totalW) * MATH_CONSTANTS.HALF;
-
     for (let row = 0; row < endlessCfg.initialRows; row++) {
-      const rowOffset = (row % 2) * r * MATH_CONSTANTS.HALF;
       const y = endlessCfg.startY + row * endlessCfg.rowSpacingY;
-      for (let col = 0; col < cols; col++) {
-        const isAnchor = row === 0 && endlessCfg.anchorColumns.includes(col);
-        const ball = this.createClusterBall({
-          x: startX + col * spacingX + rowOffset,
-          y,
-          radius: r,
-          colorId: this.pickPaletteColor(),
-          clusterModifier: isAnchor ? null : this.rollEndlessModifier(),
-          isAnchor
-        });
-        this.physicsWorld.addBall(ball);
-      }
+      this.spawnEndlessRow(y, row % 2, row === 0, () => this.rollEndlessModifier());
     }
 
     if (mode === GAME_MODES.DAILY) {
@@ -402,7 +411,39 @@ export class GameEngine {
     this.state = GAME_STATES.PLAYING;
     const canvasCfg = this.gameConfig.canvas;
     this.updateAim(canvasCfg.launcherX, canvasCfg.launcherY + canvasCfg.initialAimOffsetY);
-    this.notifyUI();
+  }
+
+  /**
+   * Adds one staggered row of endless-grid balls, shared by the initial grid and incoming waves.
+   * @param {number} y - Row center height.
+   * @param {number} parity - Row stagger parity (0 or 1) selecting the half-radius offset.
+   * @param {boolean} withAnchors - Whether the configured anchor columns become anchors.
+   * @param {(col: number) => string|null} pickModifier - Modifier picker for non-anchor columns.
+   * @returns {Array<import('../entities/Ball.js').Ball>} The balls created for the row.
+   */
+  spawnEndlessRow(y, parity, withAnchors, pickModifier) {
+    const endlessCfg = this.gameConfig.endless;
+    const r = this.physicsConfig.ball.radius;
+    const cols = endlessCfg.columns;
+    const spacingX = r * this.physicsConfig.simulation.bondRestDistanceFactor;
+    const totalW = (cols - 1) * spacingX;
+    const startX = (this.gameConfig.canvas.logicalWidth - totalW) * MATH_CONSTANTS.HALF;
+    const rowOffset = parity * r * MATH_CONSTANTS.HALF;
+    const rowBalls = [];
+    for (let col = 0; col < cols; col++) {
+      const isAnchor = withAnchors && endlessCfg.anchorColumns.includes(col);
+      const ball = this.createClusterBall({
+        x: startX + col * spacingX + rowOffset,
+        y,
+        radius: r,
+        colorId: this.pickPaletteColor(),
+        clusterModifier: isAnchor ? null : pickModifier(col),
+        isAnchor
+      });
+      this.physicsWorld.addBall(ball);
+      rowBalls.push(ball);
+    }
+    return rowBalls;
   }
 
   rollModifier(weights) {
@@ -418,23 +459,13 @@ export class GameEngine {
   }
 
   rollEndlessModifier() {
-    let spawnChance = this.gameConfig.endless.modifierSpawnChance;
     if (this.activeMutatorKey === DAILY_MUTATORS.VOLATILE_CLUSTER) {
-      const extra = this.gameConfig.daily?.mutators?.volatileCluster?.extraBombWeight || 0;
+      const extra = this.gameConfig.daily.mutators.volatileCluster.extraBombWeight;
       if (this.random() < extra) {
         return CLUSTER_MODIFIERS.DORMANT_BOMB;
       }
     }
-    if (this.random() > spawnChance) {
-      return null;
-    }
-    const mods = [
-      CLUSTER_MODIFIERS.ARMORED,
-      CLUSTER_MODIFIERS.DORMANT_BOMB,
-      CLUSTER_MODIFIERS.CHAMELEON,
-      CLUSTER_MODIFIERS.COIN_CORE
-    ];
-    return mods[Math.floor(this.random() * mods.length)];
+    return this.rollModifier(this.gameConfig.endless.modifierWeights);
   }
 
   buildLevelLayout(layout, modifierWeights = {}) {
@@ -523,7 +554,7 @@ export class GameEngine {
           const angle = baseAngle + step * layout.angleStep;
           const x = layout.centerX + Math.cos(angle) * dist;
           const y = layout.centerY + Math.sin(angle) * dist;
-          const isInner = step % 2 === 0;
+          const isInner = step % layout.anchorStepInterval === 0;
 
           const ball = this.createClusterBall({
             x,
@@ -648,12 +679,17 @@ export class GameEngine {
     return pool[Math.floor(this.random() * pool.length)];
   }
 
-  createRandomLauncherBall(specialType = null) {
+  /**
+   * Builds a launcher ball; a regular ball keeps `colorId` when given, otherwise picks a board color.
+   * @param {string|null} specialType - Special ball type, or null for a regular colored ball.
+   * @param {string|null} colorId - Color to restore on a regular ball.
+   */
+  createRandomLauncherBall(specialType = null, colorId = null) {
     return new Ball({
       x: this.gameConfig.canvas.launcherX,
       y: this.gameConfig.canvas.launcherY,
       radius: this.physicsConfig.ball.radius,
-      colorId: specialType ? null : this.pickLauncherColor(),
+      colorId: specialType ? null : colorId || this.pickLauncherColor(),
       specialType,
       isProjectile: false
     });
@@ -665,16 +701,8 @@ export class GameEngine {
     }
     if (this.currentBall && this.currentBall.specialType === specialType) {
       this.specialInventory[specialType] = (this.specialInventory[specialType] || 0) + 1;
-      const restoredColor = this.stashedRegularColorId || this.pickLauncherColor();
+      this.currentBall = this.createRandomLauncherBall(null, this.stashedRegularColorId);
       this.stashedRegularColorId = null;
-      this.currentBall = new Ball({
-        x: this.gameConfig.canvas.launcherX,
-        y: this.gameConfig.canvas.launcherY,
-        radius: this.physicsConfig.ball.radius,
-        colorId: restoredColor,
-        specialType: null,
-        isProjectile: false
-      });
       this.audioManager.playEffect('snap');
       this.updateAimFromAngle(this.aimAngle);
       this.notifyUI();
@@ -704,7 +732,16 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Buys one special ball for the active run.
+   * @param {string} specialType - Special ball type to buy.
+   * @returns {boolean} True when coins were debited and the ball added; false when no run is
+   *   active (only PLAYING or PAUSED runs accept purchases), the item is not for sale, or coins are short.
+   */
   buySpecialAmmo(specialType) {
+    if (this.state !== GAME_STATES.PLAYING && this.state !== GAME_STATES.PAUSED) {
+      return false;
+    }
     const cost = this.gameConfig.specialShopCosts?.[specialType];
     if (!Number.isFinite(cost) || cost <= 0) {
       return false;
@@ -927,6 +964,9 @@ export class GameEngine {
         this.handlePostTurnCleanup(false);
       },
       onSingularityCapture: (capturedBall, singularityObs) => {
+        if (!this.isRunPlaying()) {
+          return;
+        }
         const singCfg = this.obstaclesConfig.types.singularity;
         const baseDropPts = this.gameConfig.scoring.droppedBallPoints;
         const bonusPts = Math.round(baseDropPts * singularityObs.scoreMultiplier * Math.max(1, this.combo));
@@ -955,6 +995,11 @@ export class GameEngine {
       this.detachAndRewardAvalanche();
       this.evaluateRoundEnd();
       this.notifyUI();
+    }
+
+    if (!this.isRunPlaying()) {
+      this.particleSystem.update(juice.shakeDecay);
+      return;
     }
 
     if (!this.physicsWorld.projectile) {
@@ -992,6 +1037,8 @@ export class GameEngine {
    * @param {Array<import('../entities/Ball.js').Ball>} cluster - Connected same-color balls.
    * @param {import('../entities/Ball.js').Ball} originBall - Ball where popup text should spawn.
    * @param {boolean} isChainReaction - True if triggered automatically by post-settle bonding.
+   * @returns {number} Number of balls actually destroyed; 0 means the match only cracked armor
+   *   and awarded nothing.
    */
   resolveColorMatchCluster(cluster, originBall, isChainReaction = false) {
     const minMatch = this.gameConfig.defaults.matchMinCount;
@@ -999,11 +1046,6 @@ export class GameEngine {
     const juice = this.gameConfig.juice;
     const theme = this.gameConfig.theme;
     const canvasCfg = this.gameConfig.canvas;
-
-    this.combo = Math.min(
-      this.combo + scoring.comboIncrement,
-      scoring.maxComboMultiplier
-    );
 
     const palette = this.ballsConfig.standardColors.find((c) => c.id === originBall.colorId);
     const burstColor = palette ? palette.highlight : theme.anchorCoreColor;
@@ -1014,9 +1056,17 @@ export class GameEngine {
         destroyedCount++;
       }
     }
+    if (destroyedCount === 0) {
+      return 0;
+    }
+
+    this.combo = Math.min(
+      this.combo + scoring.comboIncrement,
+      scoring.maxComboMultiplier
+    );
 
     const basePoints = scoring.baseMatchPoints + (cluster.length - minMatch) * scoring.extraBallMultiplier;
-    const points = basePoints * Math.max(1, destroyedCount) * this.combo;
+    const points = basePoints * destroyedCount * this.combo;
     this.addScore(points);
     this.addOvercharge(destroyedCount * scoring.overchargePerMatchedBall);
 
@@ -1044,6 +1094,7 @@ export class GameEngine {
     if (this.combo >= this.gameConfig.achievements.comboMaster.threshold) {
       this.checkAndUnlockAchievement('comboMaster');
     }
+    return destroyedCount;
   }
 
   evaluateAutomaticChainReactions() {
@@ -1060,9 +1111,8 @@ export class GameEngine {
         continue;
       }
       const cluster = this.physicsWorld.findColorCluster(candidate);
-      if (cluster.length >= minMatch) {
+      if (cluster.length >= minMatch && this.resolveColorMatchCluster(cluster, candidate, true) > 0) {
         anyChainMatched = true;
-        this.resolveColorMatchCluster(cluster, candidate, true);
       }
     }
 
@@ -1083,7 +1133,7 @@ export class GameEngine {
     burstCount = this.gameConfig.juice.matchBurstCount,
     burstSpeed = this.gameConfig.juice.matchBurstSpeed
   ) {
-    if (!this.physicsWorld.ballMap.has(ball.id)) {
+    if (!this.isRunPlaying() || !this.physicsWorld.ballMap.has(ball.id)) {
       return false;
     }
 
@@ -1144,7 +1194,10 @@ export class GameEngine {
         t('gameplay.feedback.boss.destroyed', { coins: bossSpec.coinReward }),
         this.gameConfig.theme.bossPopupColor
       );
-      this.checkAndUnlockAchievement('bossSlayer');
+      this.bossesDestroyedInRun++;
+      if (this.bossesDestroyedInRun >= this.gameConfig.achievements.bossSlayer.threshold) {
+        this.checkAndUnlockAchievement('bossSlayer');
+      }
     } else if (ball.clusterModifier === CLUSTER_MODIFIERS.COIN_CORE) {
       const reward = this.ballsConfig.clusterModifiers.coinCore.coinReward;
       this.storageManager.addCoins(reward);
@@ -1227,8 +1280,8 @@ export class GameEngine {
     const minMatch = this.gameConfig.defaults.matchMinCount;
 
     if (cluster.length >= minMatch) {
-      this.resolveColorMatchCluster(cluster, snappedBall, false);
-      this.handlePostTurnCleanup(true);
+      const destroyedCount = this.resolveColorMatchCluster(cluster, snappedBall, false);
+      this.handlePostTurnCleanup(destroyedCount > 0);
     } else {
       this.combo = 0;
       this.handlePostTurnCleanup(false);
@@ -1236,6 +1289,9 @@ export class GameEngine {
   }
 
   detachAndRewardAvalanche() {
+    if (!this.isRunPlaying()) {
+      return;
+    }
     const detached = this.physicsWorld.detachUnanchoredBalls();
     if (detached.length > 0) {
       const scoring = this.gameConfig.scoring;
@@ -1290,7 +1346,7 @@ export class GameEngine {
   }
 
   shiftChameleonBalls() {
-    if (this.activePalette.length < 2) {
+    if (this.activePalette.length < this.ballsConfig.clusterModifiers.chameleon.minPaletteSize) {
       return;
     }
     for (const ball of this.physicsWorld.balls) {
@@ -1303,6 +1359,9 @@ export class GameEngine {
   }
 
   addOvercharge(rawAmount) {
+    if (!this.isRunPlaying()) {
+      return;
+    }
     const max = this.gameConfig.scoring.overchargeMax;
     this.overcharge += rawAmount * this.getOverchargeMultiplier();
     while (this.overcharge >= max) {
@@ -1363,7 +1422,6 @@ export class GameEngine {
 
   spawnEndlessWave() {
     const endlessCfg = this.gameConfig.endless;
-    const r = this.physicsConfig.ball.radius;
     this.waveCount++;
     this.endlessRowParity = (this.endlessRowParity + 1) % 2;
 
@@ -1391,44 +1449,23 @@ export class GameEngine {
     }
 
     const cols = endlessCfg.columns;
-    const spacingX = r * this.physicsConfig.simulation.bondRestDistanceFactor;
-    const totalW = (cols - 1) * spacingX;
-    const startX = (this.gameConfig.canvas.logicalWidth - totalW) * MATH_CONSTANTS.HALF;
-    const rowOffset = this.endlessRowParity * r * MATH_CONSTANTS.HALF;
-
     const isBossWave = endlessCfg.bossWaveInterval > 0 && this.waveCount % endlessCfg.bossWaveInterval === 0;
     const isGoldRushWave = !isBossWave && endlessCfg.goldRushWaveInterval > 0 && this.waveCount % endlessCfg.goldRushWaveInterval === 0;
     let remainingGoldCores = isGoldRushWave ? endlessCfg.goldRushCoinCoreCount : 0;
     let bossCorePlaced = false;
 
-    const newRowBalls = [];
-    const newRowIds = new Set();
-    for (let col = 0; col < cols; col++) {
-      const isAnchor = endlessCfg.anchorColumns.includes(col);
-      let modifier = null;
-      if (!isAnchor) {
-        if (isBossWave && !bossCorePlaced && col >= Math.floor(cols * MATH_CONSTANTS.HALF)) {
-          modifier = CLUSTER_MODIFIERS.BOSS_CORE;
-          bossCorePlaced = true;
-        } else if (remainingGoldCores > 0) {
-          modifier = CLUSTER_MODIFIERS.COIN_CORE;
-          remainingGoldCores--;
-        } else {
-          modifier = this.rollEndlessModifier();
-        }
+    const newRowBalls = this.spawnEndlessRow(endlessCfg.startY, this.endlessRowParity, true, (col) => {
+      if (isBossWave && !bossCorePlaced && col >= Math.floor(cols * MATH_CONSTANTS.HALF)) {
+        bossCorePlaced = true;
+        return CLUSTER_MODIFIERS.BOSS_CORE;
       }
-      const newBall = this.createClusterBall({
-        x: startX + col * spacingX + rowOffset,
-        y: endlessCfg.startY,
-        radius: r,
-        colorId: this.pickPaletteColor(),
-        clusterModifier: modifier,
-        isAnchor
-      });
-      this.physicsWorld.addBall(newBall);
-      newRowBalls.push(newBall);
-      newRowIds.add(newBall.id);
-    }
+      if (remainingGoldCores > 0) {
+        remainingGoldCores--;
+        return CLUSTER_MODIFIERS.COIN_CORE;
+      }
+      return this.rollEndlessModifier();
+    });
+    const newRowIds = new Set(newRowBalls.map((b) => b.id));
 
     this.physicsWorld.rebuildInitialBonds();
 
@@ -1484,6 +1521,9 @@ export class GameEngine {
   }
 
   checkDangerLineBreach() {
+    if (!this.isRunPlaying()) {
+      return;
+    }
     const dangerY = this.gameConfig.canvas.dangerLineY;
     for (const b of this.physicsWorld.balls) {
       if (!b.isDropping && b.y + b.radius >= dangerY) {
@@ -1501,6 +1541,9 @@ export class GameEngine {
   }
 
   evaluateRoundEnd() {
+    if (!this.isRunPlaying()) {
+      return;
+    }
     if (this.mode === GAME_MODES.CAMPAIGN) {
       if (this.physicsWorld.balls.length === 0) {
         this.outOfShotsGraceFrames = 0;
@@ -1520,6 +1563,7 @@ export class GameEngine {
           this.checkAndUnlockAchievement('starCollector');
         }
         this.state = GAME_STATES.VICTORY;
+        this.persistRunHighScore();
         this.audioManager.playEffect('victory');
         this.notifyUI({ victoryBonus: bonus, stars, earnedCoins });
         return;
@@ -1534,10 +1578,11 @@ export class GameEngine {
   }
 
   triggerGameOver(reasonKey) {
-    if (this.state === GAME_STATES.GAME_OVER) {
+    if (this.state === GAME_STATES.GAME_OVER || this.state === GAME_STATES.VICTORY) {
       return;
     }
     this.state = GAME_STATES.GAME_OVER;
+    this.persistRunHighScore();
     this.audioManager.playEffect('gameOver');
     this.notifyUI({ gameOverReason: reasonKey });
   }
@@ -1545,7 +1590,7 @@ export class GameEngine {
   computeStars(score) {
     const levelDef = this.levelsConfig.levels.find((l) => l.id === this.currentLevelId);
     const thresholds = levelDef?.starThresholds || this.gameConfig.scoring.starThresholds;
-    let stars = 1;
+    let stars = this.gameConfig.scoring.minVictoryStars;
     for (let i = 0; i < thresholds.length; i++) {
       if (score >= thresholds[i]) {
         stars = i + 1;
@@ -1554,17 +1599,20 @@ export class GameEngine {
     return Math.min(stars, this.gameConfig.scoring.maxStars);
   }
 
+  /**
+   * Adds mutator-scaled points to the running score. A no-op once the run has ended.
+   * High scores are only persisted when the run ends or is left (see persistRunHighScore);
+   * the HUD shows the larger of the stored best and the live score.
+   */
   addScore(points) {
+    if (!this.isRunPlaying()) {
+      return;
+    }
     let mult = 1.0;
     if (this.activeMutatorKey && this.gameConfig.daily?.mutators?.[this.activeMutatorKey]?.scoreMultiplier) {
       mult = this.gameConfig.daily.mutators[this.activeMutatorKey].scoreMultiplier;
     }
     this.score += Math.round(points * mult);
-    if (this.mode === GAME_MODES.ENDLESS) {
-      this.storageManager.setEndlessHighScore(this.score);
-    } else if (this.mode === GAME_MODES.DAILY) {
-      this.storageManager.setDailyHighScore(this.score, this.dailySeedKey || SeededRandom.getTodayDateKey());
-    }
   }
 
   togglePause() {
@@ -1581,7 +1629,7 @@ export class GameEngine {
     if (this.mode === GAME_MODES.CAMPAIGN) {
       this.startCampaignLevel(this.currentLevelId);
     } else if (this.mode === GAME_MODES.DAILY) {
-      this.startDailyChallenge();
+      this.startDailyChallenge(this.dailySeedKey, true);
     } else {
       this.startEndlessMode();
     }

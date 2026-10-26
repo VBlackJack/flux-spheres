@@ -16,6 +16,15 @@
 
 import { OBSTACLE_TYPES, SPECIAL_TYPES, CLUSTER_MODIFIERS, MATH_CONSTANTS } from '../core/Constants.js';
 
+const BOND_STYLE = Object.freeze({
+  STRESSED: 0,
+  SAME_COLOR: 1,
+  REPEL: 2,
+  LINK: 3
+});
+const BOND_STYLE_COUNT = 4;
+const SEGMENT_STRIDE = 4;
+
 /**
  * Canvas 2D renderer supporting high-DPI scaling, state interpolation,
  * high-contrast mode, and predictive trajectory/AOE/avalanche overlays.
@@ -29,38 +38,163 @@ export class Renderer {
     this.obstaclesConfig = obstaclesConfig;
 
     this.colorMap = new Map();
-    for (const c of ballsConfig.standardColors) {
+    this.colorWeights = new Map();
+    ballsConfig.standardColors.forEach((c, index) => {
       this.colorMap.set(c.id, c);
-    }
+      this.colorWeights.set(c.id, index + 1);
+    });
 
     this.logicalWidth = gameConfig.canvas.logicalWidth;
     this.logicalHeight = gameConfig.canvas.logicalHeight;
     this.dpr = 1;
-    this.updateCanvasResolution();
+    this.scaleX = 1;
+    this.scaleY = 1;
+    this.resolutionDirty = true;
+    this.staticLayer = null;
+    this.staticLayerDirty = true;
 
     const theme = this.gameConfig.theme;
-    this.bgGradient = this.ctx.createLinearGradient(0, 0, 0, this.logicalHeight);
-    this.bgGradient.addColorStop(0, theme.backgroundTop);
-    this.bgGradient.addColorStop(1, theme.backgroundBottom);
+    this.floatingTextFont = `bold ${gameConfig.juice.particles.floatingTextFontSize}px ${theme.fontFamily}`;
+    this.labelFontCache = new Map();
+    this.badgeFontCache = new Map();
+
+    this.bondSegments = [];
+    for (let i = 0; i < BOND_STYLE_COUNT; i++) {
+      this.bondSegments.push([]);
+    }
+
+    this.portalLinks = new Map();
+    this.portalLinkSource = [];
+
+    this.aimPreview = {
+      valid: false,
+      aimAngle: 0,
+      cellX: 0,
+      cellY: 0,
+      ballId: 0,
+      specialType: null,
+      colorId: null,
+      snapTargetId: 0,
+      blastMult: 0,
+      boardCount: 0,
+      boardIdSum: 0,
+      boardBondTotal: 0,
+      boardArmorTotal: 0,
+      boardColorSum: 0,
+      highlightBalls: [],
+      highlightIsMatch: false,
+      destroyedIds: new Set(),
+      avalancheBalls: []
+    };
+    this.aimPreviewComputeCount = 0;
 
     this.ballGradientCache = new Map();
     this.highContrast = false;
+    this.bindResolutionListeners();
+    this.updateCanvasResolution();
   }
 
+  bindResolutionListeners() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const invalidate = () => {
+      this.resolutionDirty = true;
+    };
+    window.addEventListener('resize', invalidate);
+    window.addEventListener('orientationchange', invalidate);
+    if (typeof ResizeObserver === 'function') {
+      this.resizeObserver = new ResizeObserver(invalidate);
+      this.resizeObserver.observe(this.canvas);
+    }
+  }
+
+  /**
+   * Sizes the backing store from the canvas display size times the capped device pixel
+   * ratio. The logical coordinate system is preserved through setTransform in render().
+   */
   updateCanvasResolution() {
+    if (!this.resolutionDirty) {
+      return;
+    }
+    this.resolutionDirty = false;
     const rawDpr = typeof window !== 'undefined' && window.devicePixelRatio ? window.devicePixelRatio : 1;
-    const nextDpr = Math.max(1, Math.min(3, rawDpr));
-    const targetW = Math.round(this.logicalWidth * nextDpr);
-    const targetH = Math.round(this.logicalHeight * nextDpr);
+    const nextDpr = Math.max(1, Math.min(this.gameConfig.canvas.maxDevicePixelRatio, rawDpr));
+    const rect = this.canvas.getBoundingClientRect();
+    const displayW = rect.width > 0 ? rect.width : this.logicalWidth;
+    const displayH = rect.height > 0 ? rect.height : this.logicalHeight;
+    const targetW = Math.max(1, Math.round(displayW * nextDpr));
+    const targetH = Math.max(1, Math.round(displayH * nextDpr));
     if (this.canvas.width !== targetW || this.canvas.height !== targetH || this.dpr !== nextDpr) {
       this.dpr = nextDpr;
       this.canvas.width = targetW;
       this.canvas.height = targetH;
+      this.staticLayerDirty = true;
     }
+    this.scaleX = this.canvas.width / this.logicalWidth;
+    this.scaleY = this.canvas.height / this.logicalHeight;
+  }
+
+  invalidateStaticLayer() {
+    this.staticLayerDirty = true;
+  }
+
+  createLayerCanvas() {
+    return document.createElement('canvas');
+  }
+
+  /**
+   * Pre-renders the static background gradient, grid and walls at backing-store
+   * resolution so each frame blits one image instead of redrawing them.
+   */
+  buildStaticLayer() {
+    if (!this.staticLayer) {
+      this.staticLayer = this.createLayerCanvas();
+    }
+    this.staticLayer.width = this.canvas.width;
+    this.staticLayer.height = this.canvas.height;
+    const layerCtx = this.staticLayer.getContext('2d');
+    const theme = this.gameConfig.theme;
+    const width = this.logicalWidth;
+    const height = this.logicalHeight;
+
+    layerCtx.setTransform(this.scaleX, 0, 0, this.scaleY, 0, 0);
+    const bgGradient = layerCtx.createLinearGradient(0, 0, 0, height);
+    bgGradient.addColorStop(0, theme.backgroundTop);
+    bgGradient.addColorStop(1, theme.backgroundBottom);
+    layerCtx.fillStyle = bgGradient;
+    layerCtx.fillRect(0, 0, width, height);
+    this.drawGrid(layerCtx, width, height, theme);
+    this.drawWalls(layerCtx, width, height, theme);
+    this.staticLayerDirty = false;
   }
 
   setHighContrast(enabled) {
     this.highContrast = Boolean(enabled);
+  }
+
+  getLabelFont(radius) {
+    let entry = this.labelFontCache.get(radius);
+    if (!entry) {
+      const renderCfg = this.ballsConfig.render;
+      const family = this.gameConfig.theme.fontFamily;
+      entry = {
+        normal: `bold ${Math.round(radius * renderCfg.labelScaleNormal)}px ${family}`,
+        highContrast: `bold ${Math.round(radius * renderCfg.labelScaleHighContrast)}px ${family}`
+      };
+      this.labelFontCache.set(radius, entry);
+    }
+    return this.highContrast ? entry.highContrast : entry.normal;
+  }
+
+  getBadgeFont(radius) {
+    let font = this.badgeFontCache.get(radius);
+    if (!font) {
+      const scale = this.ballsConfig.render.badgeFontScale;
+      font = `bold ${Math.round(radius * scale)}px ${this.gameConfig.theme.fontFamily}`;
+      this.badgeFontCache.set(radius, font);
+    }
+    return font;
   }
 
   getCachedBallGradient(palette, radius) {
@@ -91,16 +225,17 @@ export class Renderer {
 
   render(engineState, alpha = 1.0) {
     this.updateCanvasResolution();
+    if (this.staticLayerDirty) {
+      this.buildStaticLayer();
+    }
     const ctx = this.ctx;
     const width = this.logicalWidth;
     const height = this.logicalHeight;
     const theme = this.gameConfig.theme;
     const now = performance.now();
 
+    ctx.setTransform(this.scaleX, 0, 0, this.scaleY, 0, 0);
     ctx.save();
-    if (this.dpr !== 1) {
-      ctx.scale(this.dpr, this.dpr);
-    }
     const shake = engineState.particleSystem.shakeIntensity;
     if (shake > 0) {
       const dx = (Math.random() - MATH_CONSTANTS.HALF) * 2 * shake;
@@ -108,11 +243,9 @@ export class Renderer {
       ctx.translate(dx, dy);
     }
 
-    ctx.fillStyle = this.bgGradient;
-    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(this.staticLayer, 0, 0, width, height);
 
-    this.drawGrid(ctx, width, height, theme);
-    this.drawWallsAndDangerZone(ctx, width, height, theme, engineState.physicsWorld.balls, now, alpha);
+    this.drawDangerZone(ctx, width, height, theme, engineState.physicsWorld.balls, now, alpha);
     this.drawObstacles(ctx, engineState.physicsWorld.obstacles, now, alpha);
     this.drawMagneticBonds(ctx, engineState.physicsWorld, theme, now, alpha);
 
@@ -125,9 +258,6 @@ export class Renderer {
     }
 
     if (engineState.aimPoints && !engineState.physicsWorld.projectile && !engineState.isAimCancelled) {
-      const blastMult = typeof engineState.getBlastRadiusMultiplier === 'function'
-        ? engineState.getBlastRadiusMultiplier()
-        : 1.0;
       this.drawAimTrajectory(
         ctx,
         engineState.aimPoints,
@@ -135,7 +265,9 @@ export class Renderer {
         engineState.physicsWorld,
         theme,
         now,
-        blastMult
+        engineState.getBlastRadiusMultiplier(),
+        engineState.aimAngle,
+        alpha
       );
     }
 
@@ -146,7 +278,7 @@ export class Renderer {
     }
 
     this.drawLauncher(ctx, engineState, theme, now);
-    this.drawParticles(ctx, engineState.particleSystem);
+    this.drawParticles(ctx, engineState.particleSystem, alpha);
     ctx.restore();
   }
 
@@ -167,29 +299,29 @@ export class Renderer {
     ctx.stroke();
   }
 
-  drawWallsAndDangerZone(ctx, width, height, theme, balls = [], now = 0, alpha = 1.0) {
+  isBallInDangerWarning(ball, warningThresholdY, alpha) {
+    return !ball.isDropping && this.interpolate(ball.prevY, ball.y, alpha) + ball.radius >= warningThresholdY;
+  }
+
+  drawDangerZone(ctx, width, height, theme, balls, now, alpha = 1.0) {
     const margin = this.gameConfig.canvas.wallMargin;
     const dangerY = this.gameConfig.canvas.dangerLineY;
     const warningMargin = this.gameConfig.canvas.dangerWarningMarginY;
     const warningThresholdY = dangerY - warningMargin;
 
-    const closeBalls = [];
+    let isWarning = false;
     for (const b of balls) {
-      if (b.isDropping) {
-        continue;
-      }
-      const by = this.interpolate(b.prevY, b.y, alpha);
-      if (by + b.radius >= warningThresholdY) {
-        closeBalls.push({ x: this.interpolate(b.prevX, b.x, alpha), y: by, radius: b.radius });
+      if (this.isBallInDangerWarning(b, warningThresholdY, alpha)) {
+        isWarning = true;
+        break;
       }
     }
 
-    const isWarning = closeBalls.length > 0;
     const pulse = isWarning
       ? theme.magneticPulseBase + theme.magneticPulseAmp * Math.sin(now * theme.dangerWarningPulseSpeed)
       : 1.0;
 
-    ctx.fillStyle = isWarning && theme.dangerZoneWarningFill ? theme.dangerZoneWarningFill : theme.dangerZoneFill;
+    ctx.fillStyle = isWarning ? theme.dangerZoneWarningFill : theme.dangerZoneFill;
     ctx.fillRect(margin, dangerY, width - margin * 2, height - dangerY);
 
     ctx.save();
@@ -204,16 +336,24 @@ export class Renderer {
 
     if (isWarning) {
       ctx.setLineDash([]);
-      ctx.strokeStyle = theme.dangerBallRingColor || theme.dangerLineColor;
+      ctx.strokeStyle = theme.dangerBallRingColor;
       ctx.lineWidth = theme.aimTargetMatchLineWidth;
-      for (const cb of closeBalls) {
+      for (const b of balls) {
+        if (!this.isBallInDangerWarning(b, warningThresholdY, alpha)) {
+          continue;
+        }
+        const bx = this.interpolate(b.prevX, b.x, alpha);
+        const by = this.interpolate(b.prevY, b.y, alpha);
         ctx.beginPath();
-        ctx.arc(cb.x, cb.y, cb.radius + theme.aimTargetRingPadding, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.arc(bx, by, b.radius + theme.aimTargetRingPadding, 0, MATH_CONSTANTS.TWO_PI);
         ctx.stroke();
       }
     }
     ctx.restore();
+  }
 
+  drawWalls(ctx, width, height, theme) {
+    const margin = this.gameConfig.canvas.wallMargin;
     ctx.strokeStyle = theme.wallGlowColor;
     ctx.lineWidth = theme.wallGlowLineWidth;
     ctx.strokeRect(margin * MATH_CONSTANTS.HALF, margin * MATH_CONSTANTS.HALF, width - margin, height - margin);
@@ -256,8 +396,10 @@ export class Renderer {
     ctx.setLineDash([]);
 
     ctx.lineWidth = theme.magneticBondLineWidth;
-    const sameColorStroke = `rgba(${theme.magneticSameColorBase}, ${theme.magneticBondSameColorAlpha * pulse})`;
-    const repelColorStroke = `rgba(${theme.magneticRepelColorBase}, ${theme.magneticFieldAlpha * pulse})`;
+    const segments = this.bondSegments;
+    for (const list of segments) {
+      list.length = 0;
+    }
     for (const a of physicsWorld.balls) {
       const polA = a.colorId ? (physicsWorld.polarityMap.get(a.colorId) || 0) : 0;
       const ax = this.interpolate(a.prevX, a.x, alpha);
@@ -277,27 +419,87 @@ export class Renderer {
         const sameColor = a.colorId && a.colorId === b.colorId;
         const polB = b.colorId ? (physicsWorld.polarityMap.get(b.colorId) || 0) : 0;
         const samePolarityRepel = !sameColor && polA * polB > 0;
+        let style = BOND_STYLE.LINK;
         if (isStressed) {
-          ctx.strokeStyle = theme.magneticStressColor;
+          style = BOND_STYLE.STRESSED;
         } else if (sameColor) {
-          ctx.strokeStyle = sameColorStroke;
-        } else {
-          ctx.strokeStyle = samePolarityRepel ? repelColorStroke : theme.magneticLinkColor;
+          style = BOND_STYLE.SAME_COLOR;
+        } else if (samePolarityRepel) {
+          style = BOND_STYLE.REPEL;
         }
-
-        ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
-        ctx.stroke();
+        segments[style].push(ax, ay, bx, by);
       }
     }
+
+    if (segments[BOND_STYLE.STRESSED].length > 0) {
+      this.strokeSegments(ctx, segments[BOND_STYLE.STRESSED], theme.magneticStressColor);
+    }
+    if (segments[BOND_STYLE.SAME_COLOR].length > 0) {
+      this.strokeSegments(
+        ctx,
+        segments[BOND_STYLE.SAME_COLOR],
+        `rgba(${theme.magneticSameColorBase}, ${theme.magneticBondSameColorAlpha * pulse})`
+      );
+    }
+    if (segments[BOND_STYLE.REPEL].length > 0) {
+      this.strokeSegments(
+        ctx,
+        segments[BOND_STYLE.REPEL],
+        `rgba(${theme.magneticRepelColorBase}, ${theme.magneticFieldAlpha * pulse})`
+      );
+    }
+    if (segments[BOND_STYLE.LINK].length > 0) {
+      this.strokeSegments(ctx, segments[BOND_STYLE.LINK], theme.magneticLinkColor);
+    }
     ctx.restore();
+  }
+
+  strokeSegments(ctx, coords, strokeStyle) {
+    ctx.strokeStyle = strokeStyle;
+    ctx.beginPath();
+    for (let i = 0; i < coords.length; i += SEGMENT_STRIDE) {
+      ctx.moveTo(coords[i], coords[i + 1]);
+      ctx.lineTo(coords[i + 2], coords[i + 3]);
+    }
+    ctx.stroke();
+  }
+
+  /**
+   * Rebuilds the portal link map only when the obstacle list changes, so per-frame
+   * drawing needs neither a Set nor a linear mate search.
+   */
+  refreshPortalLinks(obstacles) {
+    const source = this.portalLinkSource;
+    let changed = source.length !== obstacles.length;
+    for (let i = 0; !changed && i < obstacles.length; i++) {
+      changed = source[i] !== obstacles[i];
+    }
+    if (!changed) {
+      return;
+    }
+    source.length = 0;
+    this.portalLinks.clear();
+    const firstByPair = new Map();
+    for (const obs of obstacles) {
+      source.push(obs);
+      if (obs.type !== OBSTACLE_TYPES.PORTAL || !obs.pairId) {
+        continue;
+      }
+      const lead = firstByPair.get(obs.pairId);
+      if (lead) {
+        if (!this.portalLinks.has(lead)) {
+          this.portalLinks.set(lead, obs);
+        }
+      } else {
+        firstByPair.set(obs.pairId, obs);
+      }
+    }
   }
 
   drawObstacles(ctx, obstacles, now, alpha = 1.0) {
     const typesCfg = this.obstaclesConfig.types;
     const obsDefaults = this.obstaclesConfig.defaults;
-    const drawnPortalPairs = new Set();
+    this.refreshPortalLinks(obstacles);
 
     for (const obs of obstacles) {
       if (obs.disabled) {
@@ -310,20 +512,17 @@ export class Renderer {
       ctx.save();
 
       if (obs.type === OBSTACLE_TYPES.PORTAL) {
-        if (obs.pairId && !drawnPortalPairs.has(obs.pairId)) {
-          drawnPortalPairs.add(obs.pairId);
-          const mate = obstacles.find((o) => o !== obs && o.type === OBSTACLE_TYPES.PORTAL && o.pairId === obs.pairId);
-          if (mate) {
-            ctx.save();
-            ctx.strokeStyle = cfg.fieldColor;
-            ctx.lineWidth = obsDefaults.lineWidth;
-            ctx.setLineDash(cfg.linkDash);
-            ctx.beginPath();
-            ctx.moveTo(ox, oy);
-            ctx.lineTo(mate.x, mate.y);
-            ctx.stroke();
-            ctx.restore();
-          }
+        const mate = this.portalLinks.get(obs);
+        if (mate) {
+          ctx.save();
+          ctx.strokeStyle = cfg.fieldColor;
+          ctx.lineWidth = obsDefaults.lineWidth;
+          ctx.setLineDash(cfg.linkDash);
+          ctx.beginPath();
+          ctx.moveTo(ox, oy);
+          ctx.lineTo(this.interpolate(mate.prevX, mate.x, alpha), this.interpolate(mate.prevY, mate.y, alpha));
+          ctx.stroke();
+          ctx.restore();
         }
 
         const pulseScale = 1 + obs.hitPulse * obsDefaults.bumperPulseScale;
@@ -486,12 +685,20 @@ export class Renderer {
   }
 
   drawBall(ctx, ball, now, alpha = 1.0) {
+    this.drawBallAt(
+      ctx,
+      ball,
+      this.interpolate(ball.prevX, ball.x, alpha),
+      this.interpolate(ball.prevY, ball.y, alpha),
+      now
+    );
+  }
+
+  drawBallAt(ctx, ball, bxPos, byPos, now) {
     const palette = this.getBallPalette(ball);
     const r = ball.radius;
     const theme = this.gameConfig.theme;
     const renderCfg = this.ballsConfig.render;
-    const bxPos = this.interpolate(ball.prevX, ball.x, alpha);
-    const byPos = this.interpolate(ball.prevY, ball.y, alpha);
 
     ctx.save();
     ctx.translate(bxPos, byPos);
@@ -571,8 +778,7 @@ export class Renderer {
 
     const primaryLabel = palette.icon || palette.symbol;
     if (primaryLabel) {
-      const fontScale = this.highContrast ? renderCfg.labelScaleHighContrast : renderCfg.labelScaleNormal;
-      ctx.font = `bold ${Math.round(r * fontScale)}px ${theme.fontFamily}`;
+      ctx.font = this.getLabelFont(r);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (this.highContrast) {
@@ -596,7 +802,7 @@ export class Renderer {
       ctx.stroke();
 
       ctx.fillStyle = renderCfg.badgeColor;
-      ctx.font = `bold ${Math.round(r * renderCfg.badgeFontScale)}px ${theme.fontFamily}`;
+      ctx.font = this.getBadgeFont(r);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(modSpec.badge, bx, by + renderCfg.badgeTextOffsetY);
@@ -632,7 +838,179 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawAimTrajectory(ctx, points, currentBall, physicsWorld, theme, now, blastRadiusMultiplier = 1.0) {
+  /**
+   * Returns true when the cached aim preview was built for exactly this aim, launcher
+   * ball and board signature, and refreshes the cache key otherwise.
+   */
+  isAimPreviewFresh(points, currentBall, physicsWorld, endX, endY, blastMult, aimAngle) {
+    const cache = this.aimPreview;
+    const cell = this.gameConfig.canvas.aimPreviewCacheCellPx;
+    const cellX = Math.round(endX / cell);
+    const cellY = Math.round(endY / cell);
+    const snapTargetId = points.snapTarget ? points.snapTarget.id : 0;
+
+    let boardCount = 0;
+    let boardIdSum = 0;
+    let boardBondTotal = 0;
+    let boardArmorTotal = 0;
+    let boardColorSum = 0;
+    for (const b of physicsWorld.balls) {
+      boardCount++;
+      boardIdSum += b.id;
+      boardBondTotal += b.bonds.size;
+      boardArmorTotal += b.armorHits;
+      if (b.colorId) {
+        boardColorSum += b.id * this.colorWeights.get(b.colorId);
+      }
+    }
+
+    const fresh =
+      cache.valid &&
+      cache.aimAngle === aimAngle &&
+      cache.cellX === cellX &&
+      cache.cellY === cellY &&
+      cache.ballId === currentBall.id &&
+      cache.specialType === currentBall.specialType &&
+      cache.colorId === currentBall.colorId &&
+      cache.snapTargetId === snapTargetId &&
+      cache.blastMult === blastMult &&
+      cache.boardCount === boardCount &&
+      cache.boardIdSum === boardIdSum &&
+      cache.boardBondTotal === boardBondTotal &&
+      cache.boardArmorTotal === boardArmorTotal &&
+      cache.boardColorSum === boardColorSum;
+
+    if (!fresh) {
+      cache.valid = true;
+      cache.aimAngle = aimAngle;
+      cache.cellX = cellX;
+      cache.cellY = cellY;
+      cache.ballId = currentBall.id;
+      cache.specialType = currentBall.specialType;
+      cache.colorId = currentBall.colorId;
+      cache.snapTargetId = snapTargetId;
+      cache.blastMult = blastMult;
+      cache.boardCount = boardCount;
+      cache.boardIdSum = boardIdSum;
+      cache.boardBondTotal = boardBondTotal;
+      cache.boardArmorTotal = boardArmorTotal;
+      cache.boardColorSum = boardColorSum;
+    }
+    return fresh;
+  }
+
+  /**
+   * Computes the balls highlighted, destroyed and detached by the current aim. Runs the
+   * cluster BFS and detachment search only when the aim target or the board changed.
+   */
+  computeAimPreview(points, currentBall, physicsWorld, endX, endY, blastMult) {
+    const cache = this.aimPreview;
+    const highlight = cache.highlightBalls;
+    const destroyedIds = cache.destroyedIds;
+    highlight.length = 0;
+    destroyedIds.clear();
+    cache.highlightIsMatch = false;
+    cache.avalancheBalls = [];
+    this.aimPreviewComputeCount++;
+
+    if (currentBall.specialType) {
+      const specType = currentBall.specialType;
+      const specCfg = this.ballsConfig.specialTypes[specType];
+      if (specType === SPECIAL_TYPES.BOMB || specType === SPECIAL_TYPES.FREEZE) {
+        const radiusFactor = specType === SPECIAL_TYPES.BOMB
+          ? specCfg.blastRadiusFactor
+          : specCfg.freezeRadiusFactor;
+        const aoeRadius = currentBall.radius * radiusFactor * blastMult;
+        for (const b of physicsWorld.balls) {
+          if (Math.hypot(b.x - endX, b.y - endY) <= aoeRadius) {
+            highlight.push(b);
+            if (specType === SPECIAL_TYPES.BOMB) {
+              destroyedIds.add(b.id);
+            }
+          }
+        }
+      } else if (specType === SPECIAL_TYPES.LIGHTNING) {
+        const bandHalf = currentBall.radius * specCfg.bandHalfHeightFactor * blastMult;
+        for (const b of physicsWorld.balls) {
+          if (Math.abs(b.y - endY) <= bandHalf) {
+            highlight.push(b);
+            destroyedIds.add(b.id);
+          }
+        }
+      } else if (specType === SPECIAL_TYPES.RAINBOW) {
+        const neighborRadius = currentBall.radius * specCfg.neighborRadiusFactor;
+        const seen = new Set();
+        for (const other of physicsWorld.balls) {
+          if (seen.has(other.id) || !other.colorId || Math.hypot(other.x - endX, other.y - endY) > neighborRadius) {
+            continue;
+          }
+          for (const member of physicsWorld.findColorCluster(other)) {
+            if (!seen.has(member.id)) {
+              seen.add(member.id);
+              highlight.push(member);
+              if (member.armorHits <= 1) {
+                destroyedIds.add(member.id);
+              }
+            }
+          }
+        }
+      } else if (specType === SPECIAL_TYPES.ANVIL) {
+        const pierceRadius = currentBall.radius * specCfg.pierceRadiusFactor;
+        const pierceRadiusSq = pierceRadius * pierceRadius;
+        for (const b of physicsWorld.balls) {
+          for (const pt of points) {
+            const dx = b.x - pt.x;
+            const dy = b.y - pt.y;
+            if (dx * dx + dy * dy <= pierceRadiusSq) {
+              highlight.push(b);
+              destroyedIds.add(b.id);
+              break;
+            }
+          }
+        }
+      }
+      cache.highlightIsMatch = true;
+    } else if (points.snapTarget) {
+      const target = points.snapTarget;
+      const isMatchingColor = currentBall.colorId && currentBall.colorId === target.colorId;
+      if (isMatchingColor) {
+        for (const member of physicsWorld.findColorCluster(target)) {
+          highlight.push(member);
+        }
+      } else {
+        highlight.push(target);
+      }
+      const willMatch = isMatchingColor && highlight.length + 1 >= this.gameConfig.defaults.matchMinCount;
+      cache.highlightIsMatch = Boolean(willMatch);
+      if (willMatch) {
+        for (const member of highlight) {
+          if (member.armorHits <= 1) {
+            destroyedIds.add(member.id);
+          }
+        }
+      }
+    }
+
+    if (destroyedIds.size > 0) {
+      cache.avalancheBalls = physicsWorld.findDetachedIfRemoved(destroyedIds);
+    }
+  }
+
+  strokeBallRings(ctx, balls, padding, alpha) {
+    for (const b of balls) {
+      ctx.beginPath();
+      ctx.arc(
+        this.interpolate(b.prevX, b.x, alpha),
+        this.interpolate(b.prevY, b.y, alpha),
+        b.radius + padding,
+        0,
+        MATH_CONSTANTS.TWO_PI
+      );
+      ctx.stroke();
+    }
+  }
+
+  drawAimTrajectory(ctx, points, currentBall, physicsWorld, theme, now, blastRadiusMultiplier, aimAngle, alpha = 1.0) {
     if (!points || points.length < 2 || !currentBall) {
       return;
     }
@@ -667,10 +1045,16 @@ export class Renderer {
     ctx.stroke();
 
     const pulse = theme.magneticPulseBase + theme.magneticPulseAmp * Math.sin(now * theme.aimTargetPulseSpeed);
-    const affectedBalls = [];
-    const destroyedIds = new Set();
+    if (!physicsWorld) {
+      ctx.restore();
+      return;
+    }
+    if (!this.isAimPreviewFresh(points, currentBall, physicsWorld, endX, endY, blastRadiusMultiplier, aimAngle)) {
+      this.computeAimPreview(points, currentBall, physicsWorld, endX, endY, blastRadiusMultiplier);
+    }
+    const preview = this.aimPreview;
 
-    if (currentBall.specialType && physicsWorld) {
+    if (currentBall.specialType) {
       const specType = currentBall.specialType;
       const specCfg = this.ballsConfig.specialTypes[specType];
       if (specType === SPECIAL_TYPES.BOMB || specType === SPECIAL_TYPES.FREEZE) {
@@ -690,15 +1074,6 @@ export class Renderer {
         ctx.setLineDash(theme.specialAoeDash);
         ctx.stroke();
         ctx.restore();
-
-        for (const b of physicsWorld.balls) {
-          if (Math.hypot(b.x - endX, b.y - endY) <= aoeRadius) {
-            affectedBalls.push(b);
-            if (specType === SPECIAL_TYPES.BOMB) {
-              destroyedIds.add(b.id);
-            }
-          }
-        }
       } else if (specType === SPECIAL_TYPES.LIGHTNING) {
         const bandHalf = currentBall.radius * specCfg.bandHalfHeightFactor * blastRadiusMultiplier;
         const margin = this.gameConfig.canvas.wallMargin;
@@ -713,87 +1088,29 @@ export class Renderer {
         ctx.setLineDash(theme.specialAoeDash);
         ctx.strokeRect(margin, endY - bandHalf, bandWidth, bandHalf * 2);
         ctx.restore();
-
-        for (const b of physicsWorld.balls) {
-          if (Math.abs(b.y - endY) <= bandHalf) {
-            affectedBalls.push(b);
-            destroyedIds.add(b.id);
-          }
-        }
-      } else if (specType === SPECIAL_TYPES.RAINBOW) {
-        const neighborRadius = currentBall.radius * specCfg.neighborRadiusFactor;
-        const seen = new Set();
-        for (const other of physicsWorld.balls) {
-          if (other.colorId && Math.hypot(other.x - endX, other.y - endY) <= neighborRadius) {
-            const cluster = physicsWorld.findColorCluster(other);
-            for (const member of cluster) {
-              if (!seen.has(member.id)) {
-                seen.add(member.id);
-                affectedBalls.push(member);
-                if (member.armorHits <= 1) {
-                  destroyedIds.add(member.id);
-                }
-              }
-            }
-          }
-        }
-      } else if (specType === SPECIAL_TYPES.ANVIL) {
-        const pierceRadius = currentBall.radius * specCfg.pierceRadiusFactor;
-        const seen = new Set();
-        for (const pt of points) {
-          for (const b of physicsWorld.balls) {
-            if (!seen.has(b.id) && Math.hypot(b.x - pt.x, b.y - pt.y) <= pierceRadius) {
-              seen.add(b.id);
-              affectedBalls.push(b);
-              destroyedIds.add(b.id);
-            }
-          }
-        }
-      }
-
-      if (affectedBalls.length > 0) {
-        ctx.strokeStyle = theme.targetHighlightColor;
-        ctx.lineWidth = theme.aimTargetMatchLineWidth;
-        ctx.globalAlpha = pulse;
-        for (const member of affectedBalls) {
-          ctx.beginPath();
-          ctx.arc(member.x, member.y, member.radius + theme.aimTargetRingPadding, 0, MATH_CONSTANTS.TWO_PI);
-          ctx.stroke();
-        }
-      }
-    } else if (points.snapTarget && physicsWorld) {
-      const target = points.snapTarget;
-      const isMatchingColor = currentBall.colorId && currentBall.colorId === target.colorId;
-      const cluster = isMatchingColor ? physicsWorld.findColorCluster(target) : [target];
-      const willMatch = isMatchingColor && cluster.length + 1 >= this.gameConfig.defaults.matchMinCount;
-      ctx.strokeStyle = willMatch ? theme.targetHighlightColor : palette.highlight;
-      ctx.lineWidth = willMatch ? theme.aimTargetMatchLineWidth : theme.aimTargetNormalLineWidth;
-      ctx.globalAlpha = pulse;
-      for (const member of cluster) {
-        ctx.beginPath();
-        ctx.arc(member.x, member.y, member.radius + theme.aimTargetRingPadding, 0, MATH_CONSTANTS.TWO_PI);
-        ctx.stroke();
-        if (willMatch && member.armorHits <= 1) {
-          destroyedIds.add(member.id);
-        }
       }
     }
 
-    if (destroyedIds.size > 0 && physicsWorld && typeof physicsWorld.findDetachedIfRemoved === 'function') {
-      const avalancheBalls = physicsWorld.findDetachedIfRemoved(destroyedIds);
-      if (avalancheBalls.length > 0) {
-        ctx.save();
-        ctx.strokeStyle = theme.avalancheDropHighlightColor || theme.anchorRingColor;
-        ctx.lineWidth = theme.aimTargetNormalLineWidth;
-        ctx.setLineDash(theme.specialAoeDash);
-        ctx.globalAlpha = pulse;
-        for (const ab of avalancheBalls) {
-          ctx.beginPath();
-          ctx.arc(ab.x, ab.y, ab.radius + theme.aimTargetRingPadding + theme.avalancheRingPaddingExtra, 0, MATH_CONSTANTS.TWO_PI);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
+    if (preview.highlightBalls.length > 0) {
+      ctx.strokeStyle = preview.highlightIsMatch ? theme.targetHighlightColor : palette.highlight;
+      ctx.lineWidth = preview.highlightIsMatch ? theme.aimTargetMatchLineWidth : theme.aimTargetNormalLineWidth;
+      ctx.globalAlpha = pulse;
+      this.strokeBallRings(ctx, preview.highlightBalls, theme.aimTargetRingPadding, alpha);
+    }
+
+    if (preview.avalancheBalls.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = theme.avalancheDropHighlightColor;
+      ctx.lineWidth = theme.aimTargetNormalLineWidth;
+      ctx.setLineDash(theme.specialAoeDash);
+      ctx.globalAlpha = pulse;
+      this.strokeBallRings(
+        ctx,
+        preview.avalancheBalls,
+        theme.aimTargetRingPadding + theme.avalancheRingPaddingExtra,
+        alpha
+      );
+      ctx.restore();
     }
 
     ctx.restore();
@@ -848,10 +1165,7 @@ export class Renderer {
     ctx.restore();
 
     if (engineState.currentBall && !engineState.physicsWorld.projectile) {
-      engineState.currentBall.x = lx;
-      engineState.currentBall.y = ly;
-      engineState.currentBall.savePreviousPosition();
-      this.drawBall(ctx, engineState.currentBall, now, 1.0);
+      this.drawBallAt(ctx, engineState.currentBall, lx, ly, now);
       if (engineState.isPolarityFlipped) {
         const renderCfg = this.ballsConfig.render;
         ctx.save();
@@ -876,14 +1190,11 @@ export class Renderer {
       ctx.stroke();
       ctx.restore();
 
-      engineState.nextBall.x = nx;
-      engineState.nextBall.y = ny;
-      engineState.nextBall.savePreviousPosition();
-      this.drawBall(ctx, engineState.nextBall, now, 1.0);
+      this.drawBallAt(ctx, engineState.nextBall, nx, ny, now);
     }
   }
 
-  drawParticles(ctx, particleSystem) {
+  drawParticles(ctx, particleSystem, alpha = 1.0) {
     const pCfg = this.gameConfig.juice.particles;
     const theme = this.gameConfig.theme;
     ctx.save();
@@ -931,20 +1242,27 @@ export class Renderer {
       ctx.fillStyle = p.color;
       ctx.globalAlpha = Math.max(0, p.alpha);
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.radius, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.arc(
+        this.interpolate(p.prevX, p.x, alpha),
+        this.interpolate(p.prevY, p.y, alpha),
+        p.radius,
+        0,
+        MATH_CONSTANTS.TWO_PI
+      );
       ctx.fill();
     }
 
     const shadowColor = theme.floatingTextShadowColor;
     const shadowOffset = pCfg.floatingTextShadowOffset;
-    ctx.font = `bold ${pCfg.floatingTextFontSize}px ${theme.fontFamily}`;
+    ctx.font = this.floatingTextFont;
     ctx.textAlign = 'center';
     for (const ft of particleSystem.floatingTexts) {
+      const fy = this.interpolate(ft.prevY, ft.y, alpha);
       ctx.globalAlpha = Math.max(0, ft.alpha);
       ctx.fillStyle = shadowColor;
-      ctx.fillText(ft.text, ft.x + shadowOffset, ft.y + shadowOffset);
+      ctx.fillText(ft.text, ft.x + shadowOffset, fy + shadowOffset);
       ctx.fillStyle = ft.color;
-      ctx.fillText(ft.text, ft.x, ft.y);
+      ctx.fillText(ft.text, ft.x, fy);
     }
 
     ctx.restore();

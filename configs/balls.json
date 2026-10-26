@@ -117,6 +117,7 @@
       "freezeRadiusFactor": 3.4,
       "velocityDampingFactor": 0.1,
       "scoreMultiplier": 3,
+      "freezeTurns": 3,
       "burstCount": 18,
       "burstSpeed": 4.5,
       "pointsPerBall": 110
@@ -148,7 +149,8 @@
     "chameleon": {
       "id": "chameleon",
       "ringColor": "#ec4899",
-      "badge": "↻"
+      "badge": "↻",
+      "minPaletteSize": 2
     },
     "coinCore": {
       "id": "coinCore",

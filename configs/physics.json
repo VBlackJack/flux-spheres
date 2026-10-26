@@ -2,6 +2,7 @@
   "ball": {
     "radius": 20,
     "projectileSpeed": 18.5,
+    "projectileMaxSpeed": 30.0,
     "anvilSpeed": 15.0,
     "mass": 1.0,
     "anvilMass": 4.5,
@@ -27,6 +28,7 @@
     "bondStiffness": 0.34,
     "anchorStiffness": 0.52,
     "collisionOverlapPush": 0.52,
+    "collisionDistanceFactor": 2.0,
     "projectileSnapDistanceFactor": 2.15,
     "impactImpulseMultiplier": 0.44,
     "snapVelocityRetention": 0.25,
@@ -38,7 +40,12 @@
     "pivotMaxAngularSpeed": 0.065,
     "chainCheckCooldownFrames": 14,
     "outOfShotsGraceFrames": 28,
-    "maxProjectileBounces": 12
+    "maxProjectileBounces": 12,
+    "maxProjectilePortalWarps": 6,
+    "maxProjectileFlightSteps": 2700
+  },
+  "aimPreview": {
+    "cachePositionQuantum": 0.25
   },
   "magnetism": {
     "attractionRangeFactor": 3.8,
@@ -46,6 +53,7 @@
     "sameColorAttractionMultiplier": 1.45,
     "oppositePolarityMultiplier": 1.18,
     "samePolarityMultiplier": -0.38,
+    "neutralPolarityMultiplier": 1.0,
     "minDistanceClamp": 18.0,
     "fieldLineMaxDistanceFactor": 2.85,
     "projectileCurveInfluence": 0.08,

@@ -23,7 +23,7 @@ export class SpecialBallController {
     this.gameConfig = gameConfig;
   }
 
-  resolveSpecialImpact(ball, physicsWorld, particleSystem, audioManager, radiusMultiplier = 1.0, destroyBallFn = null) {
+  resolveSpecialImpact(ball, physicsWorld, particleSystem, audioManager, radiusMultiplier, destroyBallFn) {
     const specialType = ball.specialType;
     const specs = this.ballsConfig.specialTypes[specialType];
     if (!specs) {
@@ -46,7 +46,7 @@ export class SpecialBallController {
     return { destroyed: [], scoreDelta: 0, freezeTurns: 0 };
   }
 
-  triggerBomb(ball, specs, physicsWorld, particleSystem, audioManager, radiusMultiplier = 1.0, destroyBallFn = null) {
+  triggerBomb(ball, specs, physicsWorld, particleSystem, audioManager, radiusMultiplier, destroyBallFn) {
     const blastRadius = ball.radius * specs.blastRadiusFactor * radiusMultiplier;
     const shockwaveOuterRadius = blastRadius * specs.shockwaveRadiusMultiplier;
     const targetsInBlast = [];
@@ -70,13 +70,7 @@ export class SpecialBallController {
 
     const destroyed = [];
     for (const target of targetsInBlast) {
-      if (destroyBallFn) {
-        if (destroyBallFn(target, specs.highlight, true, specs.burstCount, specs.burstSpeed)) {
-          destroyed.push(target);
-        }
-      } else {
-        particleSystem.spawnBurst(target.x, target.y, specs.highlight, specs.burstCount, specs.burstSpeed);
-        physicsWorld.removeBall(target);
+      if (destroyBallFn(target, specs.highlight, true, specs.burstCount, specs.burstSpeed)) {
         destroyed.push(target);
       }
     }
@@ -98,7 +92,7 @@ export class SpecialBallController {
     };
   }
 
-  triggerLightning(ball, specs, physicsWorld, particleSystem, audioManager, radiusMultiplier = 1.0, destroyBallFn = null) {
+  triggerLightning(ball, specs, physicsWorld, particleSystem, audioManager, radiusMultiplier, destroyBallFn) {
     const bandHalf = ball.radius * specs.bandHalfHeightFactor * radiusMultiplier;
     const targetsInBand = [];
 
@@ -114,13 +108,7 @@ export class SpecialBallController {
 
     const destroyed = [];
     for (const target of targetsInBand) {
-      if (destroyBallFn) {
-        if (destroyBallFn(target, specs.highlight, true, specs.burstCount, specs.burstSpeed)) {
-          destroyed.push(target);
-        }
-      } else {
-        particleSystem.spawnBurst(target.x, target.y, specs.highlight, specs.burstCount, specs.burstSpeed);
-        physicsWorld.removeBall(target);
+      if (destroyBallFn(target, specs.highlight, true, specs.burstCount, specs.burstSpeed)) {
         destroyed.push(target);
       }
     }
@@ -144,7 +132,7 @@ export class SpecialBallController {
     };
   }
 
-  triggerRainbow(ball, specs, physicsWorld, particleSystem, audioManager, destroyBallFn = null) {
+  triggerRainbow(ball, specs, physicsWorld, particleSystem, audioManager, destroyBallFn) {
     const matchedIds = new Set([ball.id]);
     const candidateNeighbors = [];
     const neighborRadius = ball.radius * specs.neighborRadiusFactor;
@@ -180,15 +168,9 @@ export class SpecialBallController {
       physicsWorld.removeBall(ball);
     }
 
-    const destroyed = [ball];
+    const destroyed = [];
     for (const target of targetsToProcess) {
-      if (destroyBallFn) {
-        if (destroyBallFn(target, specs.highlight, false, specs.burstCount, specs.burstSpeed)) {
-          destroyed.push(target);
-        }
-      } else {
-        particleSystem.spawnBurst(target.x, target.y, specs.highlight, specs.burstCount, specs.burstSpeed);
-        physicsWorld.removeBall(target);
+      if (destroyBallFn(target, specs.highlight, false, specs.burstCount, specs.burstSpeed)) {
         destroyed.push(target);
       }
     }
@@ -210,12 +192,17 @@ export class SpecialBallController {
     };
   }
 
-  triggerFreeze(ball, specs, physicsWorld, particleSystem, audioManager, radiusMultiplier = 1.0) {
+  triggerFreeze(ball, specs, physicsWorld, particleSystem, audioManager, radiusMultiplier) {
     const freezeRadius = ball.radius * specs.freezeRadiusFactor * radiusMultiplier;
+    let frozenCount = 0;
 
     for (const target of physicsWorld.balls) {
+      if (target.id === ball.id) {
+        continue;
+      }
       const dist = Math.hypot(target.x - ball.x, target.y - ball.y);
       if (dist <= freezeRadius) {
+        frozenCount++;
         target.isFrozen = true;
         target.vx *= specs.velocityDampingFactor;
         target.vy *= specs.velocityDampingFactor;
@@ -234,9 +221,9 @@ export class SpecialBallController {
     audioManager.playEffect('freeze');
 
     return {
-      destroyed: [ball],
-      scoreDelta: specs.pointsPerBall * specs.scoreMultiplier,
-      freezeTurns: this.gameConfig.endless.freezeTurnsDuration
+      destroyed: [],
+      scoreDelta: frozenCount > 0 ? specs.pointsPerBall * specs.scoreMultiplier : 0,
+      freezeTurns: specs.freezeTurns
     };
   }
 }

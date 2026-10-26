@@ -110,3 +110,12 @@ export const MATH_CONSTANTS = Object.freeze({
   DEG_TO_RAD: Math.PI / 180,
   EPSILON: 0.0001
 });
+
+/**
+ * Deterministic unit axis used to separate two bodies whose centers coincide,
+ * when no velocity direction is available to derive a separation normal.
+ */
+export const SEPARATION_FALLBACK_AXIS = Object.freeze({
+  X: 1,
+  Y: 0
+});

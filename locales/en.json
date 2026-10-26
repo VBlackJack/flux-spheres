@@ -31,7 +31,11 @@
         "motionReduced": "💤",
         "motionOnAria": "Motion Effects: Full",
         "motionReducedAria": "Motion Effects: Reduced",
-        "language": "EN"
+        "language": "EN",
+        "soundAria": "Sound",
+        "contrastAria": "High contrast",
+        "motionAria": "Reduced motion",
+        "languageAria": "Language: EN (English). Switch language"
       }
     }
   },
@@ -60,8 +64,7 @@
       },
       "shots": {
         "label": "Shots Left",
-        "waveLabel": "Next Wave",
-        "infinite": "∞"
+        "waveLabel": "Next Wave"
       },
       "combo": {
         "label": "Combo x{{count}}"
@@ -111,6 +114,23 @@
       "freeze": {
         "name": "Cryo",
         "tooltip": "Freezes descent and stabilizes magnetic oscillation"
+      },
+      "button": {
+        "aria": "{{name}}: {{count}} in stock"
+      }
+    },
+    "canvas": {
+      "aria": {
+        "label": "Game board. Aim with the mouse, touch or the Left/Right arrows, shoot with Enter, swap with Space."
+      }
+    },
+    "announcer": {
+      "achievement": {
+        "unlocked": "Achievement unlocked: {{name}}, plus {{coins}} coins."
+      },
+      "round": {
+        "victory": "Level cleared. Score: {{score}}. Stars: {{stars}} of {{maxStars}}.",
+        "gameOver": "Game over. {{reason}} Score: {{score}}."
       }
     }
   },
@@ -175,7 +195,7 @@
     "tutorial": {
       "pendulum": "Match 3+ same-color balls or sever upper anchors to trigger a magnetic avalanche!",
       "rotor": "The central rotor spins dynamically from ball weight balance and shot impact torque.",
-      "repulsor": "Repulsive cores and like magnetic poles bend your shot—trust the curved laser!",
+      "repulsor": "Repulsive cores and like magnetic poles bend your shot: trust the curved laser!",
       "portal": "Shoot into a Quantum Portal to teleport your projectile past moving barriers!",
       "boss": "Boss Cores (👑) have 3 shields and burst into a shower of coins when destroyed!",
       "laserLock": "Destroy all Lock Cores (🔒) to disable the energy barrier!",
@@ -191,7 +211,8 @@
       "card": {
         "levelNumber": "Level {{id}}",
         "locked": "Locked",
-        "bestScore": "Best: {{score}}"
+        "bestScore": "Best: {{score}}",
+        "starsAria": "Stars: {{stars}} of {{maxStars}}"
       },
       "button": {
         "close": "Close",
@@ -213,7 +234,9 @@
       "specialAmmo": {
         "title": "Special Ammo Refill (Current Run)",
         "stock": "In Stock: {{count}}",
-        "buy": "+1 ({{cost}} ⬡)"
+        "buy": "+1 ({{cost}} ⬡)",
+        "unavailable": "No active run",
+        "unavailableHint": "Start a level, Survival or Daily run to buy ammo."
       },
       "codex": {
         "modifiersTitle": "Cluster Ball Modifiers",
@@ -283,7 +306,6 @@
         }
       },
       "achievements": {
-        "title": "Achievements & Bounties",
         "reward": "Reward: +{{coins}} ⬡",
         "unlockedBadge": "Unlocked ✓",
         "lockedBadge": "In Progress",
@@ -466,11 +488,6 @@
         "name": "Absolute Nexus",
         "description": "Master the ultimate magnetic matrix of Boss Cores, portals, and twin singularities."
       }
-    }
-  },
-  "errors": {
-    "config": {
-      "loadFailed": "Failed to load configuration files."
     }
   }
 }

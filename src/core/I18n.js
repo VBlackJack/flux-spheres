@@ -16,11 +16,56 @@
 
 import { LOCALE_PATHS } from './Constants.js';
 
+const LANGUAGE_SUBTAG_SEPARATOR = /[-_]/;
+
+/**
+ * Reads the browser's preferred languages, most preferred first.
+ * Returns an empty list outside a browser.
+ */
+export function readPreferredLanguages() {
+  if (typeof navigator === 'undefined' || !navigator) {
+    return [];
+  }
+  if (Array.isArray(navigator.languages) && navigator.languages.length > 0) {
+    return [...navigator.languages];
+  }
+  return navigator.language ? [navigator.language] : [];
+}
+
+/**
+ * Picks the locale to start with: a supported stored choice wins, then the
+ * first supported primary language among the browser preferences, then the
+ * configured fallback.
+ *
+ * @param {string|null|undefined} stored Raw stored language (null when never chosen).
+ * @param {string[]} supported Supported locale codes.
+ * @param {string} fallback Configured default locale.
+ * @param {string[]} [preferred] Browser language tags, most preferred first.
+ * @returns {string}
+ */
+export function resolveInitialLocale(stored, supported, fallback, preferred = readPreferredLanguages()) {
+  const supportedList = Array.isArray(supported) ? supported : [];
+  if (stored && supportedList.includes(stored)) {
+    return stored;
+  }
+  for (const tag of preferred || []) {
+    if (typeof tag !== 'string' || tag.length === 0) {
+      continue;
+    }
+    const primary = tag.split(LANGUAGE_SUBTAG_SEPARATOR)[0].toLowerCase();
+    if (supportedList.includes(primary)) {
+      return primary;
+    }
+  }
+  return fallback;
+}
+
 class I18nService {
   constructor() {
     this.dictionaries = new Map();
     this.currentLocale = 'fr';
     this.listeners = new Set();
+    this.numberFormatters = new Map();
   }
 
   async init(initialLocale) {
@@ -63,6 +108,23 @@ class I18nService {
 
   onChange(callback) {
     this.listeners.add(callback);
+  }
+
+  /**
+   * Formats a number with the grouping rules of the current locale.
+   * One Intl.NumberFormat instance is cached per locale.
+   */
+  formatNumber(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return String(value);
+    }
+    let formatter = this.numberFormatters.get(this.currentLocale);
+    if (!formatter) {
+      formatter = new Intl.NumberFormat(this.currentLocale);
+      this.numberFormatters.set(this.currentLocale, formatter);
+    }
+    return formatter.format(numeric);
   }
 
   t(key, params = {}) {
@@ -121,3 +183,4 @@ class I18nService {
 
 export const i18n = new I18nService();
 export const t = (key, params) => i18n.t(key, params);
+export const formatNumber = (value) => i18n.formatNumber(value);

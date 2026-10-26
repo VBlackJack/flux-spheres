@@ -28,6 +28,9 @@
     "survivalWaveWarningThreshold": 2,
     "dangerWarningMarginY": 72,
     "tutorialDisplayShots": 2,
+    "maxDevicePixelRatio": 3,
+    "aimPreviewCacheCellPx": 1,
+    "idleRenderIntervalMs": 250,
     "launcher": {
       "cancelRingRadius": 42,
       "cancelRingLineWidth": 3,
@@ -44,6 +47,11 @@
       "nextBallRingWidth": 2
     }
   },
+  "serviceWorker": {
+    "scriptPath": "./sw.js",
+    "secureProtocol": "https:",
+    "insecureDevHostnames": ["localhost", "127.0.0.1"]
+  },
   "scoring": {
     "baseMatchPoints": 100,
     "extraBallMultiplier": 45,
@@ -52,6 +60,7 @@
     "comboIncrement": 1,
     "maxComboMultiplier": 10,
     "starThresholds": [0, 5000, 8500],
+    "minVictoryStars": 1,
     "maxStars": 3,
     "specialChargePerMatch": 1,
     "specialDropChanceEndless": 0.16,
@@ -163,7 +172,6 @@
     "rowSpacingY": 40,
     "shotsBeforeWave": 5,
     "descentStepY": 38,
-    "freezeTurnsDuration": 3,
     "anchorColumns": [2, 5, 8],
     "initialSpecialCounts": {
       "bomb": 2,
@@ -172,7 +180,12 @@
       "anvil": 1,
       "freeze": 2
     },
-    "modifierSpawnChance": 0.18,
+    "modifierWeights": {
+      "armored": 0.045,
+      "dormantBomb": 0.045,
+      "chameleon": 0.045,
+      "coinCore": 0.045
+    },
     "goldRushWaveInterval": 3,
     "goldRushCoinCoreCount": 3,
     "bossWaveInterval": 5
@@ -263,7 +276,8 @@
     "supportedLanguages": ["fr", "en"],
     "initialUnlockedLevel": 1,
     "matchMinCount": 3,
-    "initialCoins": 50
+    "initialCoins": 50,
+    "reducedMotionMediaQuery": "(prefers-reduced-motion: reduce)"
   },
   "theme": {
     "fontFamily": "system-ui, sans-serif",

@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-import { OBSTACLE_TYPES, SPECIAL_TYPES, MATH_CONSTANTS } from '../core/Constants.js';
+import { OBSTACLE_TYPES, SPECIAL_TYPES, MATH_CONSTANTS, SEPARATION_FALLBACK_AXIS } from '../core/Constants.js';
 import { SpatialHashGrid } from './SpatialHashGrid.js';
+
+const NOT_FOUND_INDEX = -1;
 
 /**
  * Core 2D physics simulation world managing magnetic clusters, anchor/rotor constraints,
@@ -39,6 +41,7 @@ export class PhysicsWorld {
     this.droppingBalls = [];
     this.obstacles = [];
     this.projectile = null;
+    this.activeFlightBall = null;
     this.ballMap = new Map();
     this.pendingChainCandidateIds = new Set();
     this.gravityMultiplier = 1.0;
@@ -46,14 +49,67 @@ export class PhysicsWorld {
     this.rotorSpeedMultiplier = 1.0;
     this.allowTensionBreak = false;
     this.hasBrokenBondThisStep = false;
+    this.randomSource = Math.random;
     const attractRange = physicsConfig.ball.radius * physicsConfig.magnetism.attractionRangeFactor;
     this.spatialGrid = new SpatialHashGrid(attractRange);
+
+    this.pairBufferA = [];
+    this.pairBufferB = [];
+    this.ballRootPivots = new Map();
+    this.pivotTorqueScratch = new Map();
+    this.bfsQueue = [];
+    this.normalScratch = { x: 0, y: 0 };
+    this.snapScratch = { x: 0, y: 0 };
+
+    this.aimPoints = [];
+    this.aimPointPool = [];
+    this.aimSignature = [];
+    this.aimSignatureScratch = [];
+    this.aimCacheValid = false;
+    this.aimTrajectoryComputeCount = 0;
+    this.aimGhostCache = new WeakMap();
+    this.aimGhosts = [];
+    this.aimPivotTorques = [];
+    this.aimPivotOffsets = [];
+    this.aimPivotCos = [];
+    this.aimPivotSin = [];
+    this.aimObstacleIndex = new Map();
+    this.aimBallX = [];
+    this.aimBallY = [];
+    this.aimRotatingBalls = [];
+    this.aimRotatingPivotIdx = [];
+    this.aimPreview = { obstacles: this.aimGhosts, ballX: this.aimBallX, ballY: this.aimBallY };
+    this.aimState = {
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      radius: 0,
+      colorId: null,
+      isPolarityFlipped: false,
+      portalCooldown: 0,
+      bounces: 0,
+      portalWarps: 0,
+      flightSteps: 0,
+      warpedThisStep: false,
+      warpFromX: 0,
+      warpFromY: 0
+    };
+  }
+
+  /**
+   * Injects the random source used by gameplay-affecting physics (avalanche drop spread),
+   * so seeded modes such as the Daily Challenge stay reproducible.
+   * @param {() => number} randomFn - Function returning a uniform value in [0, 1).
+   */
+  setRandomSource(randomFn) {
+    this.randomSource = randomFn;
   }
 
   getMagneticMultiplier(colorA, colorB) {
     const mag = this.physicsConfig.magnetism;
     if (!colorA || !colorB) {
-      return 1.0;
+      return mag.neutralPolarityMultiplier;
     }
     if (colorA === colorB) {
       return mag.sameColorAttractionMultiplier;
@@ -61,12 +117,12 @@ export class PhysicsWorld {
     const polA = this.polarityMap.get(colorA) || 0;
     const polB = this.polarityMap.get(colorB) || 0;
     if (polA * polB < 0) {
-      return mag.oppositePolarityMultiplier ?? 1.0;
+      return mag.oppositePolarityMultiplier;
     }
     if (polA * polB > 0) {
-      return mag.samePolarityMultiplier ?? 1.0;
+      return mag.samePolarityMultiplier;
     }
-    return 1.0;
+    return mag.neutralPolarityMultiplier;
   }
 
   getProjectileCurvePull(projColor, targetColor, isPolarityFlipped = false) {
@@ -81,19 +137,25 @@ export class PhysicsWorld {
     const polA = this.polarityMap.get(projColor) || 0;
     const polB = this.polarityMap.get(targetColor) || 0;
     if (polA * polB < 0) {
-      return (mag.projectileOppositePolarityInfluence ?? mag.projectileCurveInfluence) * flipSign * this.magnetismMultiplier;
+      return mag.projectileOppositePolarityInfluence * flipSign * this.magnetismMultiplier;
     }
     if (polA * polB > 0) {
-      return (mag.projectileSamePolarityInfluence ?? mag.projectileCurveInfluence) * flipSign * this.magnetismMultiplier;
+      return mag.projectileSamePolarityInfluence * flipSign * this.magnetismMultiplier;
     }
     return mag.projectileCurveInfluence * flipSign * this.magnetismMultiplier;
   }
 
-  findExitPortal(entryPortal) {
+  /**
+   * Finds the paired exit portal of an entry portal.
+   * @param {object} entryPortal - Portal the projectile entered.
+   * @param {Array<object>} [obstacles] - Obstacle list to search (real or preview proxies).
+   * @returns {object|null} The exit portal, or null when unpaired.
+   */
+  findExitPortal(entryPortal, obstacles = this.obstacles) {
     if (!entryPortal || entryPortal.type !== OBSTACLE_TYPES.PORTAL || !entryPortal.pairId) {
       return null;
     }
-    for (const obs of this.obstacles) {
+    for (const obs of obstacles) {
       if (obs !== entryPortal && obs.type === OBSTACLE_TYPES.PORTAL && obs.pairId === entryPortal.pairId) {
         return obs;
       }
@@ -106,14 +168,17 @@ export class PhysicsWorld {
     this.droppingBalls.length = 0;
     this.obstacles.length = 0;
     this.projectile = null;
+    this.activeFlightBall = null;
     this.ballMap.clear();
     this.pendingChainCandidateIds.clear();
+    this.ballRootPivots.clear();
     this.spatialGrid.clear();
     this.gravityMultiplier = 1.0;
     this.magnetismMultiplier = 1.0;
     this.rotorSpeedMultiplier = 1.0;
     this.allowTensionBreak = false;
     this.hasBrokenBondThisStep = false;
+    this.aimCacheValid = false;
   }
 
   addBall(ball) {
@@ -122,7 +187,12 @@ export class PhysicsWorld {
     return ball;
   }
 
-  removeBall(ball) {
+  /**
+   * Severs every bond of a ball and unregisters it from the lookup tables,
+   * without touching the active balls array.
+   * @param {import('../entities/Ball.js').Ball} ball - Ball being removed from the cluster.
+   */
+  releaseBall(ball) {
     for (const neighborId of ball.bonds) {
       const neighbor = this.ballMap.get(neighborId);
       if (neighbor) {
@@ -132,6 +202,10 @@ export class PhysicsWorld {
     ball.bonds.clear();
     this.ballMap.delete(ball.id);
     this.pendingChainCandidateIds.delete(ball.id);
+  }
+
+  removeBall(ball) {
+    this.releaseBall(ball);
     const idx = this.balls.indexOf(ball);
     if (idx !== -1) {
       this.balls.splice(idx, 1);
@@ -210,6 +284,141 @@ export class PhysicsWorld {
   }
 
   /**
+   * Maps every ball connected through the bond graph to a pivot-anchored ball onto that
+   * ball's rotor, using a single multi-source BFS (nearest anchor in bond hops wins).
+   * Balls with no bond path to any pivot are absent from the map.
+   * @returns {Map<number, object>} Ball id to root pivot obstacle.
+   */
+  computeBallRootPivots() {
+    const rootPivots = this.ballRootPivots;
+    const queue = this.bfsQueue;
+    rootPivots.clear();
+    queue.length = 0;
+    for (const ball of this.balls) {
+      if (ball.pivotRef) {
+        rootPivots.set(ball.id, ball.pivotRef);
+        queue.push(ball);
+      }
+    }
+    let head = 0;
+    while (head < queue.length) {
+      const curr = queue[head++];
+      const pivot = rootPivots.get(curr.id);
+      for (const nId of curr.bonds) {
+        if (rootPivots.has(nId)) {
+          continue;
+        }
+        const n = this.ballMap.get(nId);
+        if (n) {
+          rootPivots.set(nId, pivot);
+          queue.push(n);
+        }
+      }
+    }
+    queue.length = 0;
+    return rootPivots;
+  }
+
+  /**
+   * Sums the gravitational torque each pivot receives from the balls connected to it.
+   * @param {Map<object, number>} out - Receives pivot to total torque (cleared first).
+   * @returns {Map<object, number>} The filled output map.
+   */
+  accumulateGravityTorques(out) {
+    out.clear();
+    const sim = this.physicsConfig.simulation;
+    const torqueFactor = sim.pivotGravityTorqueFactor * this.rotorSpeedMultiplier;
+    const rootPivots = this.computeBallRootPivots();
+    if (rootPivots.size === 0) {
+      return out;
+    }
+    for (const ball of this.balls) {
+      const pivot = rootPivots.get(ball.id);
+      if (!pivot) {
+        continue;
+      }
+      const torque = (ball.x - pivot.x) * torqueFactor;
+      out.set(pivot, out.has(pivot) ? out.get(pivot) + torque : torque);
+    }
+    return out;
+  }
+
+  /**
+   * Resets the per-flight counters of a projectile that has just been launched.
+   * @param {object} projectile - Newly launched projectile.
+   */
+  resetFlightState(projectile) {
+    projectile.bounces = 0;
+    projectile.portalWarps = 0;
+    projectile.portalCooldown = 0;
+    projectile.flightSteps = 0;
+  }
+
+  /**
+   * Whether a flight has exceeded its portal warp or total step budget.
+   * @param {object} state - Projectile or preview state.
+   * @returns {boolean} True when the flight must end.
+   */
+  isFlightExhausted(state) {
+    const sim = this.physicsConfig.simulation;
+    return state.portalWarps > sim.maxProjectilePortalWarps || state.flightSteps > sim.maxProjectileFlightSteps;
+  }
+
+  /**
+   * Clamps a projectile speed to the configured maximum so that no substep moves it far
+   * enough to tunnel into obstacles.
+   * @param {object} state - Projectile or preview state.
+   */
+  clampProjectileSpeed(state) {
+    const maxSpeed = this.physicsConfig.ball.projectileMaxSpeed;
+    const speedSq = state.vx * state.vx + state.vy * state.vy;
+    if (speedSq > maxSpeed * maxSpeed) {
+      const scale = maxSpeed / Math.sqrt(speedSq);
+      state.vx *= scale;
+      state.vy *= scale;
+    }
+  }
+
+  /**
+   * Writes a unit separation normal for an offset (dx, dy). When the offset is degenerate,
+   * the reversed velocity is used, then the deterministic fallback axis.
+   * @param {number} dx - Offset X from the obstacle or target to the body.
+   * @param {number} dy - Offset Y from the obstacle or target to the body.
+   * @param {number} vx - Body velocity X.
+   * @param {number} vy - Body velocity Y.
+   * @param {{x: number, y: number}} out - Receives the normal.
+   * @returns {{x: number, y: number}} The filled output vector.
+   */
+  writeSeparationNormal(dx, dy, vx, vy, out) {
+    const dist = Math.hypot(dx, dy);
+    if (dist > MATH_CONSTANTS.EPSILON) {
+      out.x = dx / dist;
+      out.y = dy / dist;
+      return out;
+    }
+    const speed = Math.hypot(vx, vy);
+    if (speed > MATH_CONSTANTS.EPSILON) {
+      out.x = -vx / speed;
+      out.y = -vy / speed;
+      return out;
+    }
+    out.x = SEPARATION_FALLBACK_AXIS.X;
+    out.y = SEPARATION_FALLBACK_AXIS.Y;
+    return out;
+  }
+
+  /**
+   * Computes where a projectile settles next to the ball it snaps onto.
+   * @returns {{x: number, y: number}} Shared scratch vector holding the landing position.
+   */
+  computeSnapPosition(px, py, vx, vy, targetX, targetY, targetDist) {
+    const n = this.writeSeparationNormal(px - targetX, py - targetY, vx, vy, this.normalScratch);
+    this.snapScratch.x = targetX + n.x * targetDist;
+    this.snapScratch.y = targetY + n.y * targetDist;
+    return this.snapScratch;
+  }
+
+  /**
    * Advances the physics simulation by one fixed timestep using substepping
    * for cluster spring-constraints, projectile motion, and dropping balls.
    * @param {object} callbacks - Event callbacks for bounces, portals, snaps, and captures.
@@ -217,6 +426,13 @@ export class PhysicsWorld {
   step(callbacks) {
     const sim = this.physicsConfig.simulation;
     const substeps = sim.substeps;
+
+    if (this.projectile !== this.activeFlightBall) {
+      this.activeFlightBall = this.projectile;
+      if (this.projectile) {
+        this.resetFlightState(this.projectile);
+      }
+    }
 
     for (const ball of this.balls) {
       ball.savePreviousPosition();
@@ -247,50 +463,37 @@ export class PhysicsWorld {
   }
 
   /**
-   * Applies gravitational torque to pivot rotors based on the horizontal lever arm
-   * of all balls attached to each pivot.
+   * Applies gravitational torque to pivot rotors based on the horizontal lever arm of the
+   * balls connected to each pivot through the bond graph. Unconnected balls apply none.
    */
   applyGravityTorqueToPivots() {
-    let primaryPivot = null;
-    let pivotCount = 0;
-    for (const obs of this.obstacles) {
-      if (obs.type === OBSTACLE_TYPES.PIVOT) {
-        pivotCount++;
-        if (!primaryPivot) {
-          primaryPivot = obs;
-        }
-      }
-    }
-    if (pivotCount === 0) {
+    const torques = this.accumulateGravityTorques(this.pivotTorqueScratch);
+    if (torques.size === 0) {
       return;
     }
-
-    const sim = this.physicsConfig.simulation;
-    const rotorMult = this.rotorSpeedMultiplier;
-    for (const ball of this.balls) {
-      const nearestPivot = ball.pivotRef || (pivotCount === 1 ? primaryPivot : null);
-      if (nearestPivot) {
-        const dx = ball.x - nearestPivot.x;
-        const torque = dx * sim.pivotGravityTorqueFactor * rotorMult;
-        nearestPivot.applyTorque(torque, sim.pivotMaxAngularSpeed * rotorMult);
-      }
+    const maxSpeed = this.physicsConfig.simulation.pivotMaxAngularSpeed * this.rotorSpeedMultiplier;
+    for (const [pivot, torque] of torques) {
+      pivot.applyTorque(torque, maxSpeed);
     }
   }
 
   /**
    * Integrates cluster forces (anchor springs, gravity, inverse-square magnetic attraction)
    * and iteratively resolves bond distance constraints and ball-ball overlaps.
+   * The neighbor pairs are collected once per substep and reused by every pass.
    * @param {number} dt - Substep time fraction (1 / substeps).
    */
   stepCluster(dt) {
     const sim = this.physicsConfig.simulation;
     const mag = this.physicsConfig.magnetism;
     const ballRadius = this.physicsConfig.ball.radius;
+    const restitution = this.physicsConfig.ball.restitution;
     const minWallX = this.gameConfig.canvas.wallMargin + ballRadius;
     const maxWallX = this.gameConfig.canvas.logicalWidth - this.gameConfig.canvas.wallMargin - ballRadius;
     const minWallY = this.gameConfig.canvas.wallMargin + ballRadius;
+    const balls = this.balls;
 
-    for (const ball of this.balls) {
+    for (const ball of balls) {
       if (ball.pivotRef) {
         ball.pivotAngle += ball.pivotRef.angularVelocity * dt;
         ball.anchorX = ball.pivotRef.x + Math.cos(ball.pivotAngle) * ball.pivotRadius;
@@ -310,40 +513,50 @@ export class PhysicsWorld {
     const attractRange = ballRadius * mag.attractionRangeFactor;
     const attractRangeSq = attractRange * attractRange;
     const magMult = this.magnetismMultiplier;
+    const pairsA = this.pairBufferA;
+    const pairsB = this.pairBufferB;
 
     this.spatialGrid.setCellSize(attractRange);
-    this.spatialGrid.forEachNeighborPair(this.balls, (a, b) => {
+    const pairCount = this.spatialGrid.collectPairs(balls, attractRangeSq, pairsA, pairsB);
+
+    for (let k = 0; k < pairCount; k++) {
+      const a = pairsA[k];
+      const b = pairsB[k];
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const distSq = dx * dx + dy * dy;
-
-      if (distSq > MATH_CONSTANTS.EPSILON && distSq < attractRangeSq) {
-        const dist = Math.sqrt(distSq);
-        const clampedDist = Math.max(dist, mag.minDistanceClamp);
-        const colorBonus = this.getMagneticMultiplier(a.colorId, b.colorId);
-        const force = (mag.attractionForceConstant * magMult * colorBonus * dt) / (clampedDist * clampedDist);
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-
-        if (!a.isAnchor) {
-          a.vx += fx;
-          a.vy += fy;
-        }
-        if (!b.isAnchor) {
-          b.vx -= fx;
-          b.vy -= fy;
-        }
+      if (distSq <= MATH_CONSTANTS.EPSILON) {
+        continue;
       }
-    });
+      const dist = Math.sqrt(distSq);
+      const clampedDist = Math.max(dist, mag.minDistanceClamp);
+      const colorBonus = this.getMagneticMultiplier(a.colorId, b.colorId);
+      const force = (mag.attractionForceConstant * magMult * colorBonus * dt) / (clampedDist * clampedDist);
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
 
-    for (const ball of this.balls) {
-      const damping = ball.isFrozen ? Math.pow(sim.frozenDamping, dt) : Math.pow(sim.velocityDamping, dt);
+      if (!a.isAnchor) {
+        a.vx += fx;
+        a.vy += fy;
+      }
+      if (!b.isAnchor) {
+        b.vx -= fx;
+        b.vy -= fy;
+      }
+    }
+
+    const velocityDampingDt = Math.pow(sim.velocityDamping, dt);
+    const frozenDampingDt = Math.pow(sim.frozenDamping, dt);
+    const maxVelocitySq = sim.maxVelocity * sim.maxVelocity;
+
+    for (const ball of balls) {
+      const damping = ball.isFrozen ? frozenDampingDt : velocityDampingDt;
       ball.vx *= damping;
       ball.vy *= damping;
 
-      const speed = Math.hypot(ball.vx, ball.vy);
-      if (speed > sim.maxVelocity) {
-        const scale = sim.maxVelocity / speed;
+      const speedSq = ball.vx * ball.vx + ball.vy * ball.vy;
+      if (speedSq > maxVelocitySq) {
+        const scale = sim.maxVelocity / Math.sqrt(speedSq);
         ball.vx *= scale;
         ball.vy *= scale;
       }
@@ -353,23 +566,24 @@ export class PhysicsWorld {
 
       if (ball.x < minWallX) {
         ball.x = minWallX;
-        ball.vx = Math.abs(ball.vx) * this.physicsConfig.ball.restitution;
+        ball.vx = Math.abs(ball.vx) * restitution;
       } else if (ball.x > maxWallX) {
         ball.x = maxWallX;
-        ball.vx = -Math.abs(ball.vx) * this.physicsConfig.ball.restitution;
+        ball.vx = -Math.abs(ball.vx) * restitution;
       }
       if (ball.y < minWallY) {
         ball.y = minWallY;
-        ball.vy = Math.abs(ball.vy) * this.physicsConfig.ball.restitution;
+        ball.vy = Math.abs(ball.vy) * restitution;
       }
     }
 
     const restDist = ballRadius * sim.bondRestDistanceFactor;
     const breakDist = ballRadius * sim.bondBreakDistanceFactor;
-    const minDist = ballRadius * 2;
+    const minDist = ballRadius * sim.collisionDistanceFactor;
+    const minDistSq = minDist * minDist;
 
     for (let iter = 0; iter < sim.constraintIterations; iter++) {
-      for (const a of this.balls) {
+      for (const a of balls) {
         for (const neighborId of a.bonds) {
           if (neighborId <= a.id) {
             continue;
@@ -408,37 +622,44 @@ export class PhysicsWorld {
         }
       }
 
-      const minDistSq = minDist * minDist;
-      this.spatialGrid.forEachNeighborPair(this.balls, (a, b) => {
+      for (let k = 0; k < pairCount; k++) {
+        const a = pairsA[k];
+        const b = pairsB[k];
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const distSq = dx * dx + dy * dy;
-        if (distSq < minDistSq && distSq > MATH_CONSTANTS.EPSILON) {
-          const dist = Math.sqrt(distSq);
-          const overlap = (minDist - dist) * sim.collisionOverlapPush;
-          const nx = dx / dist;
-          const ny = dy / dist;
-
-          if (!a.isAnchor && !b.isAnchor) {
-            a.x -= nx * overlap * MATH_CONSTANTS.HALF;
-            a.y -= ny * overlap * MATH_CONSTANTS.HALF;
-            b.x += nx * overlap * MATH_CONSTANTS.HALF;
-            b.y += ny * overlap * MATH_CONSTANTS.HALF;
-          } else if (a.isAnchor && !b.isAnchor) {
-            b.x += nx * overlap;
-            b.y += ny * overlap;
-          } else if (!a.isAnchor && b.isAnchor) {
-            a.x -= nx * overlap;
-            a.y -= ny * overlap;
-          }
-
-          if (!a.bonds.has(b.id)) {
-            this.createBond(a, b, true);
-          }
+        if (distSq >= minDistSq) {
+          continue;
         }
-      });
+        let nx = SEPARATION_FALLBACK_AXIS.X;
+        let ny = SEPARATION_FALLBACK_AXIS.Y;
+        let dist = 0;
+        if (distSq > MATH_CONSTANTS.EPSILON) {
+          dist = Math.sqrt(distSq);
+          nx = dx / dist;
+          ny = dy / dist;
+        }
+        const overlap = (minDist - dist) * sim.collisionOverlapPush;
 
-      for (const ball of this.balls) {
+        if (!a.isAnchor && !b.isAnchor) {
+          a.x -= nx * overlap * MATH_CONSTANTS.HALF;
+          a.y -= ny * overlap * MATH_CONSTANTS.HALF;
+          b.x += nx * overlap * MATH_CONSTANTS.HALF;
+          b.y += ny * overlap * MATH_CONSTANTS.HALF;
+        } else if (a.isAnchor && !b.isAnchor) {
+          b.x += nx * overlap;
+          b.y += ny * overlap;
+        } else if (!a.isAnchor && b.isAnchor) {
+          a.x -= nx * overlap;
+          a.y -= ny * overlap;
+        }
+
+        if (!a.bonds.has(b.id)) {
+          this.createBond(a, b, true);
+        }
+      }
+
+      for (const ball of balls) {
         if (ball.isAnchor) {
           ball.x += (ball.anchorX - ball.x) * sim.anchorStiffness;
           ball.y += (ball.anchorY - ball.y) * sim.anchorStiffness;
@@ -447,18 +668,48 @@ export class PhysicsWorld {
     }
   }
 
-  advanceProjectileMotion(state, dt, isAnvil, callbacks = null) {
+  /**
+   * Reflects a projectile off a surface normal, applying the obstacle restitution and the
+   * projectile speed cap, and reports the bounce.
+   * @returns {boolean} True when the projectile was moving into the surface and bounced.
+   */
+  reflectProjectile(state, obs, nx, ny, callbacks) {
+    const dot = state.vx * nx + state.vy * ny;
+    if (dot >= 0) {
+      return false;
+    }
+    state.vx = (state.vx - 2 * dot * nx) * obs.restitution;
+    state.vy = (state.vy - 2 * dot * ny) * obs.restitution;
+    this.clampProjectileSpeed(state);
+    state.bounces++;
+    if (callbacks?.onBounce) {
+      obs.triggerHitPulse();
+      callbacks.onBounce(state.x, state.y);
+    }
+    return true;
+  }
+
+  /**
+   * Advances a projectile (or preview state) by one substep: field forces, magnetic curve,
+   * integration, walls, portals, and solid obstacle collisions.
+   * @param {object} state - Projectile or preview state.
+   * @param {number} dt - Substep time fraction.
+   * @param {boolean} isAnvil - Whether the projectile is an anvil (no curve, no ceiling).
+   * @param {object|null} callbacks - Event callbacks, null for previews.
+   * @param {object|null} preview - Predicted world (obstacle proxies and ball positions), null for the real simulation.
+   */
+  advanceProjectileMotion(state, dt, isAnvil, callbacks = null, preview = null) {
     const ballCfg = this.physicsConfig.ball;
     const mag = this.physicsConfig.magnetism;
     const r = state.radius;
     const minWallX = this.gameConfig.canvas.wallMargin + r;
     const maxWallX = this.gameConfig.canvas.logicalWidth - this.gameConfig.canvas.wallMargin - r;
     const minWallY = this.gameConfig.canvas.wallMargin + r;
+    const obstacles = preview ? preview.obstacles : this.obstacles;
 
     state.warpedThisStep = false;
-    state.warpedFrom = null;
 
-    for (const obs of this.obstacles) {
+    for (const obs of obstacles) {
       if (obs.disabled) {
         continue;
       }
@@ -466,40 +717,53 @@ export class PhysicsWorld {
         obs.type === OBSTACLE_TYPES.REPULSOR ||
         obs.type === OBSTACLE_TYPES.ATTRACTOR ||
         obs.type === OBSTACLE_TYPES.SINGULARITY;
-      if (isFieldObstacle) {
-        const activeRadius = obs.type === OBSTACLE_TYPES.SINGULARITY ? obs.pullRadius : obs.fieldRadius;
-        const activeForce = obs.type === OBSTACLE_TYPES.SINGULARITY ? obs.projectilePullForce : obs.force;
-        const dx = obs.x - state.x;
-        const dy = obs.y - state.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist > MATH_CONSTANTS.EPSILON && dist < activeRadius && activeForce !== 0) {
-          const prevSpeed = Math.hypot(state.vx, state.vy);
-          const factor = (1 - dist / activeRadius) * activeForce * dt;
-          state.vx += (dx / dist) * factor;
-          state.vy += (dy / dist) * factor;
-          const newSpeed = Math.hypot(state.vx, state.vy);
-          if (newSpeed > MATH_CONSTANTS.EPSILON && prevSpeed > MATH_CONSTANTS.EPSILON) {
-            state.vx = (state.vx / newSpeed) * prevSpeed;
-            state.vy = (state.vy / newSpeed) * prevSpeed;
-          }
+      if (!isFieldObstacle) {
+        continue;
+      }
+      const activeRadius = obs.type === OBSTACLE_TYPES.SINGULARITY ? obs.pullRadius : obs.fieldRadius;
+      const activeForce = obs.type === OBSTACLE_TYPES.SINGULARITY ? obs.projectilePullForce : obs.force;
+      const dx = obs.x - state.x;
+      const dy = obs.y - state.y;
+      const distSq = dx * dx + dy * dy;
+      if (activeForce === 0 || distSq >= activeRadius * activeRadius) {
+        continue;
+      }
+      const dist = Math.sqrt(distSq);
+      if (dist > MATH_CONSTANTS.EPSILON) {
+        const prevSpeed = Math.hypot(state.vx, state.vy);
+        const factor = (1 - dist / activeRadius) * activeForce * dt;
+        state.vx += (dx / dist) * factor;
+        state.vy += (dy / dist) * factor;
+        const newSpeed = Math.hypot(state.vx, state.vy);
+        if (newSpeed > MATH_CONSTANTS.EPSILON && prevSpeed > MATH_CONSTANTS.EPSILON) {
+          state.vx = (state.vx / newSpeed) * prevSpeed;
+          state.vy = (state.vy / newSpeed) * prevSpeed;
         }
       }
     }
 
     if (!isAnvil) {
       const attractRange = r * mag.attractionRangeFactor;
+      const attractRangeSq = attractRange * attractRange;
       const isFlipped = Boolean(state.isPolarityFlipped);
-      for (const target of this.balls) {
-        const dx = target.x - state.x;
-        const dy = target.y - state.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist > MATH_CONSTANTS.EPSILON && dist < attractRange) {
+      const balls = this.balls;
+      for (let i = 0; i < balls.length; i++) {
+        const target = balls[i];
+        const dx = (preview ? preview.ballX[i] : target.x) - state.x;
+        const dy = (preview ? preview.ballY[i] : target.y) - state.y;
+        const distSq = dx * dx + dy * dy;
+        if (distSq >= attractRangeSq) {
+          continue;
+        }
+        const dist = Math.sqrt(distSq);
+        if (dist > MATH_CONSTANTS.EPSILON) {
           const curvePull = this.getProjectileCurvePull(state.colorId, target.colorId, isFlipped);
           const pull = (curvePull * dt) / Math.max(dist, mag.minDistanceClamp);
           state.vx += dx * pull;
           state.vy += dy * pull;
         }
       }
+      this.clampProjectileSpeed(state);
     }
 
     state.x += state.vx * dt;
@@ -511,14 +775,14 @@ export class PhysicsWorld {
     if (state.x <= minWallX) {
       state.x = minWallX;
       state.vx = Math.abs(state.vx) * ballCfg.wallRestitution;
-      state.bounces = (state.bounces || 0) + 1;
+      state.bounces++;
       if (callbacks?.onBounce) {
         callbacks.onBounce(state.x, state.y);
       }
     } else if (state.x >= maxWallX) {
       state.x = maxWallX;
       state.vx = -Math.abs(state.vx) * ballCfg.wallRestitution;
-      state.bounces = (state.bounces || 0) + 1;
+      state.bounces++;
       if (callbacks?.onBounce) {
         callbacks.onBounce(state.x, state.y);
       }
@@ -527,42 +791,48 @@ export class PhysicsWorld {
     if (!isAnvil && state.y <= minWallY) {
       state.y = minWallY;
       state.vy = Math.abs(state.vy) * ballCfg.wallRestitution;
-      state.bounces = (state.bounces || 0) + 1;
+      state.bounces++;
       if (callbacks?.onBounce) {
         callbacks.onBounce(state.x, state.y);
       }
     }
 
-    for (const obs of this.obstacles) {
+    for (const obs of obstacles) {
       if (obs.disabled) {
         continue;
       }
       if (obs.type === OBSTACLE_TYPES.PORTAL) {
-        if (!state.portalCooldown || state.portalCooldown <= 0) {
-          const dist = Math.hypot(state.x - obs.x, state.y - obs.y);
-          if (dist <= r + obs.radius * MATH_CONSTANTS.HALF) {
-            const exitPortal = this.findExitPortal(obs);
-            if (exitPortal) {
-              state.warpedFrom = { x: obs.x, y: obs.y };
-              const spd = Math.hypot(state.vx, state.vy) || (isAnvil ? ballCfg.anvilSpeed : ballCfg.projectileSpeed);
-              const dirX = state.vx / spd;
-              const dirY = state.vy / spd;
-              const offsetDist = (r + exitPortal.radius) * exitPortal.exitOffsetFactor;
-              state.x = exitPortal.x + dirX * offsetDist;
-              state.y = exitPortal.y + dirY * offsetDist;
-              state.vx *= exitPortal.speedBoostMultiplier;
-              state.vy *= exitPortal.speedBoostMultiplier;
-              state.portalCooldown = exitPortal.teleportCooldownSteps;
-              state.warpedThisStep = true;
-              if (callbacks?.onPortalWarp) {
-                obs.hitPulse = 1.0;
-                exitPortal.hitPulse = 1.0;
-                callbacks.onPortalWarp(obs, exitPortal);
-              }
-              break;
-            }
-          }
+        if (state.portalCooldown > 0) {
+          continue;
         }
+        const triggerDist = r + obs.radius * obs.triggerRadiusFactor;
+        const dx = state.x - obs.x;
+        const dy = state.y - obs.y;
+        if (dx * dx + dy * dy > triggerDist * triggerDist) {
+          continue;
+        }
+        const exitPortal = this.findExitPortal(obs, obstacles);
+        if (!exitPortal) {
+          continue;
+        }
+        state.warpFromX = obs.x;
+        state.warpFromY = obs.y;
+        const dir = this.writeSeparationNormal(state.vx, state.vy, 0, 0, this.normalScratch);
+        const offsetDist = (r + exitPortal.radius) * exitPortal.exitOffsetFactor;
+        state.x = exitPortal.x + dir.x * offsetDist;
+        state.y = exitPortal.y + dir.y * offsetDist;
+        state.vx *= exitPortal.speedBoostMultiplier;
+        state.vy *= exitPortal.speedBoostMultiplier;
+        this.clampProjectileSpeed(state);
+        state.portalCooldown = exitPortal.teleportCooldownSteps;
+        state.portalWarps++;
+        state.warpedThisStep = true;
+        if (callbacks?.onPortalWarp) {
+          obs.triggerHitPulse();
+          exitPortal.triggerHitPulse();
+          callbacks.onPortalWarp(obs, exitPortal);
+        }
+        break;
       } else if (
         obs.type === OBSTACLE_TYPES.BUMPER ||
         obs.type === OBSTACLE_TYPES.PIVOT ||
@@ -571,49 +841,93 @@ export class PhysicsWorld {
         const dx = state.x - obs.x;
         const dy = state.y - obs.y;
         const minDist = r + obs.radius;
-        const dist = Math.hypot(dx, dy);
-        if (dist < minDist && dist > MATH_CONSTANTS.EPSILON) {
-          const nx = dx / dist;
-          const ny = dy / dist;
-          state.x = obs.x + nx * minDist;
-          state.y = obs.y + ny * minDist;
-          const dot = state.vx * nx + state.vy * ny;
-          if (dot < 0) {
-            state.vx = (state.vx - 2 * dot * nx) * obs.restitution;
-            state.vy = (state.vy - 2 * dot * ny) * obs.restitution;
-            state.bounces = (state.bounces || 0) + 1;
-            if (callbacks?.onBounce) {
-              obs.hitPulse = 1.0;
-              callbacks.onBounce(state.x, state.y);
-            }
-          }
+        if (dx * dx + dy * dy >= minDist * minDist) {
+          continue;
         }
+        const n = this.writeSeparationNormal(dx, dy, state.vx, state.vy, this.normalScratch);
+        state.x = obs.x + n.x * minDist;
+        state.y = obs.y + n.y * minDist;
+        this.reflectProjectile(state, obs, n.x, n.y, callbacks);
       } else if (obs.type === OBSTACLE_TYPES.BARRIER) {
-        const halfW = obs.width * MATH_CONSTANTS.HALF;
-        const halfH = obs.height * MATH_CONSTANTS.HALF;
-        const closestX = Math.max(obs.x - halfW, Math.min(state.x, obs.x + halfW));
-        const closestY = Math.max(obs.y - halfH, Math.min(state.y, obs.y + halfH));
-        const dx = state.x - closestX;
-        const dy = state.y - closestY;
-        const dist = Math.hypot(dx, dy);
-        if (dist < r && dist > MATH_CONSTANTS.EPSILON) {
-          const nx = dx / dist;
-          const ny = dy / dist;
-          state.x = closestX + nx * r;
-          state.y = closestY + ny * r;
-          const dot = state.vx * nx + state.vy * ny;
-          if (dot < 0) {
-            state.vx = (state.vx - 2 * dot * nx) * obs.restitution;
-            state.vy = (state.vy - 2 * dot * ny) * obs.restitution;
-            state.bounces = (state.bounces || 0) + 1;
-            if (callbacks?.onBounce) {
-              obs.hitPulse = 1.0;
-              callbacks.onBounce(state.x, state.y);
-            }
-          }
-        }
+        this.resolveBarrierCollision(state, obs, r, callbacks);
       }
     }
+  }
+
+  /**
+   * Resolves a projectile against an axis-aligned barrier. When the projectile center is
+   * already inside the rectangle, it is pushed out through the nearest face.
+   */
+  resolveBarrierCollision(state, obs, r, callbacks) {
+    const halfW = obs.width * MATH_CONSTANTS.HALF;
+    const halfH = obs.height * MATH_CONSTANTS.HALF;
+    const left = obs.x - halfW;
+    const right = obs.x + halfW;
+    const top = obs.y - halfH;
+    const bottom = obs.y + halfH;
+    const closestX = Math.max(left, Math.min(state.x, right));
+    const closestY = Math.max(top, Math.min(state.y, bottom));
+    const dx = state.x - closestX;
+    const dy = state.y - closestY;
+    const distSq = dx * dx + dy * dy;
+    if (distSq >= r * r) {
+      return;
+    }
+
+    const dist = Math.sqrt(distSq);
+    let nx = 0;
+    let ny = 0;
+    if (dist > MATH_CONSTANTS.EPSILON) {
+      nx = dx / dist;
+      ny = dy / dist;
+      state.x = closestX + nx * r;
+      state.y = closestY + ny * r;
+    } else {
+      const penLeft = state.x - left;
+      const penRight = right - state.x;
+      const penTop = state.y - top;
+      const penBottom = bottom - state.y;
+      const minPen = Math.min(penLeft, penRight, penTop, penBottom);
+      if (minPen === penLeft) {
+        nx = -1;
+        state.x = left - r;
+      } else if (minPen === penRight) {
+        nx = 1;
+        state.x = right + r;
+      } else if (minPen === penTop) {
+        ny = -1;
+        state.y = top - r;
+      } else {
+        ny = 1;
+        state.y = bottom + r;
+      }
+    }
+    this.reflectProjectile(state, obs, nx, ny, callbacks);
+  }
+
+  /**
+   * Finds the nearest ball within the snap distance of a point.
+   * @param {number} x - Probe X.
+   * @param {number} y - Probe Y.
+   * @param {number} snapDistSq - Squared snap distance.
+   * @param {Array<number>|null} ballX - Predicted ball X positions, or null to use live positions.
+   * @param {Array<number>|null} ballY - Predicted ball Y positions, or null to use live positions.
+   * @returns {number} Index of the nearest ball in this.balls, or NOT_FOUND_INDEX when none is in range.
+   */
+  findNearestSnapIndex(x, y, snapDistSq, ballX = null, ballY = null) {
+    const balls = this.balls;
+    let bestIndex = NOT_FOUND_INDEX;
+    let bestSq = snapDistSq;
+    for (let i = 0; i < balls.length; i++) {
+      const dx = (ballX ? ballX[i] : balls[i].x) - x;
+      const dy = (ballY ? ballY[i] : balls[i].y) - y;
+      const dSq = dx * dx + dy * dy;
+      if (dSq < bestSq || (bestIndex === NOT_FOUND_INDEX && dSq <= bestSq)) {
+        bestSq = dSq;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
   }
 
   stepProjectile(dt, callbacks) {
@@ -627,6 +941,7 @@ export class PhysicsWorld {
     const minWallY = this.gameConfig.canvas.wallMargin + p.radius;
     const isAnvil = p.specialType === SPECIAL_TYPES.ANVIL;
 
+    p.flightSteps++;
     this.advanceProjectileMotion(p, dt, isAnvil, callbacks);
 
     if (isAnvil) {
@@ -657,7 +972,7 @@ export class PhysicsWorld {
           }
         }
       }
-      if (p.y <= minWallY || p.y > this.gameConfig.canvas.logicalHeight) {
+      if (p.y <= minWallY || p.y > this.gameConfig.canvas.logicalHeight || this.isFlightExhausted(p)) {
         this.projectile = null;
         if (callbacks?.onAnvilComplete) {
           callbacks.onAnvilComplete();
@@ -668,19 +983,16 @@ export class PhysicsWorld {
     }
 
     const snapDist = p.radius * sim.projectileSnapDistanceFactor;
-    for (const target of this.balls) {
-      const dx = p.x - target.x;
-      const dy = p.y - target.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist <= snapDist) {
-        this.snapProjectile(p, target, callbacks);
-        return true;
-      }
+    const snapIndex = this.findNearestSnapIndex(p.x, p.y, snapDist * snapDist);
+    if (snapIndex !== NOT_FOUND_INDEX) {
+      this.snapProjectile(p, this.balls[snapIndex], callbacks);
+      return true;
     }
 
     if (
       p.y > this.gameConfig.canvas.logicalHeight + p.radius * sim.outOfBoundsMarginFactor ||
-      (p.bounces || 0) > sim.maxProjectileBounces
+      p.bounces > sim.maxProjectileBounces ||
+      this.isFlightExhausted(p)
     ) {
       this.projectile = null;
       if (callbacks?.onProjectileMissed) {
@@ -701,12 +1013,18 @@ export class PhysicsWorld {
     const impactVy = projectile.vy;
 
     if (hitTarget) {
-      const dx = projectile.x - hitTarget.x;
-      const dy = projectile.y - hitTarget.y;
-      const dist = Math.hypot(dx, dy) || 1;
       const targetDist = projectile.radius * sim.bondRestDistanceFactor;
-      projectile.x = hitTarget.x + (dx / dist) * targetDist;
-      projectile.y = hitTarget.y + (dy / dist) * targetDist;
+      const landing = this.computeSnapPosition(
+        projectile.x,
+        projectile.y,
+        impactVx,
+        impactVy,
+        hitTarget.x,
+        hitTarget.y,
+        targetDist
+      );
+      projectile.x = landing.x;
+      projectile.y = landing.y;
 
       hitTarget.vx += impactVx * sim.impactImpulseMultiplier;
       hitTarget.vy += impactVy * sim.impactImpulseMultiplier;
@@ -821,21 +1139,35 @@ export class PhysicsWorld {
     return detached;
   }
 
+  /**
+   * Removes every ball with no bond path to an anchor and turns it into a dropping ball.
+   * The active array is compacted in a single pass; detached balls are returned (and
+   * receive their random spread) in reverse array order.
+   * @returns {Array<import('../entities/Ball.js').Ball>} The detached balls.
+   */
   detachUnanchoredBalls() {
     const anchoredSet = this.getAnchoredBallIds();
-
     const sim = this.physicsConfig.simulation;
+    const balls = this.balls;
     const detached = [];
-    for (let i = this.balls.length - 1; i >= 0; i--) {
-      const ball = this.balls[i];
-      if (!anchoredSet.has(ball.id)) {
-        this.removeBall(ball);
-        ball.isDropping = true;
-        ball.vx += (Math.random() - MATH_CONSTANTS.HALF) * sim.dropHorizontalSpread;
-        ball.vy = Math.max(ball.vy, sim.dropMinVerticalSpeed);
-        this.droppingBalls.push(ball);
+    let kept = 0;
+    for (let i = 0; i < balls.length; i++) {
+      const ball = balls[i];
+      if (anchoredSet.has(ball.id)) {
+        balls[kept++] = ball;
+      } else {
         detached.push(ball);
       }
+    }
+    balls.length = kept;
+    detached.reverse();
+
+    for (const ball of detached) {
+      this.releaseBall(ball);
+      ball.isDropping = true;
+      ball.vx += (this.randomSource() - MATH_CONSTANTS.HALF) * sim.dropHorizontalSpread;
+      ball.vy = Math.max(ball.vy, sim.dropMinVerticalSpeed);
+      this.droppingBalls.push(ball);
     }
 
     return detached;
@@ -843,8 +1175,10 @@ export class PhysicsWorld {
 
   stepDroppingBalls(callbacks) {
     const sim = this.physicsConfig.simulation;
+    const canvasCfg = this.gameConfig.canvas;
+    const restitution = this.physicsConfig.ball.restitution;
     const gravity = sim.dropGravity;
-    const maxY = this.gameConfig.canvas.logicalHeight + sim.dropOutMarginY;
+    const maxY = canvasCfg.logicalHeight + sim.dropOutMarginY;
 
     for (let i = this.droppingBalls.length - 1; i >= 0; i--) {
       const b = this.droppingBalls[i];
@@ -875,7 +1209,7 @@ export class PhysicsWorld {
           this.droppingBalls[i] = this.droppingBalls[lastIndex];
         }
         this.droppingBalls.pop();
-        capturedByObstacle.hitPulse = 1.0;
+        capturedByObstacle.triggerHitPulse();
         if (callbacks?.onSingularityCapture) {
           callbacks.onSingularityCapture(b, capturedByObstacle);
         }
@@ -884,6 +1218,17 @@ export class PhysicsWorld {
 
       b.x += b.vx;
       b.y += b.vy;
+
+      const minWallX = canvasCfg.wallMargin + b.radius;
+      const maxWallX = canvasCfg.logicalWidth - canvasCfg.wallMargin - b.radius;
+      if (b.x < minWallX) {
+        b.x = minWallX;
+        b.vx = Math.abs(b.vx) * restitution;
+      } else if (b.x > maxWallX) {
+        b.x = maxWallX;
+        b.vx = -Math.abs(b.vx) * restitution;
+      }
+
       if (b.y > maxY) {
         const lastIndex = this.droppingBalls.length - 1;
         if (i !== lastIndex) {
@@ -897,6 +1242,60 @@ export class PhysicsWorld {
     }
   }
 
+  /**
+   * Fills a signature describing everything the aim preview depends on. Ball and obstacle
+   * positions are quantized so that sub-quantum jitter of a settled cluster reuses the cache.
+   * @returns {Array<*>} The filled output array.
+   */
+  buildAimSignature(out, startX, startY, angleRad, colorId, specialType, distanceBonus, bouncesBonus, isFlipped) {
+    const invQuantum = 1 / this.physicsConfig.aimPreview.cachePositionQuantum;
+    out.length = 0;
+    out.push(
+      startX,
+      startY,
+      angleRad,
+      colorId,
+      specialType,
+      distanceBonus,
+      bouncesBonus,
+      isFlipped,
+      this.magnetismMultiplier,
+      this.rotorSpeedMultiplier,
+      this.balls,
+      this.obstacles,
+      this.balls.length,
+      this.obstacles.length
+    );
+    for (const ball of this.balls) {
+      out.push(
+        ball.id,
+        Math.round(ball.x * invQuantum),
+        Math.round(ball.y * invQuantum),
+        ball.colorId,
+        ball.pivotRef,
+        ball.bonds.size
+      );
+    }
+    for (const obs of this.obstacles) {
+      out.push(
+        obs,
+        obs.disabled,
+        Math.round(obs.x * invQuantum),
+        Math.round(obs.y * invQuantum),
+        obs.angularVelocity,
+        obs.oscillatePhase
+      );
+    }
+    return out;
+  }
+
+  /**
+   * Computes the aim preview path. The result is cached: when neither the aim parameters
+   * nor the board changed since the previous call, the previous result is returned as-is.
+   * The returned array and its points are owned by the world and overwritten on recompute.
+   * @returns {Array<{x: number, y: number, warpBreak: boolean}>} Path points, with
+   *   snapTarget, landingX and landingY properties attached to the array.
+   */
   computeAimTrajectory(
     startX,
     startY,
@@ -906,7 +1305,162 @@ export class PhysicsWorld {
     maxBouncesBonus = 0,
     isPolarityFlipped = false
   ) {
-    const points = [{ x: startX, y: startY }];
+    const colorId = currentBall && currentBall.colorId ? currentBall.colorId : null;
+    const specialType = currentBall ? currentBall.specialType : null;
+    const isFlipped = Boolean(isPolarityFlipped);
+    const signature = this.buildAimSignature(
+      this.aimSignatureScratch,
+      startX,
+      startY,
+      angleRad,
+      colorId,
+      specialType,
+      maxDistanceBonus,
+      maxBouncesBonus,
+      isFlipped
+    );
+    const previous = this.aimSignature;
+    if (this.aimCacheValid && previous.length === signature.length) {
+      let same = true;
+      for (let i = 0; i < signature.length; i++) {
+        if (signature[i] !== previous[i]) {
+          same = false;
+          break;
+        }
+      }
+      if (same) {
+        return this.aimPoints;
+      }
+    }
+    this.aimSignature = signature;
+    this.aimSignatureScratch = previous;
+    this.aimCacheValid = true;
+    this.aimTrajectoryComputeCount++;
+    return this.traceAimTrajectory(
+      startX,
+      startY,
+      angleRad,
+      colorId,
+      specialType,
+      maxDistanceBonus,
+      maxBouncesBonus,
+      isFlipped
+    );
+  }
+
+  /**
+   * Appends a point to the aim path, reusing pooled point objects.
+   */
+  pushAimPoint(x, y, warpBreak) {
+    const index = this.aimPoints.length;
+    let point = this.aimPointPool[index];
+    if (!point) {
+      point = { x: 0, y: 0, warpBreak: false };
+      this.aimPointPool[index] = point;
+    }
+    point.x = x;
+    point.y = y;
+    point.warpBreak = warpBreak;
+    this.aimPoints.push(point);
+  }
+
+  /**
+   * Prepares the predicted world used by the aim preview: obstacle proxies that inherit
+   * from the real obstacles but own their motion state, the pivot gravity torques frozen
+   * at the current ball layout, and the list of rotor-anchored balls to rotate.
+   * @returns {object} The preview context passed to advanceProjectileMotion.
+   */
+  preparePreviewWorld() {
+    const ghosts = this.aimGhosts;
+    const obstacleIndex = this.aimObstacleIndex;
+    ghosts.length = 0;
+    obstacleIndex.clear();
+    const torques = this.accumulateGravityTorques(this.pivotTorqueScratch);
+    for (let i = 0; i < this.obstacles.length; i++) {
+      const obs = this.obstacles[i];
+      let ghost = this.aimGhostCache.get(obs);
+      if (!ghost) {
+        ghost = Object.create(obs);
+        this.aimGhostCache.set(obs, ghost);
+      }
+      ghost.syncMotionStateFrom(obs);
+      ghosts.push(ghost);
+      obstacleIndex.set(obs, i);
+      this.aimPivotTorques[i] = torques.has(obs) ? torques.get(obs) : 0;
+      this.aimPivotOffsets[i] = 0;
+    }
+
+    const balls = this.balls;
+    this.aimBallX.length = balls.length;
+    this.aimBallY.length = balls.length;
+    this.aimRotatingBalls.length = 0;
+    this.aimRotatingPivotIdx.length = 0;
+    for (let i = 0; i < balls.length; i++) {
+      const ball = balls[i];
+      this.aimBallX[i] = ball.x;
+      this.aimBallY[i] = ball.y;
+      const pivotIdx = ball.pivotRef && obstacleIndex.has(ball.pivotRef)
+        ? obstacleIndex.get(ball.pivotRef)
+        : NOT_FOUND_INDEX;
+      if (pivotIdx !== NOT_FOUND_INDEX) {
+        this.aimRotatingBalls.push(i);
+        this.aimRotatingPivotIdx.push(pivotIdx);
+      }
+    }
+    return this.aimPreview;
+  }
+
+  /**
+   * Advances the preview obstacle proxies by one fixed step, mirroring step().
+   */
+  advancePreviewObstacles() {
+    const sim = this.physicsConfig.simulation;
+    const maxSpeed = sim.pivotMaxAngularSpeed * this.rotorSpeedMultiplier;
+    const ghosts = this.aimGhosts;
+    for (let i = 0; i < ghosts.length; i++) {
+      if (ghosts[i].type === OBSTACLE_TYPES.PIVOT) {
+        ghosts[i].applyTorque(this.aimPivotTorques[i], maxSpeed);
+      }
+    }
+    for (const ghost of ghosts) {
+      ghost.update(sim.pivotAngularDamping);
+    }
+  }
+
+  /**
+   * Rotates rotor-anchored balls around their predicted pivot by one substep of the
+   * predicted angular velocity, mirroring the anchor motion in stepCluster().
+   * @param {number} dt - Substep time fraction.
+   */
+  advancePreviewBalls(dt) {
+    const ghosts = this.aimGhosts;
+    if (this.aimRotatingBalls.length === 0) {
+      return;
+    }
+    for (let i = 0; i < ghosts.length; i++) {
+      if (ghosts[i].type === OBSTACLE_TYPES.PIVOT) {
+        this.aimPivotOffsets[i] += ghosts[i].angularVelocity * dt;
+        this.aimPivotCos[i] = Math.cos(this.aimPivotOffsets[i]);
+        this.aimPivotSin[i] = Math.sin(this.aimPivotOffsets[i]);
+      }
+    }
+    for (let k = 0; k < this.aimRotatingBalls.length; k++) {
+      const ballIdx = this.aimRotatingBalls[k];
+      const pivotIdx = this.aimRotatingPivotIdx[k];
+      const ball = this.balls[ballIdx];
+      const source = this.obstacles[pivotIdx];
+      const ghost = ghosts[pivotIdx];
+      const rx = ball.x - source.x;
+      const ry = ball.y - source.y;
+      const cos = this.aimPivotCos[pivotIdx];
+      const sin = this.aimPivotSin[pivotIdx];
+      this.aimBallX[ballIdx] = ghost.x + rx * cos - ry * sin;
+      this.aimBallY[ballIdx] = ghost.y + rx * sin + ry * cos;
+    }
+  }
+
+  traceAimTrajectory(startX, startY, angleRad, colorId, specialType, maxDistanceBonus, maxBouncesBonus, isFlipped) {
+    const points = this.aimPoints;
     const canvasCfg = this.gameConfig.canvas;
     const ballCfg = this.physicsConfig.ball;
     const sim = this.physicsConfig.simulation;
@@ -915,43 +1469,56 @@ export class PhysicsWorld {
 
     const maxDistance = canvasCfg.aimRayMaxDistance + maxDistanceBonus;
     const maxBounces = canvasCfg.aimRayMaxBounces + maxBouncesBonus;
-    const dt = 1 / sim.substeps;
+    const substeps = sim.substeps;
+    const dt = 1 / substeps;
 
-    const isAnvil = currentBall?.specialType === SPECIAL_TYPES.ANVIL;
+    const isAnvil = specialType === SPECIAL_TYPES.ANVIL;
     const speed = isAnvil ? ballCfg.anvilSpeed : ballCfg.projectileSpeed;
     const snapDist = r * sim.projectileSnapDistanceFactor;
+    const snapDistSq = snapDist * snapDist;
+    const targetDist = r * sim.bondRestDistanceFactor;
 
-    const state = {
-      x: startX,
-      y: startY,
-      vx: Math.cos(angleRad) * speed,
-      vy: Math.sin(angleRad) * speed,
-      radius: r,
-      colorId: currentBall?.colorId || null,
-      isPolarityFlipped: Boolean(isPolarityFlipped),
-      portalCooldown: 0,
-      bounces: 0,
-      warpedThisStep: false,
-      warpedFrom: null
-    };
+    const preview = this.preparePreviewWorld();
+    const state = this.aimState;
+    state.x = startX;
+    state.y = startY;
+    state.vx = Math.cos(angleRad) * speed;
+    state.vy = Math.sin(angleRad) * speed;
+    state.radius = r;
+    state.colorId = colorId;
+    state.isPolarityFlipped = isFlipped;
+    state.portalCooldown = 0;
+    state.bounces = 0;
+    state.portalWarps = 0;
+    state.flightSteps = 0;
+    state.warpedThisStep = false;
+
+    points.length = 0;
+    this.pushAimPoint(startX, startY, false);
 
     let traveled = 0;
     let snapTarget = null;
     let landingX = startX;
     let landingY = startY;
 
-    while (traveled < maxDistance && state.bounces <= maxBounces) {
+    while (traveled < maxDistance && state.bounces <= maxBounces && !this.isFlightExhausted(state)) {
+      if (state.flightSteps % substeps === 0) {
+        this.advancePreviewObstacles();
+      }
+      this.advancePreviewBalls(dt);
+      state.flightSteps++;
+
       const prevX = state.x;
       const prevY = state.y;
 
-      this.advanceProjectileMotion(state, dt, isAnvil, null);
+      this.advanceProjectileMotion(state, dt, isAnvil, null, preview);
 
-      if (state.warpedThisStep && state.warpedFrom) {
-        points.push({ x: state.warpedFrom.x, y: state.warpedFrom.y });
-        points.push({ x: state.x, y: state.y, warpBreak: true });
-        traveled += Math.hypot(state.warpedFrom.x - prevX, state.warpedFrom.y - prevY);
+      if (state.warpedThisStep) {
+        this.pushAimPoint(state.warpFromX, state.warpFromY, false);
+        this.pushAimPoint(state.x, state.y, true);
+        traveled += Math.hypot(state.warpFromX - prevX, state.warpFromY - prevY);
       } else {
-        points.push({ x: state.x, y: state.y });
+        this.pushAimPoint(state.x, state.y, false);
         traveled += Math.hypot(state.x - prevX, state.y - prevY);
       }
 
@@ -964,21 +1531,20 @@ export class PhysicsWorld {
       }
 
       if (!isAnvil) {
-        let hitBall = null;
-        for (const b of this.balls) {
-          if (Math.hypot(b.x - state.x, b.y - state.y) <= snapDist) {
-            hitBall = b;
-            break;
-          }
-        }
-        if (hitBall) {
-          snapTarget = hitBall;
-          const dx = state.x - hitBall.x;
-          const dy = state.y - hitBall.y;
-          const dist = Math.hypot(dx, dy) || 1;
-          const targetDist = r * sim.bondRestDistanceFactor;
-          landingX = hitBall.x + (dx / dist) * targetDist;
-          landingY = hitBall.y + (dy / dist) * targetDist;
+        const hitIndex = this.findNearestSnapIndex(state.x, state.y, snapDistSq, preview.ballX, preview.ballY);
+        if (hitIndex !== NOT_FOUND_INDEX) {
+          snapTarget = this.balls[hitIndex];
+          const landing = this.computeSnapPosition(
+            state.x,
+            state.y,
+            state.vx,
+            state.vy,
+            preview.ballX[hitIndex],
+            preview.ballY[hitIndex],
+            targetDist
+          );
+          landingX = landing.x;
+          landingY = landing.y;
           break;
         }
       }
