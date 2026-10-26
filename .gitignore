@@ -1,0 +1,10 @@
+# Private working notes, audits and briefs
+local/
+
+# Dependencies and tooling
+node_modules/
+.claude/
+
+# OS artifacts
+Thumbs.db
+.DS_Store
