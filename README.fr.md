@@ -26,10 +26,15 @@
   - Améliorations permanentes (*Visée laser courbée*, *Amplificateur magnétique*, *Condensateur de surcharge*, *Réserve de projectiles*).
   - Recharges de munitions spéciales en cours de partie, primes et succès, et un **Codex et guide** illustré.
 - **Accessibilité et confort** :
-  - Interface bilingue (**FR** / **EN**) sans aucun texte codé en dur.
-  - Mode **contraste élevé** avec bordures renforcées et symboles de polarité.
+  - Interface bilingue (**FR** / **EN**) sans aucun texte codé en dur ; à la première visite, la langue suit celle du navigateur.
+  - Mode **contraste élevé** avec bordures renforcées et symboles de polarité ; les boutons respectent le contraste WCAG AA.
   - Option **réduction des animations** (respecte `prefers-reduced-motion`) et pause automatique au changement d'onglet.
-  - Contrôles complets à la souris, au tactile (décalage vertical du doigt et annulation du tir en glissant vers le bas) et au clavier.
+  - Prise en charge des lecteurs d'écran : boutons bascules étiquetés avec `aria-pressed`, sphères spéciales et étoiles des niveaux nommées, annonces discrètes des succès et des fins de manche.
+  - Contrôles complets à la souris, au tactile (décalage vertical du doigt et annulation du tir en glissant vers le bas) et au clavier ; une touche d'action maintenue ne se répète pas.
+  - Mise en page sans défilement sur ordinateur, téléphone et téléphone en paysage, avec des zones tactiles de 44 px. Sur téléphone, Recommencer, Son, Contraste, Animations et Langue se trouvent dans le menu **Pause**.
+- **Installable et hors ligne** :
+  - Application web progressive installable, avec icônes standard et adaptatives (maskable).
+  - Service Worker réseau d'abord, qui sert la copie en cache hors ligne ou quand le réseau est trop lent.
 
 ---
 
@@ -44,6 +49,7 @@
 | **Inverser la polarité** | Cliquer le bouton **Polarité** | `F` |
 | **Équiper / ranger une sphère spéciale** | Cliquer l'emplacement de la sphère spéciale (cliquer à nouveau pour la ranger) | `1` à `5` |
 | **Pause / fermer une fenêtre** | Cliquer **Pause** ou le fond de la fenêtre | `Échap` |
+| **Réglages (téléphone)** | Ouvrir **Pause** | - |
 
 ---
 
@@ -53,9 +59,10 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 
 ```text
 ├── configs/                  # Données externalisées : jeu, physique, sphères, obstacles, audio et niveaux
+├── icons/                    # Icônes PWA (SVG, SVG maskable, PNG 192 px et 512 px)
 ├── locales/                  # Dictionnaires de traduction (fr.json, en.json)
 ├── src/
-│   ├── main.js               # Démarrage, boucle à pas fixe et filtrage des entrées pointeur
+│   ├── main.js               # Démarrage, filtrage des entrées pointeur et enregistrement du Service Worker
 │   ├── core/
 │   │   ├── ConfigRegistry.js # Chargeur parallèle des configurations JSON
 │   │   ├── Constants.js      # Énumérations figées et constantes mathématiques
@@ -78,7 +85,9 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 │   └── ui/
 │       └── UIManager.js      # Mise à jour du HUD, fenêtres accessibles (piège de focus + inert) et Codex
 ├── styles/main.css           # Mise en page adaptative et jetons de design
-├── sw.js                     # Service Worker réseau d'abord, avec repli hors ligne versionné
+├── index.html                # Squelette de l'application et bandeau d'erreur de démarrage statique
+├── manifest.webmanifest      # Manifeste PWA
+├── sw.js                     # Service Worker réseau d'abord, avec délai d'attente et repli hors ligne versionné
 └── tests/                    # Suites de tests automatisés Node.js
 ```
 
@@ -86,13 +95,22 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 
 ## Développement local
 
+Nécessite Node.js 22 ou plus récent (la CI utilise Node.js 24).
+
 ```bash
 # Lancer le serveur statique local sur le port 4200
 npm start
 
-# Lancer les tests automatisés
+# Lancer toutes les suites de tests automatisés
 npm test
 ```
+
+Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, et deux gardes du dépôt :
+
+- `typography.test.js` refuse, dans tous les fichiers texte, les variantes typographiques des caractères ASCII (tirets longs, guillemets courbes, points de suspension, espaces spéciales, ligatures).
+- `pwa.test.js` vérifie que chaque fichier de `src/`, `configs/`, `locales/` et `icons/` est mis en cache par `sw.js`, et que la version du cache du Service Worker correspond à `package.json`.
+
+Tout nouveau fichier chargé à l'exécution doit être ajouté à `PRECACHE_ASSETS` dans `sw.js`. À chaque version, `APP_VERSION` dans `sw.js` s'incrémente avec `package.json`.
 
 ---
 
