@@ -268,8 +268,10 @@
       "dailyLastPlayedDate": "daily_last_date",
       "coins": "coins",
       "upgrades": "upgrades",
-      "achievements": "achievements"
-    }
+      "achievements": "achievements",
+      "runSnapshot": "run_snapshot"
+    },
+    "runSnapshotVersion": 1
   },
   "defaults": {
     "language": "fr",

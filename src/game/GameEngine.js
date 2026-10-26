@@ -31,6 +31,7 @@ import { Obstacle } from '../entities/Obstacle.js';
 import { ParticleSystem } from '../entities/ParticleSystem.js';
 import { PhysicsWorld } from '../physics/PhysicsWorld.js';
 import { SpecialBallController } from './SpecialBallController.js';
+import { captureRunSnapshot, isValidRunSnapshot, applyRunSnapshot } from './RunSnapshot.js';
 
 export class GameEngine {
   constructor({ gameConfig, physicsConfig, ballsConfig, obstaclesConfig, levelsConfig, audioManager, storageManager, onStateChange }) {
@@ -116,11 +117,56 @@ export class GameEngine {
   }
 
   /**
+   * Stores the run so it survives a reload or the tab being discarded. Only runs with at
+   * least one shot are kept, and only between shots (see isRunSnapshotable): a run that
+   * cannot be captured right now keeps its last stored snapshot.
+   */
+  saveRunSnapshot() {
+    if (!this.hasFiredInRound) {
+      return;
+    }
+    const snapshot = captureRunSnapshot(this, this.storageManager.getRunSnapshotVersion());
+    if (snapshot) {
+      this.storageManager.saveRunSnapshot(snapshot);
+    }
+  }
+
+  /**
+   * Resumes the stored run, paused, in place of the current one.
+   * @returns {boolean} True when a stored run was restored; false when there was none or it
+   *   was unusable, in which case it is discarded and the caller starts a run normally.
+   */
+  restoreSavedRun() {
+    const snapshot = this.storageManager.loadRunSnapshot();
+    if (!snapshot) {
+      return false;
+    }
+    if (!isValidRunSnapshot(snapshot, this.storageManager.getRunSnapshotVersion())) {
+      this.storageManager.clearRunSnapshot();
+      return false;
+    }
+    let isRestored = false;
+    try {
+      isRestored = applyRunSnapshot(this, snapshot);
+    } catch (err) {
+      console.error('Saved run could not be restored:', err);
+    }
+    if (!isRestored) {
+      this.storageManager.clearRunSnapshot();
+      return false;
+    }
+    this.saveRunSnapshot();
+    this.notifyUI();
+    return true;
+  }
+
+  /**
    * Saves the outgoing run's high score, then resets every per-run counter shared by all modes.
    * @param {string} mode - Game mode of the run being started.
    */
   resetRunState(mode) {
     this.persistRunHighScore();
+    this.storageManager.clearRunSnapshot();
     this.mode = mode;
     this.score = 0;
     this.combo = 0;
@@ -1401,6 +1447,7 @@ export class GameEngine {
 
     this.evaluateRoundEnd();
     this.updateAimFromAngle(this.aimAngle);
+    this.saveRunSnapshot();
     this.notifyUI();
   }
 
@@ -1564,6 +1611,7 @@ export class GameEngine {
         }
         this.state = GAME_STATES.VICTORY;
         this.persistRunHighScore();
+        this.storageManager.clearRunSnapshot();
         this.audioManager.playEffect('victory');
         this.notifyUI({ victoryBonus: bonus, stars, earnedCoins });
         return;
@@ -1583,6 +1631,7 @@ export class GameEngine {
     }
     this.state = GAME_STATES.GAME_OVER;
     this.persistRunHighScore();
+    this.storageManager.clearRunSnapshot();
     this.audioManager.playEffect('gameOver');
     this.notifyUI({ gameOverReason: reasonKey });
   }

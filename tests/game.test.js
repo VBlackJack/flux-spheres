@@ -64,9 +64,13 @@ const collectLeafKeys = (obj, prefix = '') => {
   return keys.sort();
 };
 
-const createTestEngine = () => {
+const createTestStorage = () => {
   const storageManager = new StorageManager();
   storageManager.init();
+  return storageManager;
+};
+
+const createTestEngine = (storageManager = createTestStorage()) => {
   const dummyAudio = {
     playEffect: () => {},
     stopAll: () => {},
@@ -474,4 +478,56 @@ test('Spiral and Cross rotor levels remain structurally stable without playing a
   assert.equal(engine.physicsWorld.balls.includes(low), false, 'Tension-severed ball should be removed from active cluster');
   assert.equal(engine.physicsWorld.droppingBalls.includes(low), true, 'Tension-severed ball should drop as an avalanche');
   assert.equal(engine.state, 'playing', 'Detached avalanche must not trigger danger line Game Over');
+});
+
+test('A run in progress is saved between shots and restored paused with the same board', () => {
+  const storage = createTestStorage();
+  for (const start of [(e) => e.startCampaignLevel(9), (e) => e.startDailyChallenge('2026-10-26')]) {
+    const engine = createTestEngine(storage);
+    start(engine);
+    engine.shoot();
+    for (let frame = 0; frame < 600 && engine.physicsWorld.projectile; frame++) {
+      engine.update();
+    }
+    assert.equal(engine.physicsWorld.projectile, null, 'The shot must resolve before the snapshot is checked');
+    assert.ok(storage.loadRunSnapshot(), 'A resolved shot must store the run');
+
+    const resumed = createTestEngine(storage);
+    assert.equal(resumed.restoreSavedRun(), true);
+    assert.equal(resumed.state, 'paused');
+    assert.equal(resumed.mode, engine.mode);
+    assert.equal(resumed.score, engine.score);
+    assert.equal(resumed.shotsRemaining, engine.shotsRemaining);
+    assert.equal(resumed.physicsWorld.balls.length, engine.physicsWorld.balls.length);
+    assert.equal(resumed.currentBall.colorId, engine.currentBall.colorId);
+    const bondCount = (e) => e.physicsWorld.balls.reduce((sum, b) => sum + b.bonds.size, 0);
+    assert.equal(bondCount(resumed), bondCount(engine));
+    const pivotLinks = (e) => e.physicsWorld.balls.filter((b) => b.pivotRef).length;
+    assert.equal(pivotLinks(resumed), pivotLinks(engine));
+    if (engine.seededRng) {
+      assert.equal(resumed.seededRng.state, engine.seededRng.state);
+    }
+  }
+});
+
+test('A finished run or a fresh start clears the stored run, and a corrupted one is discarded', () => {
+  const storage = createTestStorage();
+  const engine = createTestEngine(storage);
+  engine.startCampaignLevel(1);
+  engine.hasFiredInRound = true;
+  engine.saveRunSnapshot();
+  assert.ok(storage.loadRunSnapshot());
+  engine.triggerGameOver('lineCrossed');
+  assert.equal(storage.loadRunSnapshot(), null);
+
+  engine.startCampaignLevel(1);
+  engine.hasFiredInRound = true;
+  engine.saveRunSnapshot();
+  engine.startEndlessMode();
+  assert.equal(storage.loadRunSnapshot(), null, 'Starting another run replaces the stored one');
+
+  storage.saveRunSnapshot({ version: storage.getRunSnapshotVersion(), mode: 'campaign', balls: 'broken' });
+  const resumed = createTestEngine(storage);
+  assert.equal(resumed.restoreSavedRun(), false);
+  assert.equal(storage.loadRunSnapshot(), null);
 });
