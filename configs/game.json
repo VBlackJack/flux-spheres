@@ -121,8 +121,8 @@
     "bounceBurstCount": 5,
     "bounceBurstSpeed": 2.5,
     "hitStopMinCombo": 3,
-    "hitStopFramesCombo": 3,
-    "hitStopFramesSpecial": 4,
+    "hitStopFramesCombo": 6,
+    "hitStopFramesSpecial": 14,
     "particles": {
       "shakeStopThreshold": 0.1,
       "trailSpread": 4,

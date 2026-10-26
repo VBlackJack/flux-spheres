@@ -1172,6 +1172,11 @@ export class GameEngine {
     return destroyedCount;
   }
 
+  /**
+   * Resolves at most one chain-reaction cluster per check. The candidates left over are
+   * queued again so the next cluster goes off one cooldown later: a cascade plays out step
+   * by step instead of in a single frame.
+   */
   evaluateAutomaticChainReactions() {
     const candidates = this.physicsWorld.consumeChainCandidates();
     if (candidates.length === 0) {
@@ -1181,13 +1186,20 @@ export class GameEngine {
     const minMatch = this.gameConfig.defaults.matchMinCount;
     let anyChainMatched = false;
 
-    for (const candidate of candidates) {
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i];
       if (!this.physicsWorld.ballMap.has(candidate.id)) {
         continue;
       }
       const cluster = this.physicsWorld.findColorCluster(candidate);
       if (cluster.length >= minMatch && this.resolveColorMatchCluster(cluster, candidate, true) > 0) {
         anyChainMatched = true;
+        for (let j = i + 1; j < candidates.length; j++) {
+          if (this.physicsWorld.ballMap.has(candidates[j].id)) {
+            this.physicsWorld.pendingChainCandidateIds.add(candidates[j].id);
+          }
+        }
+        break;
       }
     }
 
