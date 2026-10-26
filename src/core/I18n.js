@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { LOCALE_PATHS } from './Constants.js';
+import { LOCALE_PATHS, DATA_FETCH_OPTIONS } from './Constants.js';
 
 const LANGUAGE_SUBTAG_SEPARATOR = /[-_]/;
 
@@ -72,7 +72,7 @@ class I18nService {
     const entries = Object.entries(LOCALE_PATHS);
     await Promise.all(
       entries.map(async ([locale, path]) => {
-        const response = await fetch(path);
+        const response = await fetch(path, DATA_FETCH_OPTIONS);
         if (response.ok) {
           const json = await response.json();
           this.dictionaries.set(locale, json);

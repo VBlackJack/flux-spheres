@@ -14,6 +14,7 @@ All notable changes to **FluxSpheres** are documented in this file.
 - **Input-Aware Hints**: Keyboard shortcuts are shown only to mouse and keyboard players; touch players get tap and drag wording, including how to cancel a shot.
 
 ### Fixed
+- **Mixed Versions After a Deploy**: For up to ten minutes after an update, the page could run with the previous version's texts, styles and scripts (raw keys such as `app.nav.button.flux` on buttons, old layout). The Service Worker and the config and text loaders now revalidate every file with the server instead of trusting the browser cache.
 - **Anvil Crash**: An anvil that crushed a dormant bomb (or any sphere whose destruction removes others) stopped the game with a loading error; it now keeps crushing the spheres that are still there.
 - **Round End Idempotence**: A victory can no longer be paid twice in one frame, a lost level can no longer turn into a victory, and the score is frozen once a run ends.
 - **Storage Resilience**: A failed `localStorage` write no longer resurrects the previous coin balance, and stored values of the wrong shape no longer crash the game.
