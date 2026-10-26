@@ -221,7 +221,7 @@
     }
   },
   "storage": {
-    "prefix": "magnet_balls_v1_",
+    "prefix": "flux_spheres_v1_",
     "keys": {
       "language": "lang",
       "muted": "muted",

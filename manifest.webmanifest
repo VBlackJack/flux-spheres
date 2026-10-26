@@ -1,6 +1,6 @@
 {
-  "name": "Magnet Balls — Magnetic Physics Edition",
-  "short_name": "MagnetBalls",
+  "name": "FluxSpheres — Magnetic Physics Edition",
+  "short_name": "FluxSpheres",
   "description": "Magnetic physics bubble shooter game with dynamic attraction, rotors, and special balls.",
   "start_url": "./index.html",
   "display": "standalone",
