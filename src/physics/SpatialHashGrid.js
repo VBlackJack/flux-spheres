@@ -14,10 +14,18 @@
  * limitations under the License.
  */
 
-const COORD_PRIME_X = 73856093;
-const COORD_PRIME_Y = 19349663;
+const COORD_OFFSET = 32768;
+const COORD_STRIDE = 65536;
 
+/**
+ * Uniform 2D spatial hash grid for broad-phase neighbor queries on circular bodies.
+ * Uses an injective integer pairing function over shifted grid coordinates so that
+ * negative and positive cell indices never collide.
+ */
 export class SpatialHashGrid {
+  /**
+   * @param {number} cellSize - Width and height of each square grid cell in logical pixels.
+   */
   constructor(cellSize) {
     this.cellSize = cellSize;
     this.invCellSize = 1 / cellSize;
@@ -25,6 +33,10 @@ export class SpatialHashGrid {
     this.bucketPool = [];
   }
 
+  /**
+   * Updates the grid cell size if changed.
+   * @param {number} cellSize - New cell size in logical pixels.
+   */
   setCellSize(cellSize) {
     if (cellSize > 0 && cellSize !== this.cellSize) {
       this.cellSize = cellSize;
@@ -32,6 +44,9 @@ export class SpatialHashGrid {
     }
   }
 
+  /**
+   * Clears all active cell buckets and recycles arrays into the internal pool.
+   */
   clear() {
     for (const bucket of this.cells.values()) {
       bucket.length = 0;
@@ -40,10 +55,20 @@ export class SpatialHashGrid {
     this.cells.clear();
   }
 
+  /**
+   * Computes a collision-free integer key for 2D cell coordinates.
+   * @param {number} cx - Cell X coordinate.
+   * @param {number} cy - Cell Y coordinate.
+   * @returns {number} Unique integer key for (cx, cy).
+   */
   hashCoords(cx, cy) {
-    return (cx * COORD_PRIME_X) ^ (cy * COORD_PRIME_Y);
+    return (cx + COORD_OFFSET) * COORD_STRIDE + (cy + COORD_OFFSET);
   }
 
+  /**
+   * Inserts a ball into its corresponding spatial cell bucket.
+   * @param {import('../entities/Ball.js').Ball} ball - Ball entity to insert.
+   */
   insert(ball) {
     const cx = Math.floor(ball.x * this.invCellSize);
     const cy = Math.floor(ball.y * this.invCellSize);
@@ -56,6 +81,10 @@ export class SpatialHashGrid {
     bucket.push(ball);
   }
 
+  /**
+   * Rebuilds the spatial hash grid from the given list of balls.
+   * @param {Array<import('../entities/Ball.js').Ball>} balls - Active balls in the world.
+   */
   rebuild(balls) {
     this.clear();
     for (let i = 0; i < balls.length; i++) {
@@ -63,6 +92,12 @@ export class SpatialHashGrid {
     }
   }
 
+  /**
+   * Iterates over all unique candidate neighbor pairs in adjacent 3x3 cells.
+   * Each unordered pair (a, b) with b.id > a.id is visited at most once.
+   * @param {Array<import('../entities/Ball.js').Ball>} balls - Active balls in the world.
+   * @param {(a: import('../entities/Ball.js').Ball, b: import('../entities/Ball.js').Ball) => void} callback - Pair handler.
+   */
   forEachNeighborPair(balls, callback) {
     this.rebuild(balls);
     for (let i = 0; i < balls.length; i++) {

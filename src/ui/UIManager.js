@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
-import { GAME_MODES, GAME_STATES, SPECIAL_TYPES } from '../core/Constants.js';
+import {
+  GAME_MODES,
+  GAME_STATES,
+  SPECIAL_TYPES,
+  SPECIAL_TYPES_ORDER,
+  OBSTACLE_TYPES_ORDER
+} from '../core/Constants.js';
 import { i18n, t } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
 
@@ -29,6 +35,7 @@ export class UIManager {
     this.ballsConfig = ballsConfig;
 
     this.elements = {
+      appShell: document.querySelector('.app-shell'),
       scoreValue: document.getElementById('hud-score-value'),
       starProgress: document.getElementById('hud-star-progress'),
       highScoreValue: document.getElementById('hud-best-value'),
@@ -99,6 +106,9 @@ export class UIManager {
     this.lastExtra = {};
     this.pendingConfirmCallback = null;
     this.activeShopTab = 'upgrades';
+    this.autoPausedByOverlay = false;
+    this.lastFocusedElement = null;
+    this.prevEngineState = null;
   }
 
   init() {
@@ -123,15 +133,7 @@ export class UIManager {
     const container = this.elements.powerupsContainer;
     container.innerHTML = '';
 
-    const specialOrder = [
-      SPECIAL_TYPES.BOMB,
-      SPECIAL_TYPES.LIGHTNING,
-      SPECIAL_TYPES.RAINBOW,
-      SPECIAL_TYPES.ANVIL,
-      SPECIAL_TYPES.FREEZE
-    ];
-
-    for (const type of specialOrder) {
+    for (const type of SPECIAL_TYPES_ORDER) {
       const spec = this.ballsConfig.specialTypes[type];
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -259,15 +261,25 @@ export class UIManager {
     }
 
     if (this.elements.tabShopUpgrades && this.elements.tabShopAchievements) {
-      this.elements.tabShopUpgrades.addEventListener('click', () => {
-        this.switchShopTab('upgrades');
-      });
-      this.elements.tabShopAchievements.addEventListener('click', () => {
-        this.switchShopTab('achievements');
-      });
-      if (this.elements.tabShopCodex) {
-        this.elements.tabShopCodex.addEventListener('click', () => {
-          this.switchShopTab('codex');
+      const shopTabs = [
+        { name: 'upgrades', el: this.elements.tabShopUpgrades },
+        { name: 'achievements', el: this.elements.tabShopAchievements },
+        ...(this.elements.tabShopCodex ? [{ name: 'codex', el: this.elements.tabShopCodex }] : [])
+      ];
+
+      for (let i = 0; i < shopTabs.length; i++) {
+        const { name, el } = shopTabs[i];
+        el.addEventListener('click', () => {
+          this.switchShopTab(name);
+        });
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const dir = e.key === 'ArrowRight' ? 1 : -1;
+            const nextIdx = (i + dir + shopTabs.length) % shopTabs.length;
+            this.switchShopTab(shopTabs[nextIdx].name);
+            shopTabs[nextIdx].el.focus();
+          }
         });
       }
     }
@@ -323,8 +335,10 @@ export class UIManager {
     });
 
     this.elements.btnPlayEndlessModal.addEventListener('click', () => {
-      this.hideAllModals();
-      this.engine.startEndlessMode();
+      this.requestDestructiveAction(() => {
+        this.hideAllModals();
+        this.engine.startEndlessMode();
+      });
     });
 
     this.elements.btnNextLevel.addEventListener('click', () => {
@@ -363,19 +377,18 @@ export class UIManager {
     });
 
     this.elements.btnRestartPause.addEventListener('click', () => {
-      this.hideAllModals();
-      this.engine.restartCurrent();
+      this.requestDestructiveAction(() => {
+        this.hideAllModals();
+        this.engine.restartCurrent();
+      });
     });
 
-    const specialOrder = [
-      SPECIAL_TYPES.BOMB,
-      SPECIAL_TYPES.LIGHTNING,
-      SPECIAL_TYPES.RAINBOW,
-      SPECIAL_TYPES.ANVIL,
-      SPECIAL_TYPES.FREEZE
-    ];
-
     window.addEventListener('keydown', (e) => {
+      if (e.code === 'Tab' && this.isAnyModalOpen()) {
+        this.trapModalFocus(e);
+        return;
+      }
+
       if (e.code === 'Escape') {
         if (this.elements.modalConfirm && !this.elements.modalConfirm.classList.contains('hidden')) {
           this.pendingConfirmCallback = null;
@@ -400,7 +413,20 @@ export class UIManager {
         return;
       }
 
+      const activeEl = document.activeElement;
+      const isInteractiveFocused = Boolean(
+        activeEl &&
+          activeEl !== document.body &&
+          activeEl !== document.documentElement &&
+          activeEl.id !== 'game-canvas' &&
+          typeof activeEl.closest === 'function' &&
+          activeEl.closest('button, a, input, select, textarea, [role="button"], [role="tab"]')
+      );
+
       if (e.code === 'Space') {
+        if (isInteractiveFocused) {
+          return;
+        }
         e.preventDefault();
         this.engine.swapLauncherBalls();
       } else if (e.code === 'KeyF') {
@@ -415,14 +441,17 @@ export class UIManager {
         this.engine.adjustAimByDelta(dir * step);
         this.updateAimState(this.engine);
       } else if (e.code === 'Enter') {
+        if (isInteractiveFocused) {
+          return;
+        }
         e.preventDefault();
         this.engine.shoot();
         this.updateAimState(this.engine);
       } else if (e.code.startsWith('Digit')) {
         const idx = Number.parseInt(e.code.replace('Digit', ''), 10) - 1;
-        if (idx >= 0 && idx < specialOrder.length) {
+        if (idx >= 0 && idx < SPECIAL_TYPES_ORDER.length) {
           e.preventDefault();
-          this.engine.equipSpecialBall(specialOrder[idx]);
+          this.engine.equipSpecialBall(SPECIAL_TYPES_ORDER[idx]);
         }
       }
     });
@@ -440,9 +469,79 @@ export class UIManager {
     }
 
     this.pendingConfirmCallback = actionCallback;
+    this.saveLastFocusedElement();
     this.elements.modalConfirm.classList.remove('hidden');
+    this.syncModalInertState();
     if (this.elements.btnConfirmNo) {
       this.elements.btnConfirmNo.focus();
+    }
+  }
+
+  saveLastFocusedElement() {
+    if (
+      !this.isAnyModalOpen() &&
+      document.activeElement &&
+      document.activeElement !== document.body &&
+      document.activeElement !== document.documentElement
+    ) {
+      this.lastFocusedElement = document.activeElement;
+    }
+  }
+
+  getActiveTopModal() {
+    const priorityModals = [
+      this.elements.modalConfirm,
+      this.elements.modalLevels,
+      this.elements.modalShop,
+      this.elements.modalVictory,
+      this.elements.modalGameOver,
+      this.elements.modalPause
+    ];
+    for (const m of priorityModals) {
+      if (m && !m.classList.contains('hidden')) {
+        return m;
+      }
+    }
+    return null;
+  }
+
+  trapModalFocus(e) {
+    const activeModal = this.getActiveTopModal();
+    if (!activeModal) {
+      return;
+    }
+    const selector = 'button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])';
+    const focusables = Array.from(activeModal.querySelectorAll(selector)).filter(
+      (el) => !el.closest('.hidden')
+    );
+    if (focusables.length === 0) {
+      return;
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  syncModalInertState() {
+    const anyOpen = this.isAnyModalOpen();
+    if (this.elements.appShell) {
+      this.elements.appShell.inert = anyOpen;
+      if (anyOpen) {
+        this.elements.appShell.setAttribute('aria-hidden', 'true');
+      } else {
+        this.elements.appShell.removeAttribute('aria-hidden');
+      }
+    }
+    if (!anyOpen && this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+      const target = this.lastFocusedElement;
+      this.lastFocusedElement = null;
+      target.focus();
     }
   }
 
@@ -459,14 +558,17 @@ export class UIManager {
     if (this.elements.tabShopUpgrades) {
       this.elements.tabShopUpgrades.classList.toggle('active', isUpgrades);
       this.elements.tabShopUpgrades.setAttribute('aria-selected', String(isUpgrades));
+      this.elements.tabShopUpgrades.tabIndex = isUpgrades ? 0 : -1;
     }
     if (this.elements.tabShopAchievements) {
       this.elements.tabShopAchievements.classList.toggle('active', isAchievements);
       this.elements.tabShopAchievements.setAttribute('aria-selected', String(isAchievements));
+      this.elements.tabShopAchievements.tabIndex = isAchievements ? 0 : -1;
     }
     if (this.elements.tabShopCodex) {
       this.elements.tabShopCodex.classList.toggle('active', isCodex);
       this.elements.tabShopCodex.setAttribute('aria-selected', String(isCodex));
+      this.elements.tabShopCodex.tabIndex = isCodex ? 0 : -1;
     }
 
     const upgradesContainer = this.elements.shopUpgradesPane || this.elements.shopGrid;
@@ -495,13 +597,23 @@ export class UIManager {
 
   closeOverlayModal(modalElement) {
     modalElement.classList.add('hidden');
-    if (this.engine.state === GAME_STATES.VICTORY) {
+    const otherOverlayStillOpen =
+      !this.elements.modalLevels.classList.contains('hidden') ||
+      !this.elements.modalShop.classList.contains('hidden') ||
+      Boolean(this.elements.modalConfirm && !this.elements.modalConfirm.classList.contains('hidden'));
+
+    if (!otherOverlayStillOpen && this.autoPausedByOverlay && this.engine.state === GAME_STATES.PAUSED) {
+      this.autoPausedByOverlay = false;
+      this.engine.state = GAME_STATES.PLAYING;
+      this.elements.modalPause.classList.add('hidden');
+    } else if (this.engine.state === GAME_STATES.VICTORY) {
       this.elements.modalVictory.classList.remove('hidden');
     } else if (this.engine.state === GAME_STATES.GAME_OVER) {
       this.elements.modalGameOver.classList.remove('hidden');
-    } else if (this.engine.state === GAME_STATES.PAUSED) {
+    } else if (this.engine.state === GAME_STATES.PAUSED && !this.autoPausedByOverlay) {
       this.elements.modalPause.classList.remove('hidden');
     }
+    this.syncModalInertState();
   }
 
   isAnyModalOpen() {
@@ -572,6 +684,7 @@ export class UIManager {
   }
 
   hideAllModals() {
+    this.autoPausedByOverlay = false;
     this.elements.modalLevels.classList.add('hidden');
     this.elements.modalShop.classList.add('hidden');
     this.elements.modalVictory.classList.add('hidden');
@@ -580,9 +693,15 @@ export class UIManager {
     if (this.elements.modalConfirm) {
       this.elements.modalConfirm.classList.add('hidden');
     }
+    this.syncModalInertState();
   }
 
   openShopModal() {
+    this.saveLastFocusedElement();
+    if (this.engine.state === GAME_STATES.PLAYING) {
+      this.autoPausedByOverlay = true;
+      this.engine.state = GAME_STATES.PAUSED;
+    }
     const coins = this.storageManager.getCoins();
     this.elements.shopBalance.textContent = t('modals.shop.balance.label', { coins });
     const grid = this.elements.shopGrid;
@@ -635,16 +754,9 @@ export class UIManager {
     if (this.elements.shopAmmoGrid && this.gameConfig.specialShopCosts) {
       const ammoGrid = this.elements.shopAmmoGrid;
       ammoGrid.innerHTML = '';
-      const specialOrder = [
-        SPECIAL_TYPES.BOMB,
-        SPECIAL_TYPES.LIGHTNING,
-        SPECIAL_TYPES.RAINBOW,
-        SPECIAL_TYPES.ANVIL,
-        SPECIAL_TYPES.FREEZE
-      ];
-      for (const type of specialOrder) {
+      for (const type of SPECIAL_TYPES_ORDER) {
         const spec = this.ballsConfig.specialTypes[type];
-        const cost = this.gameConfig.specialShopCosts[type] || 25;
+        const cost = this.gameConfig.specialShopCosts[type];
         const count = this.engine.specialInventory[type] || 0;
 
         const card = document.createElement('div');
@@ -734,6 +846,7 @@ export class UIManager {
 
     this.switchShopTab(this.activeShopTab);
     this.elements.modalShop.classList.remove('hidden');
+    this.syncModalInertState();
     if (this.elements.btnCloseShop) {
       this.elements.btnCloseShop.focus();
     }
@@ -784,8 +897,7 @@ export class UIManager {
 
     const obsGrid = document.createElement('div');
     obsGrid.className = 'codex-grid';
-    const obstacleKeys = ['pivot', 'bumper', 'repulsor', 'attractor', 'barrier', 'portal', 'singularity'];
-    for (const obsKey of obstacleKeys) {
+    for (const obsKey of OBSTACLE_TYPES_ORDER) {
       const card = document.createElement('div');
       card.className = 'codex-card';
 
@@ -810,6 +922,11 @@ export class UIManager {
   }
 
   openLevelsModal() {
+    this.saveLastFocusedElement();
+    if (this.engine.state === GAME_STATES.PLAYING) {
+      this.autoPausedByOverlay = true;
+      this.engine.state = GAME_STATES.PAUSED;
+    }
     const unlocked = this.storageManager.getUnlockedLevel();
     const stats = this.storageManager.getLevelStats();
     const grid = this.elements.levelsGrid;
@@ -892,6 +1009,7 @@ export class UIManager {
     }
 
     this.elements.modalLevels.classList.remove('hidden');
+    this.syncModalInertState();
     if (this.elements.btnCloseLevels) {
       this.elements.btnCloseLevels.focus();
     }
@@ -933,7 +1051,7 @@ export class UIManager {
     if (engine.mode === GAME_MODES.CAMPAIGN) {
       bestScore = this.storageManager.getLevelStats()[engine.currentLevelId]?.bestScore || 0;
     } else if (engine.mode === GAME_MODES.DAILY) {
-      bestScore = this.storageManager.getDailyHighScore();
+      bestScore = this.storageManager.getDailyHighScore(engine.dailySeedKey || SeededRandom.getTodayDateKey());
     } else {
       bestScore = this.storageManager.getEndlessHighScore();
     }
@@ -948,6 +1066,8 @@ export class UIManager {
       this.elements.polarityBtn.classList.toggle('active', Boolean(engine.isPolarityFlipped));
     }
 
+    const warningShotsThreshold = this.gameConfig.canvas.survivalWaveWarningThreshold;
+
     if (engine.mode === GAME_MODES.CAMPAIGN) {
       const lvl = this.levelsConfig.levels.find((l) => l.id === engine.currentLevelId);
       this.elements.modeBanner.textContent = t('hud.stats.mode.campaign', {
@@ -960,7 +1080,7 @@ export class UIManager {
       this.elements.shotsValue.textContent = String(engine.shotsRemaining);
       this.elements.shotsValue.classList.toggle(
         'warning',
-        engine.shotsRemaining <= (this.gameConfig.canvas.survivalWaveWarningThreshold || 2)
+        engine.shotsRemaining <= warningShotsThreshold
       );
 
       if (this.elements.starProgress) {
@@ -994,7 +1114,7 @@ export class UIManager {
       this.elements.shotsValue.textContent = String(engine.shotsUntilWave);
       this.elements.shotsValue.classList.toggle(
         'warning',
-        engine.shotsUntilWave <= (this.gameConfig.canvas.survivalWaveWarningThreshold || 2)
+        engine.shotsUntilWave <= warningShotsThreshold
       );
       if (this.elements.starProgress) {
         this.elements.starProgress.classList.add('hidden');
@@ -1056,7 +1176,10 @@ export class UIManager {
       btn.disabled = count <= 0 && !isEquipped;
     }
 
-    if (engine.state === GAME_STATES.PAUSED) {
+    const transitionedState = this.prevEngineState !== engine.state;
+    this.prevEngineState = engine.state;
+
+    if (engine.state === GAME_STATES.PAUSED && !this.autoPausedByOverlay) {
       if (this.elements.pauseLevelTip) {
         if (engine.levelTutorialKey) {
           this.elements.pauseLevelTip.textContent = t('modals.pause.levelTip', {
@@ -1067,7 +1190,13 @@ export class UIManager {
           this.elements.pauseLevelTip.classList.add('hidden');
         }
       }
+      if (transitionedState) {
+        this.saveLastFocusedElement();
+      }
       this.elements.modalPause.classList.remove('hidden');
+      if (transitionedState && this.elements.btnResume) {
+        this.elements.btnResume.focus();
+      }
     } else {
       this.elements.modalPause.classList.add('hidden');
     }
@@ -1082,7 +1211,13 @@ export class UIManager {
       });
       this.elements.victoryStars.textContent =
         `${this.formatStars(stars, maxStars)}  ${t('modals.victory.stats.stars', { stars, maxStars })}`;
+      if (transitionedState) {
+        this.saveLastFocusedElement();
+      }
       this.elements.modalVictory.classList.remove('hidden');
+      if (transitionedState && this.elements.btnNextLevel) {
+        this.elements.btnNextLevel.focus();
+      }
     }
 
     if (engine.state === GAME_STATES.GAME_OVER) {
@@ -1094,7 +1229,15 @@ export class UIManager {
       this.elements.gameOverBest.textContent = t('modals.gameOver.stats.highScore', {
         highScore: Math.max(bestScore, engine.score)
       });
+      if (transitionedState) {
+        this.saveLastFocusedElement();
+      }
       this.elements.modalGameOver.classList.remove('hidden');
+      if (transitionedState && this.elements.btnRetry) {
+        this.elements.btnRetry.focus();
+      }
     }
+
+    this.syncModalInertState();
   }
 }

@@ -1,0 +1,38 @@
+# Copyright 2026 Julien Bombled
+# Licensed under the Apache License, Version 2.0
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify Service Worker and package.json version parity
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
+            const sw = fs.readFileSync('./sw.js', 'utf8');
+            if (!sw.includes(\`APP_VERSION = '\${pkg.version}'\`)) {
+              console.error('SW APP_VERSION does not match package.json version ' + pkg.version);
+              process.exit(1);
+            }
+          "
+
+      - name: Run test suite
+        run: npm test

@@ -18,8 +18,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" data-i18n-content="app.header.subtitle.description" content="" />
-  <title data-i18n="app.header.title.main"></title>
+  <meta name="description" data-i18n-content="app.header.subtitle.description" content="Magnetic physics bubble shooter game with dynamic attraction, rotors, and special balls." />
+  <title data-i18n="app.header.title.main">FLUX SPHERES</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%233b82f6' stroke='%2338bdf8' stroke-width='4'/%3E%3Ctext x='32' y='41' font-family='sans-serif' font-size='26' font-weight='bold' fill='white' text-anchor='middle'%3EN%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles/main.css" />
@@ -128,17 +128,17 @@
       <h2 id="modal-shop-title" class="modal-title gold-text" data-i18n="modals.shop.title.main"></h2>
       <p id="shop-balance" class="modal-stat-line gold-text"></p>
       <div class="modal-tabs" role="tablist">
-        <button id="tab-shop-upgrades" type="button" class="modal-tab active" role="tab" aria-selected="true" data-i18n="modals.shop.tabs.upgrades"></button>
-        <button id="tab-shop-achievements" type="button" class="modal-tab" role="tab" aria-selected="false"></button>
-        <button id="tab-shop-codex" type="button" class="modal-tab" role="tab" aria-selected="false" data-i18n="modals.shop.tabs.codex"></button>
+        <button id="tab-shop-upgrades" type="button" class="modal-tab active" role="tab" aria-selected="true" aria-controls="shop-upgrades-pane" tabindex="0" data-i18n="modals.shop.tabs.upgrades"></button>
+        <button id="tab-shop-achievements" type="button" class="modal-tab" role="tab" aria-selected="false" aria-controls="achievements-grid" tabindex="-1"></button>
+        <button id="tab-shop-codex" type="button" class="modal-tab" role="tab" aria-selected="false" aria-controls="codex-pane" tabindex="-1" data-i18n="modals.shop.tabs.codex"></button>
       </div>
-      <div id="shop-upgrades-pane" class="shop-pane">
+      <div id="shop-upgrades-pane" class="shop-pane" role="tabpanel" aria-labelledby="tab-shop-upgrades">
         <div id="shop-grid" class="levels-grid"></div>
         <h3 class="modal-subtitle" data-i18n="modals.shop.specialAmmo.title"></h3>
         <div id="shop-ammo-grid" class="ammo-shop-grid"></div>
       </div>
-      <div id="achievements-grid" class="levels-grid hidden"></div>
-      <div id="codex-pane" class="codex-pane hidden"></div>
+      <div id="achievements-grid" class="levels-grid hidden" role="tabpanel" aria-labelledby="tab-shop-achievements"></div>
+      <div id="codex-pane" class="codex-pane hidden" role="tabpanel" aria-labelledby="tab-shop-codex"></div>
       <div class="modal-actions">
         <button id="btn-close-shop" type="button" class="modal-btn" data-i18n="modals.shop.button.close"></button>
       </div>

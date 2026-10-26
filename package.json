@@ -1,12 +1,12 @@
 {
   "name": "flux-spheres",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Magnetic physics bubble shooter game",
   "author": "Julien Bombled",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "start": "npx --yes serve . -l 4200",
+    "start": "npx --yes serve@14.2.4 . -l 4200",
     "test": "node --test tests/game.test.js"
   }
 }

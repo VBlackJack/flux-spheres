@@ -176,6 +176,12 @@
   },
   "daily": {
     "firstPlayBonusCoins": 30,
+    "singularityMarginRadiusFactor": 4,
+    "singularityOffsetAboveDangerFactor": 5,
+    "pivotY": 235,
+    "pivotRingCount": 8,
+    "pivotRingRadiusFactor": 2.4,
+    "pivotBaseAngularSpeed": 0.008,
     "mutators": {
       "hyperGravity": {
         "id": "hyperGravity",
@@ -242,8 +248,8 @@
       "levelStats": "level_stats",
       "endlessHighScore": "endless_high_score",
       "dailyBest": "daily_best",
+      "dailyBestDate": "daily_best_date",
       "dailyLastPlayedDate": "daily_last_date",
-      "dailyTodayScore": "daily_today_score",
       "coins": "coins",
       "upgrades": "upgrades",
       "achievements": "achievements"

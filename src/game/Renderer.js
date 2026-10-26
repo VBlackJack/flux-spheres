@@ -16,6 +16,10 @@
 
 import { OBSTACLE_TYPES, SPECIAL_TYPES, CLUSTER_MODIFIERS, MATH_CONSTANTS } from '../core/Constants.js';
 
+/**
+ * Canvas 2D renderer supporting high-DPI scaling, state interpolation,
+ * high-contrast mode, and predictive trajectory/AOE/avalanche overlays.
+ */
 export class Renderer {
   constructor(canvas, gameConfig, ballsConfig, obstaclesConfig) {
     this.canvas = canvas;
@@ -29,16 +33,30 @@ export class Renderer {
       this.colorMap.set(c.id, c);
     }
 
-    this.canvas.width = gameConfig.canvas.logicalWidth;
-    this.canvas.height = gameConfig.canvas.logicalHeight;
+    this.logicalWidth = gameConfig.canvas.logicalWidth;
+    this.logicalHeight = gameConfig.canvas.logicalHeight;
+    this.dpr = 1;
+    this.updateCanvasResolution();
 
     const theme = this.gameConfig.theme;
-    this.bgGradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+    this.bgGradient = this.ctx.createLinearGradient(0, 0, 0, this.logicalHeight);
     this.bgGradient.addColorStop(0, theme.backgroundTop);
     this.bgGradient.addColorStop(1, theme.backgroundBottom);
 
     this.ballGradientCache = new Map();
     this.highContrast = false;
+  }
+
+  updateCanvasResolution() {
+    const rawDpr = typeof window !== 'undefined' && window.devicePixelRatio ? window.devicePixelRatio : 1;
+    const nextDpr = Math.max(1, Math.min(3, rawDpr));
+    const targetW = Math.round(this.logicalWidth * nextDpr);
+    const targetH = Math.round(this.logicalHeight * nextDpr);
+    if (this.canvas.width !== targetW || this.canvas.height !== targetH || this.dpr !== nextDpr) {
+      this.dpr = nextDpr;
+      this.canvas.width = targetW;
+      this.canvas.height = targetH;
+    }
   }
 
   setHighContrast(enabled) {
@@ -72,12 +90,17 @@ export class Renderer {
   }
 
   render(engineState, alpha = 1.0) {
+    this.updateCanvasResolution();
     const ctx = this.ctx;
-    const { width, height } = this.canvas;
+    const width = this.logicalWidth;
+    const height = this.logicalHeight;
     const theme = this.gameConfig.theme;
     const now = performance.now();
 
     ctx.save();
+    if (this.dpr !== 1) {
+      ctx.scale(this.dpr, this.dpr);
+    }
     const shake = engineState.particleSystem.shakeIntensity;
     if (shake > 0) {
       const dx = (Math.random() - MATH_CONSTANTS.HALF) * 2 * shake;
@@ -663,7 +686,7 @@ export class Renderer {
       } else if (specType === SPECIAL_TYPES.LIGHTNING) {
         const bandHalf = currentBall.radius * specCfg.bandHalfHeightFactor * blastRadiusMultiplier;
         const margin = this.gameConfig.canvas.wallMargin;
-        const bandWidth = this.canvas.width - margin * 2;
+        const bandWidth = this.logicalWidth - margin * 2;
         ctx.save();
         ctx.fillStyle = palette.highlight;
         ctx.globalAlpha = theme.specialAoeFillAlpha || 0.14;

@@ -37,6 +37,9 @@ class I18nService {
     if (this.dictionaries.has(initialLocale)) {
       this.currentLocale = initialLocale;
     }
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.lang = this.currentLocale;
+    }
     this.translateDOM();
   }
 
@@ -45,7 +48,9 @@ class I18nService {
       return;
     }
     this.currentLocale = locale;
-    document.documentElement.lang = locale;
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.lang = locale;
+    }
     this.translateDOM();
     for (const callback of this.listeners) {
       callback(locale);

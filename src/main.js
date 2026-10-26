@@ -100,8 +100,29 @@ class Application {
       requestAnimationFrame(loop);
       this.registerServiceWorker();
     } catch (err) {
-      console.error(t('errors.config.loadFailed'), err);
+      console.error('Initialization failed:', err);
+      this.renderBootstrapError();
     }
+  }
+
+  renderBootstrapError() {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const banner = document.createElement('div');
+    banner.setAttribute('role', 'alert');
+    banner.style.cssText =
+      'position:fixed;inset:16px;z-index:100;margin:auto;max-width:480px;max-height:200px;' +
+      'background:#111827;color:#f8fafc;border:2px solid #ef4444;border-radius:12px;padding:20px;' +
+      'display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:10px;';
+    const title = document.createElement('strong');
+    title.textContent = 'Erreur de chargement / Loading Error';
+    const msg = document.createElement('p');
+    msg.textContent =
+      'Impossible de charger les fichiers de configuration. Veuillez rafraîchir la page. / ' +
+      'Failed to load configuration files. Please refresh the page.';
+    banner.append(title, msg);
+    document.body.appendChild(banner);
   }
 
   registerServiceWorker() {
@@ -115,8 +136,8 @@ class Application {
   bindCanvasInput(canvas, engine, gameConfig, uiManager) {
     const toLogicalCoords = (clientX, clientY) => {
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
+      const scaleX = gameConfig.canvas.logicalWidth / rect.width;
+      const scaleY = gameConfig.canvas.logicalHeight / rect.height;
       return {
         x: (clientX - rect.left) * scaleX,
         y: (clientY - rect.top) * scaleY
@@ -144,6 +165,8 @@ class Application {
       return Math.hypot(x - nx, y - ny) <= canvasCfg.swapClickRadius;
     };
 
+    let isPointerDownOnCanvas = false;
+
     canvas.addEventListener('pointermove', (e) => {
       if (uiManager && uiManager.isAnyModalOpen()) {
         return;
@@ -157,9 +180,13 @@ class Application {
     });
 
     canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) {
+        return;
+      }
       if (uiManager && uiManager.isAnyModalOpen()) {
         return;
       }
+      isPointerDownOnCanvas = true;
       const rawPos = toLogicalCoords(e.clientX, e.clientY);
       if (isSwapClick(rawPos.x, rawPos.y)) {
         return;
@@ -172,6 +199,13 @@ class Application {
     });
 
     canvas.addEventListener('pointerup', (e) => {
+      if (e.button !== undefined && e.button !== 0) {
+        return;
+      }
+      if (!isPointerDownOnCanvas) {
+        return;
+      }
+      isPointerDownOnCanvas = false;
       if (uiManager && uiManager.isAnyModalOpen()) {
         return;
       }
@@ -193,6 +227,7 @@ class Application {
     });
 
     canvas.addEventListener('pointercancel', () => {
+      isPointerDownOnCanvas = false;
       engine.isAimCancelled = false;
       if (uiManager) {
         uiManager.updateAimState(engine);

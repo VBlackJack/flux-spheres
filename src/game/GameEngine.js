@@ -72,6 +72,7 @@ export class GameEngine {
     this.isAimCancelled = false;
     this.isPolarityFlipped = false;
     this.activeMutatorKey = null;
+    this.dailySeedKey = null;
     this.seededRng = null;
 
     this.activePalette = [];
@@ -235,6 +236,7 @@ export class GameEngine {
     this.isAimCancelled = false;
     this.isPolarityFlipped = false;
     this.activeMutatorKey = null;
+    this.dailySeedKey = null;
     this.seededRng = null;
     this.specialInventory = { ...levelDef.specialInventory };
     this.stashedRegularColorId = null;
@@ -285,7 +287,9 @@ export class GameEngine {
 
   initSurvivalRun(mode, seed = null) {
     const endlessCfg = this.gameConfig.endless;
+    const dailyCfg = this.gameConfig.daily || {};
     this.mode = mode;
+    this.dailySeedKey = mode === GAME_MODES.DAILY ? seed : null;
     this.seededRng = seed ? new SeededRandom(seed) : null;
     this.score = 0;
     this.combo = 0;
@@ -315,16 +319,21 @@ export class GameEngine {
     this.particleSystem.clear();
 
     this.activeMutatorKey = null;
-    if (mode === GAME_MODES.DAILY && this.gameConfig.daily?.mutators) {
-      const mutatorKeys = Object.keys(this.gameConfig.daily.mutators);
+    let rotorMult = 1.0;
+    if (mode === GAME_MODES.DAILY && dailyCfg.mutators) {
+      const mutatorKeys = Object.keys(dailyCfg.mutators);
       if (mutatorKeys.length > 0) {
         this.activeMutatorKey = mutatorKeys[Math.floor(this.random() * mutatorKeys.length)];
-        const mutSpec = this.gameConfig.daily.mutators[this.activeMutatorKey];
+        const mutSpec = dailyCfg.mutators[this.activeMutatorKey];
         if (mutSpec.clusterGravityMultiplier) {
           this.physicsWorld.gravityMultiplier = mutSpec.clusterGravityMultiplier;
         }
         if (mutSpec.magnetismMultiplier) {
           this.physicsWorld.magnetismMultiplier = mutSpec.magnetismMultiplier;
+        }
+        if (mutSpec.rotorSpeedMultiplier) {
+          rotorMult = mutSpec.rotorSpeedMultiplier;
+          this.physicsWorld.rotorSpeedMultiplier = rotorMult;
         }
       }
     }
@@ -353,19 +362,37 @@ export class GameEngine {
     }
 
     if (mode === GAME_MODES.DAILY) {
+      const singMargin = r * (dailyCfg.singularityMarginRadiusFactor || 4);
+      const singOffsetY = r * (dailyCfg.singularityOffsetAboveDangerFactor || 5);
       const leftSingularity = new Obstacle(
-        { type: OBSTACLE_TYPES.SINGULARITY, x: r * 4, y: this.gameConfig.canvas.dangerLineY - r * 5 },
+        { type: OBSTACLE_TYPES.SINGULARITY, x: singMargin, y: this.gameConfig.canvas.dangerLineY - singOffsetY },
         this.obstaclesConfig
       );
       const rightSingularity = new Obstacle(
         {
           type: OBSTACLE_TYPES.SINGULARITY,
-          x: this.gameConfig.canvas.logicalWidth - r * 4,
-          y: this.gameConfig.canvas.dangerLineY - r * 5
+          x: this.gameConfig.canvas.logicalWidth - singMargin,
+          y: this.gameConfig.canvas.dangerLineY - singOffsetY
         },
         this.obstaclesConfig
       );
-      this.physicsWorld.obstacles.push(leftSingularity, rightSingularity);
+      const pivotX = this.gameConfig.canvas.logicalWidth * MATH_CONSTANTS.HALF;
+      const pivotY = dailyCfg.pivotY || 235;
+      const basePivotSpeed = (dailyCfg.pivotBaseAngularSpeed || 0.008) * rotorMult;
+      const centralPivot = new Obstacle(
+        {
+          type: OBSTACLE_TYPES.PIVOT,
+          x: pivotX,
+          y: pivotY,
+          angularSpeed: basePivotSpeed
+        },
+        this.obstaclesConfig
+      );
+      this.physicsWorld.obstacles.push(leftSingularity, rightSingularity, centralPivot);
+
+      const ringCount = dailyCfg.pivotRingCount || 8;
+      const ringRadius = r * (dailyCfg.pivotRingRadiusFactor || 2.4);
+      this.spawnConcentricRings(pivotX, pivotY, [{ radius: ringRadius, count: ringCount }], centralPivot, {});
     }
 
     this.physicsWorld.rebuildInitialBonds();
@@ -919,6 +946,66 @@ export class GameEngine {
     this.checkDangerLineBreach();
   }
 
+  /**
+   * Resolves a matched color cluster of 3+ balls, incrementing combo, awarding score
+   * and overcharge, triggering screen shake, hit-stop, and combo achievements.
+   * @param {Array<import('../entities/Ball.js').Ball>} cluster - Connected same-color balls.
+   * @param {import('../entities/Ball.js').Ball} originBall - Ball where popup text should spawn.
+   * @param {boolean} isChainReaction - True if triggered automatically by post-settle bonding.
+   */
+  resolveColorMatchCluster(cluster, originBall, isChainReaction = false) {
+    const minMatch = this.gameConfig.defaults.matchMinCount;
+    const scoring = this.gameConfig.scoring;
+    const juice = this.gameConfig.juice;
+    const theme = this.gameConfig.theme;
+    const canvasCfg = this.gameConfig.canvas;
+
+    this.combo = Math.min(
+      this.combo + scoring.comboIncrement,
+      scoring.maxComboMultiplier
+    );
+
+    const palette = this.ballsConfig.standardColors.find((c) => c.id === originBall.colorId);
+    const burstColor = palette ? palette.highlight : theme.anchorCoreColor;
+
+    let destroyedCount = 0;
+    for (const member of cluster) {
+      if (this.destroyClusterBall(member, burstColor, false)) {
+        destroyedCount++;
+      }
+    }
+
+    const basePoints = scoring.baseMatchPoints + (cluster.length - minMatch) * scoring.extraBallMultiplier;
+    const points = basePoints * Math.max(1, destroyedCount) * this.combo;
+    this.addScore(points);
+    this.addOvercharge(destroyedCount * scoring.overchargePerMatchedBall);
+
+    if (isChainReaction) {
+      this.particleSystem.spawnFloatingText(
+        originBall.x,
+        originBall.y + canvasCfg.floatingTextOffsetY,
+        t('gameplay.feedback.chain.popup', { points }),
+        theme.chainPopupColor
+      );
+    } else if (this.combo > 1) {
+      this.particleSystem.spawnFloatingText(
+        originBall.x,
+        originBall.y + canvasCfg.floatingTextOffsetY,
+        t('gameplay.feedback.combo.popup', { combo: this.combo, points }),
+        burstColor
+      );
+    }
+
+    this.particleSystem.addScreenShake(juice.matchShake, juice.maxShakeOffset);
+    this.audioManager.playEffect('match', this.combo);
+    if (this.combo >= juice.hitStopMinCombo) {
+      this.hitStopFrames = juice.hitStopFramesCombo;
+    }
+    if (this.combo >= this.gameConfig.achievements.comboMaster.threshold) {
+      this.checkAndUnlockAchievement('comboMaster');
+    }
+  }
+
   evaluateAutomaticChainReactions() {
     const candidates = this.physicsWorld.consumeChainCandidates();
     if (candidates.length === 0) {
@@ -926,10 +1013,6 @@ export class GameEngine {
     }
 
     const minMatch = this.gameConfig.defaults.matchMinCount;
-    const scoring = this.gameConfig.scoring;
-    const juice = this.gameConfig.juice;
-    const theme = this.gameConfig.theme;
-    const canvasCfg = this.gameConfig.canvas;
     let anyChainMatched = false;
 
     for (const candidate of candidates) {
@@ -939,39 +1022,7 @@ export class GameEngine {
       const cluster = this.physicsWorld.findColorCluster(candidate);
       if (cluster.length >= minMatch) {
         anyChainMatched = true;
-        this.combo = Math.min(
-          this.combo + scoring.comboIncrement,
-          scoring.maxComboMultiplier
-        );
-        const palette = this.ballsConfig.standardColors.find((c) => c.id === candidate.colorId);
-        const burstColor = palette ? palette.highlight : theme.anchorCoreColor;
-
-        let destroyedCount = 0;
-        for (const member of cluster) {
-          if (this.destroyClusterBall(member, burstColor, false)) {
-            destroyedCount++;
-          }
-        }
-
-        const basePoints = scoring.baseMatchPoints + (cluster.length - minMatch) * scoring.extraBallMultiplier;
-        const points = basePoints * Math.max(1, destroyedCount) * this.combo;
-        this.addScore(points);
-        this.addOvercharge(destroyedCount * scoring.overchargePerMatchedBall);
-
-        this.particleSystem.spawnFloatingText(
-          candidate.x,
-          candidate.y + canvasCfg.floatingTextOffsetY,
-          t('gameplay.feedback.chain.popup', { points }),
-          theme.chainPopupColor
-        );
-        this.particleSystem.addScreenShake(juice.matchShake, juice.maxShakeOffset);
-        this.audioManager.playEffect('match', this.combo);
-        if (this.combo >= juice.hitStopMinCombo) {
-          this.hitStopFrames = juice.hitStopFramesCombo;
-        }
-        if (this.combo >= this.gameConfig.achievements.comboMaster.threshold) {
-          this.checkAndUnlockAchievement('comboMaster');
-        }
+        this.resolveColorMatchCluster(cluster, candidate, true);
       }
     }
 
@@ -1134,48 +1185,9 @@ export class GameEngine {
 
     const cluster = this.physicsWorld.findColorCluster(snappedBall);
     const minMatch = this.gameConfig.defaults.matchMinCount;
-    const scoring = this.gameConfig.scoring;
-    const juice = this.gameConfig.juice;
 
     if (cluster.length >= minMatch) {
-      this.combo = Math.min(
-        this.combo + scoring.comboIncrement,
-        scoring.maxComboMultiplier
-      );
-
-      const palette = this.ballsConfig.standardColors.find((c) => c.id === snappedBall.colorId);
-      const burstColor = palette ? palette.highlight : this.gameConfig.theme.anchorCoreColor;
-
-      let destroyedCount = 0;
-      for (const member of cluster) {
-        if (this.destroyClusterBall(member, burstColor, false)) {
-          destroyedCount++;
-        }
-      }
-
-      const basePoints = scoring.baseMatchPoints + (cluster.length - minMatch) * scoring.extraBallMultiplier;
-      const points = basePoints * Math.max(1, destroyedCount) * this.combo;
-      this.addScore(points);
-      this.addOvercharge(destroyedCount * scoring.overchargePerMatchedBall);
-      this.particleSystem.addScreenShake(juice.matchShake, juice.maxShakeOffset);
-
-      if (this.combo > 1) {
-        this.particleSystem.spawnFloatingText(
-          snappedBall.x,
-          snappedBall.y + this.gameConfig.canvas.floatingTextOffsetY,
-          t('gameplay.feedback.combo.popup', { combo: this.combo, points }),
-          burstColor
-        );
-      }
-
-      if (this.combo >= juice.hitStopMinCombo) {
-        this.hitStopFrames = juice.hitStopFramesCombo;
-      }
-      if (this.combo >= this.gameConfig.achievements.comboMaster.threshold) {
-        this.checkAndUnlockAchievement('comboMaster');
-      }
-
-      this.audioManager.playEffect('match', this.combo);
+      this.resolveColorMatchCluster(cluster, snappedBall, false);
       this.handlePostTurnCleanup(true);
     } else {
       this.combo = 0;
@@ -1317,6 +1329,9 @@ export class GameEngine {
 
     const previousAnchors = [];
     for (const b of this.physicsWorld.balls) {
+      if (b.pivotRef) {
+        continue;
+      }
       if (b.isAnchor) {
         previousAnchors.push(b);
       }
@@ -1442,7 +1457,8 @@ export class GameEngine {
         const firstStarBonus = newlyEarnedStars * this.gameConfig.scoring.firstTimeStarCoinBonus;
         const earnedCoins = stars * this.gameConfig.scoring.coinsPerVictoryStar + firstStarBonus;
         this.storageManager.addCoins(earnedCoins);
-        this.storageManager.unlockLevel(this.currentLevelId + 1);
+        const maxCampaignLevel = this.levelsConfig.levels.length;
+        this.storageManager.unlockLevel(Math.min(this.currentLevelId + 1, maxCampaignLevel));
         if (this.storageManager.getTotalStars() >= this.gameConfig.achievements.starCollector.threshold) {
           this.checkAndUnlockAchievement('starCollector');
         }
@@ -1490,7 +1506,7 @@ export class GameEngine {
     if (this.mode === GAME_MODES.ENDLESS) {
       this.storageManager.setEndlessHighScore(this.score);
     } else if (this.mode === GAME_MODES.DAILY) {
-      this.storageManager.setDailyHighScore(this.score);
+      this.storageManager.setDailyHighScore(this.score, this.dailySeedKey || SeededRandom.getTodayDateKey());
     }
   }
 

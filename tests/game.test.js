@@ -259,3 +259,87 @@ test('Reduced motion setting disables screen shake while preserving particle upd
   engine.particleSystem.addScreenShake(8);
   assert.equal(engine.particleSystem.shakeIntensity, 8);
 });
+
+test('SpatialHashGrid hashCoords has zero collisions across negative and positive cell coordinates', () => {
+  const grid = new SpatialHashGrid(60);
+  const seenKeys = new Set();
+  for (let cx = -25; cx <= 25; cx++) {
+    for (let cy = -25; cy <= 25; cy++) {
+      const key = grid.hashCoords(cx, cy);
+      assert.equal(seenKeys.has(key), false, `Collision detected at (${cx}, ${cy})`);
+      seenKeys.add(key);
+    }
+  }
+  const topLeftBalls = [
+    new Ball({ x: 15, y: 15, radius: 20, colorId: 'crimson' }),
+    new Ball({ x: 85, y: 85, radius: 20, colorId: 'crimson' })
+  ];
+  let visitCount = 0;
+  grid.forEachNeighborPair(topLeftBalls, () => {
+    visitCount++;
+  });
+  assert.equal(visitCount, 1);
+});
+
+test('Campaign victory on final level (16) caps unlockedLevel at 16 and awards stars and coins', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(16);
+  const initialCoins = engine.storageManager.getCoins();
+  engine.score = 16000;
+  engine.shotsRemaining = 14;
+  engine.physicsWorld.clear();
+  engine.evaluateRoundEnd();
+
+  assert.equal(engine.state, 'victory');
+  assert.equal(engine.storageManager.getUnlockedLevel(), 16);
+  assert.ok(engine.storageManager.getCoins() > initialCoins);
+  assert.equal(engine.storageManager.getUnlockedAchievements().sharpshooter, true);
+});
+
+test('Game Over triggers on danger line breach and when out-of-shots grace period expires', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  const lowBall = engine.physicsWorld.balls[0];
+  lowBall.y = gameConfig.canvas.dangerLineY;
+  engine.checkDangerLineBreach();
+  assert.equal(engine.state, 'game_over');
+
+  const engine2 = createTestEngine();
+  engine2.startCampaignLevel(1);
+  engine2.hasFiredInRound = true;
+  engine2.shotsRemaining = 0;
+  engine2.evaluateRoundEnd();
+  assert.ok(engine2.outOfShotsGraceFrames > 0);
+  while (engine2.outOfShotsGraceFrames > 0) {
+    engine2.update();
+  }
+  assert.equal(engine2.state, 'game_over');
+});
+
+test('Daily Challenge spawns central rotor, applies Turbo Rotors multiplier, and scopes daily record by date', () => {
+  const engine = createTestEngine();
+  engine.startDailyChallenge('2026-10-27');
+  const pivot = engine.physicsWorld.obstacles.find((o) => o.type === OBSTACLE_TYPES.PIVOT);
+  assert.ok(pivot, 'Daily challenge should include a central inertia rotor');
+
+  engine.addScore(1500);
+  assert.ok(engine.storageManager.getDailyHighScore('2026-10-27') >= 1500);
+  assert.equal(engine.storageManager.getDailyHighScore('2026-10-28'), 0);
+});
+
+test('StorageManager handles corrupted JSON gracefully and caches upgrade levels in memory', () => {
+  const engine = createTestEngine();
+  const sm = engine.storageManager;
+  sm.safeSetItem(gameConfig.storage.keys.levelStats, '{corrupted_json');
+  sm.safeSetItem(gameConfig.storage.keys.achievements, '{corrupted_json');
+  sm.safeSetItem(gameConfig.storage.keys.upgrades, '{corrupted_json');
+  sm.upgradesCache = null;
+
+  assert.deepEqual(sm.getLevelStats(), {});
+  assert.deepEqual(sm.getUnlockedAchievements(), {});
+  assert.equal(sm.getUpgradeLevel('laserSight'), 0);
+
+  sm.setCoins(500);
+  assert.equal(sm.purchaseUpgrade('laserSight'), true);
+  assert.equal(sm.getUpgradeLevel('laserSight'), 1);
+});

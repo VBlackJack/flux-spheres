@@ -57,6 +57,14 @@ export const SPECIAL_TYPES = Object.freeze({
   FREEZE: 'freeze'
 });
 
+export const SPECIAL_TYPES_ORDER = Object.freeze([
+  SPECIAL_TYPES.BOMB,
+  SPECIAL_TYPES.LIGHTNING,
+  SPECIAL_TYPES.RAINBOW,
+  SPECIAL_TYPES.ANVIL,
+  SPECIAL_TYPES.FREEZE
+]);
+
 export const CLUSTER_MODIFIERS = Object.freeze({
   ARMORED: 'armored',
   DORMANT_BOMB: 'dormantBomb',
@@ -75,6 +83,16 @@ export const OBSTACLE_TYPES = Object.freeze({
   PORTAL: 'portal',
   SINGULARITY: 'singularity'
 });
+
+export const OBSTACLE_TYPES_ORDER = Object.freeze([
+  OBSTACLE_TYPES.PIVOT,
+  OBSTACLE_TYPES.BUMPER,
+  OBSTACLE_TYPES.REPULSOR,
+  OBSTACLE_TYPES.ATTRACTOR,
+  OBSTACLE_TYPES.BARRIER,
+  OBSTACLE_TYPES.PORTAL,
+  OBSTACLE_TYPES.SINGULARITY
+]);
 
 export const LAYOUT_TYPES = Object.freeze({
   PENDULUM: 'pendulum',

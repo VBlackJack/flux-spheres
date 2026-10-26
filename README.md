@@ -45,6 +45,42 @@
 
 ---
 
+## Architecture Overview
+
+The codebase follows a modular, zero-dependency ES module architecture with strict data/logic separation (`configs/*.json` and `locales/*.json`):
+
+```text
+├── configs/                  # Externalized game, physics, ball, obstacle, audio & level data
+├── locales/                  # Bilingual translation dictionaries (fr.json, en.json)
+├── src/
+│   ├── main.js               # Application bootstrap, fixed-step loop & pointer input guards
+│   ├── core/
+│   │   ├── ConfigRegistry.js # Parallel JSON configuration loader
+│   │   ├── Constants.js      # Frozen enums and mathematical constants
+│   │   ├── I18n.js           # Localization service and DOM attribute translator
+│   │   ├── SeededRandom.js   # Deterministic PRNG (Mulberry32) for Daily Challenges
+│   │   ├── StorageManager.js # Cached localStorage persistence with in-memory fallback
+│   │   └── AudioManager.js   # Procedural Web Audio API synthesizer
+│   ├── entities/
+│   │   ├── Ball.js           # Magnetic sphere entity (bonds, polarity, armor, modifiers)
+│   │   ├── Obstacle.js       # Rotors, bumpers, repulsors, portals, barriers & singularities
+│   │   └── ParticleSystem.js # Object-pooled bursts, trails, shockwaves, lightning & popups
+│   ├── physics/
+│   │   ├── PhysicsWorld.js   # Substepped spring-constraint solver, raycaster & BFS avalanche
+│   │   └── SpatialHashGrid.js# Collision-free 2D spatial hash grid for neighbor queries
+│   ├── game/
+│   │   ├── GameEngine.js     # Game state machine, wave spawner, scoring & achievements
+│   │   ├── Renderer.js       # HiDPI Canvas 2D renderer with alpha interpolation & AOE preview
+│   │   └── SpecialBallController.js # Bomb, Lightning, Prism, Anvil & Cryo impact resolution
+│   └── ui/
+│       └── UIManager.js      # HUD updates, accessible modals (focus trap + inert) & Codex
+├── styles/main.css           # Responsive layout and design tokens
+├── sw.js                     # Network-first Service Worker with versioned offline fallback
+└── tests/game.test.js        # Automated Node.js test suite
+```
+
+---
+
 ## Local Development
 
 ```bash

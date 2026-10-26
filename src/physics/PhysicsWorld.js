@@ -17,7 +17,16 @@
 import { OBSTACLE_TYPES, SPECIAL_TYPES, MATH_CONSTANTS } from '../core/Constants.js';
 import { SpatialHashGrid } from './SpatialHashGrid.js';
 
+/**
+ * Core 2D physics simulation world managing magnetic clusters, anchor/rotor constraints,
+ * projectile trajectories, portals, and avalanche detachment.
+ */
 export class PhysicsWorld {
+  /**
+   * @param {object} physicsConfig - Physics simulation and magnetism configuration.
+   * @param {object} gameConfig - Canvas geometry and gameplay configuration.
+   * @param {object} ballsConfig - Ball palette, special types, and modifiers configuration.
+   */
   constructor(physicsConfig, gameConfig, ballsConfig) {
     this.physicsConfig = physicsConfig;
     this.gameConfig = gameConfig;
@@ -34,6 +43,7 @@ export class PhysicsWorld {
     this.pendingChainCandidateIds = new Set();
     this.gravityMultiplier = 1.0;
     this.magnetismMultiplier = 1.0;
+    this.rotorSpeedMultiplier = 1.0;
     const attractRange = physicsConfig.ball.radius * physicsConfig.magnetism.attractionRangeFactor;
     this.spatialGrid = new SpatialHashGrid(attractRange);
   }
@@ -99,6 +109,7 @@ export class PhysicsWorld {
     this.spatialGrid.clear();
     this.gravityMultiplier = 1.0;
     this.magnetismMultiplier = 1.0;
+    this.rotorSpeedMultiplier = 1.0;
   }
 
   addBall(ball) {
@@ -194,6 +205,11 @@ export class PhysicsWorld {
     return null;
   }
 
+  /**
+   * Advances the physics simulation by one fixed timestep using substepping
+   * for cluster spring-constraints, projectile motion, and dropping balls.
+   * @param {object} callbacks - Event callbacks for bounces, portals, snaps, and captures.
+   */
   step(callbacks) {
     const sim = this.physicsConfig.simulation;
     const substeps = sim.substeps;
@@ -226,6 +242,10 @@ export class PhysicsWorld {
     this.stepDroppingBalls(callbacks);
   }
 
+  /**
+   * Applies gravitational torque to pivot rotors based on the horizontal lever arm
+   * of all balls attached to each pivot.
+   */
   applyGravityTorqueToPivots() {
     let primaryPivot = null;
     let pivotCount = 0;
@@ -242,16 +262,22 @@ export class PhysicsWorld {
     }
 
     const sim = this.physicsConfig.simulation;
+    const rotorMult = this.rotorSpeedMultiplier;
     for (const ball of this.balls) {
       const nearestPivot = ball.pivotRef || (pivotCount === 1 ? primaryPivot : null);
       if (nearestPivot) {
         const dx = ball.x - nearestPivot.x;
-        const torque = dx * sim.pivotGravityTorqueFactor;
-        nearestPivot.applyTorque(torque, sim.pivotMaxAngularSpeed);
+        const torque = dx * sim.pivotGravityTorqueFactor * rotorMult;
+        nearestPivot.applyTorque(torque, sim.pivotMaxAngularSpeed * rotorMult);
       }
     }
   }
 
+  /**
+   * Integrates cluster forces (anchor springs, gravity, inverse-square magnetic attraction)
+   * and iteratively resolves bond distance constraints and ball-ball overlaps.
+   * @param {number} dt - Substep time fraction (1 / substeps).
+   */
   stepCluster(dt) {
     const sim = this.physicsConfig.simulation;
     const mag = this.physicsConfig.magnetism;
@@ -591,8 +617,9 @@ export class PhysicsWorld {
           if (rootPivot) {
             const rx = target.x - rootPivot.x;
             const ry = target.y - rootPivot.y;
-            const crossTorque = (rx * p.vy - ry * p.vx) * sim.pivotImpactTorqueFactor * massRatio;
-            rootPivot.applyTorque(crossTorque, sim.pivotMaxAngularSpeed);
+            const rotorMult = this.rotorSpeedMultiplier;
+            const crossTorque = (rx * p.vy - ry * p.vx) * sim.pivotImpactTorqueFactor * massRatio * rotorMult;
+            rootPivot.applyTorque(crossTorque, sim.pivotMaxAngularSpeed * rotorMult);
           }
           if (callbacks?.onAnvilCrush) {
             callbacks.onAnvilCrush(target);
@@ -663,8 +690,9 @@ export class PhysicsWorld {
       if (rootPivot) {
         const rx = hitTarget.x - rootPivot.x;
         const ry = hitTarget.y - rootPivot.y;
-        const crossTorque = (rx * impactVy - ry * impactVx) * sim.pivotImpactTorqueFactor;
-        rootPivot.applyTorque(crossTorque, sim.pivotMaxAngularSpeed);
+        const rotorMult = this.rotorSpeedMultiplier;
+        const crossTorque = (rx * impactVy - ry * impactVx) * sim.pivotImpactTorqueFactor * rotorMult;
+        rootPivot.applyTorque(crossTorque, sim.pivotMaxAngularSpeed * rotorMult);
       }
     }
 

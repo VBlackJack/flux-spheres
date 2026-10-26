@@ -15,22 +15,34 @@
  */
 
 import { configRegistry } from './ConfigRegistry.js';
+import { SeededRandom } from './SeededRandom.js';
 
+/**
+ * Manages persistent player progress, settings, currency, and upgrades
+ * with an automatic in-memory fallback when localStorage is unavailable.
+ */
 export class StorageManager {
   constructor() {
     this.storageConfig = null;
     this.defaultsConfig = null;
     this.upgradesConfig = null;
     this.achievementsConfig = null;
+    this.maxCampaignLevel = 16;
     this.memoryFallback = new Map();
+    this.upgradesCache = null;
   }
 
   init() {
     const gameConfig = configRegistry.get('game');
+    const levelsConfig = configRegistry.get('levels');
     this.storageConfig = gameConfig.storage;
     this.defaultsConfig = gameConfig.defaults;
     this.upgradesConfig = gameConfig.upgrades;
     this.achievementsConfig = gameConfig.achievements || {};
+    if (levelsConfig?.levels?.length) {
+      this.maxCampaignLevel = levelsConfig.levels.length;
+    }
+    this.upgradesCache = null;
   }
 
   buildKey(shortKey) {
@@ -113,7 +125,6 @@ export class StorageManager {
       return false;
     }
     this.safeSetItem(this.storageConfig.keys.dailyLastPlayedDate, dateKey);
-    this.safeSetItem(this.storageConfig.keys.dailyTodayScore, 0);
     if (bonusCoins > 0) {
       this.addCoins(bonusCoins);
     }
@@ -123,13 +134,17 @@ export class StorageManager {
   getUnlockedLevel() {
     const raw = this.safeGetItem(this.storageConfig.keys.unlockedLevel);
     const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) && parsed >= 1 ? parsed : this.defaultsConfig.initialUnlockedLevel;
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return this.defaultsConfig.initialUnlockedLevel;
+    }
+    return Math.min(parsed, this.maxCampaignLevel);
   }
 
   unlockLevel(levelId) {
+    const clamped = Math.min(levelId, this.maxCampaignLevel);
     const current = this.getUnlockedLevel();
-    if (levelId > current) {
-      this.safeSetItem(this.storageConfig.keys.unlockedLevel, levelId);
+    if (clamped > current) {
+      this.safeSetItem(this.storageConfig.keys.unlockedLevel, clamped);
     }
   }
 
@@ -208,16 +223,22 @@ export class StorageManager {
     }
   }
 
-  getDailyHighScore() {
+  getDailyHighScore(dateKey = SeededRandom.getTodayDateKey()) {
+    const savedDate = this.safeGetItem(this.storageConfig.keys.dailyBestDate);
+    if (savedDate !== dateKey) {
+      return 0;
+    }
     const raw = this.safeGetItem(this.storageConfig.keys.dailyBest);
     const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) ? parsed : 0;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
   }
 
-  setDailyHighScore(score) {
-    const current = this.getDailyHighScore();
-    if (score > current) {
-      this.safeSetItem(this.storageConfig.keys.dailyBest, score);
+  setDailyHighScore(score, dateKey = SeededRandom.getTodayDateKey()) {
+    const current = this.getDailyHighScore(dateKey);
+    const savedDate = this.safeGetItem(this.storageConfig.keys.dailyBestDate);
+    if (savedDate !== dateKey || score > current) {
+      this.safeSetItem(this.storageConfig.keys.dailyBestDate, dateKey);
+      this.safeSetItem(this.storageConfig.keys.dailyBest, Math.max(0, Math.floor(score)));
     }
   }
 
@@ -241,6 +262,9 @@ export class StorageManager {
   }
 
   getUpgrades() {
+    if (this.upgradesCache) {
+      return { ...this.upgradesCache };
+    }
     const raw = this.safeGetItem(this.storageConfig.keys.upgrades);
     let parsed = {};
     if (raw) {
@@ -252,13 +276,17 @@ export class StorageManager {
     }
     const result = {};
     for (const key of Object.keys(this.upgradesConfig)) {
-      result[key] = Number.isFinite(parsed[key]) ? parsed[key] : 0;
+      result[key] = Number.isFinite(parsed[key]) && parsed[key] >= 0 ? parsed[key] : 0;
     }
-    return result;
+    this.upgradesCache = result;
+    return { ...this.upgradesCache };
   }
 
   getUpgradeLevel(upgradeKey) {
-    return this.getUpgrades()[upgradeKey] || 0;
+    if (!this.upgradesCache) {
+      this.getUpgrades();
+    }
+    return this.upgradesCache[upgradeKey] || 0;
   }
 
   getUpgradeCost(upgradeKey) {
@@ -287,6 +315,7 @@ export class StorageManager {
     this.setCoins(coins - cost);
     const upgrades = this.getUpgrades();
     upgrades[upgradeKey] = currentLevel + 1;
+    this.upgradesCache = upgrades;
     this.safeSetItem(this.storageConfig.keys.upgrades, JSON.stringify(upgrades));
     return true;
   }
