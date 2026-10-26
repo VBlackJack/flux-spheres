@@ -52,11 +52,12 @@
   /* Space the canvas must leave inside the stage container, per axis. */
   --stage-reserve-x: calc(var(--powerups-width) + var(--stage-gap) + var(--canvas-border));
   --stage-reserve-y: calc(var(--dock-height) + var(--stage-column-gap) + var(--canvas-border));
-  /* Desktop landscape layout: widest the shell grows, narrowest the header column gets. */
-  --desktop-shell-max-width: 1400px;
-  --side-column-min: 320px;
+  /* Desktop landscape layout: width bounds of the two side columns, HUD number sizes. */
+  --side-column-min: 230px;
+  --side-column-max: 300px;
+  --desktop-hud-primary-size: 2rem;
+  --desktop-hud-secondary-size: 1.25rem;
   --pause-setting-width: 64px;
-  --desktop-dock-width: 150px;
 }
 
 /* Hints written for one input mode only (the root carries data-input). */
@@ -1640,28 +1641,78 @@ body {
 }
 
 /*
- * Landscape desktops and tablets: roomier chrome than phones, and the canvas also
- * leaves the header column a usable width on screens that are barely wider than tall.
+ * Landscape desktops and tablets: the board sits in the middle of the window at full
+ * height, between two columns of the same width. The left column holds navigation and
+ * the round stats; the right one holds everything used while aiming (overcharge,
+ * special balls, Polarity and Swap), with the launcher controls at the bottom, level
+ * with the launcher. The stage wrappers dissolve into the shell grid (display: contents)
+ * so the canvas, the special balls and the launcher controls share one row of columns.
  */
 @media (orientation: landscape) and (min-width: 900px) and (min-aspect-ratio: 4/3) and (min-height: 501px) {
   :root {
-    --dock-width: var(--desktop-dock-width);
-    --powerups-width: 148px;
-    --stage-gap: 12px;
-    --shell-gap: 12px;
+    --side-column-width: clamp(var(--side-column-min), 21vw, var(--side-column-max));
+    --stage-gap: 16px;
+    --shell-gap: 16px;
     --shell-pad-x: 16px;
   }
   .app-shell {
-    max-width: var(--desktop-shell-max-width);
-    grid-template-columns: minmax(var(--side-column-min), 1fr) auto;
+    max-width: none;
+    grid-template-columns: var(--side-column-width) auto var(--side-column-width);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    justify-content: center;
+    align-items: stretch;
+    column-gap: var(--stage-gap);
+    row-gap: var(--shell-gap);
+  }
+  .top-bar {
+    grid-column: 1;
+    grid-row: 1;
   }
   .hud-bar {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px 8px;
+    grid-column: 1;
+    grid-row: 2 / span 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    align-items: start;
+    gap: 18px 10px;
+    padding: 16px 14px;
   }
   .hud-center-info {
     grid-column: 1 / -1;
     order: -1;
+  }
+  .hud-mode-banner {
+    font-size: 1.05rem;
+  }
+  .hud-stat-score,
+  .hud-stat-shots {
+    gap: 2px;
+  }
+  .hud-stat-score .hud-value,
+  .hud-stat-shots .hud-value {
+    font-size: var(--desktop-hud-primary-size);
+    line-height: 1.1;
+  }
+  .hud-stat-coins .hud-value,
+  .hud-stat-best .hud-value {
+    font-size: var(--desktop-hud-secondary-size);
+  }
+  .hud-label {
+    font-size: 0.78rem;
+  }
+  .hud-subvalue {
+    font-size: 0.8rem;
+    text-align: center;
+  }
+  .stage-container,
+  .stage-column {
+    display: contents;
+  }
+  .canvas-area {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    height: auto;
+    align-self: center;
   }
   #game-canvas {
     width: min(
@@ -1669,11 +1720,30 @@ body {
         (100dvh - max(var(--shell-pad-y), env(safe-area-inset-top)) - max(var(--shell-pad-y), env(safe-area-inset-bottom)) -
             var(--canvas-border)) * var(--canvas-aspect)
       ),
-      calc(
-        min(100vw, var(--desktop-shell-max-width)) - 2 * var(--shell-pad-x) - var(--side-column-min) - var(--shell-gap) -
-          var(--dock-width) - var(--powerups-width) - 2 * var(--stage-gap) - var(--canvas-border)
-      )
+      calc(100vw - 2 * var(--shell-pad-x) - 2 * var(--side-column-width) - 2 * var(--stage-gap) - var(--canvas-border))
     );
+  }
+  .powerups-panel {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    width: auto;
+    max-height: none;
+    min-height: 0;
+    padding: 14px 12px;
+  }
+  .launcher-controls-dock {
+    grid-column: 3;
+    grid-row: 3;
+    width: auto;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .polarity-floating-btn,
+  .swap-floating-btn {
+    flex: 0 0 auto;
+    min-height: var(--touch-target);
+    font-size: 0.85rem;
   }
 }
 
