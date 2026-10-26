@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { OBSTACLE_TYPES, CLUSTER_MODIFIERS, MATH_CONSTANTS } from '../core/Constants.js';
+import { OBSTACLE_TYPES, SPECIAL_TYPES, CLUSTER_MODIFIERS, MATH_CONSTANTS } from '../core/Constants.js';
 
 export class Renderer {
   constructor(canvas, gameConfig, ballsConfig, obstaclesConfig) {
@@ -89,7 +89,7 @@ export class Renderer {
     ctx.fillRect(0, 0, width, height);
 
     this.drawGrid(ctx, width, height, theme);
-    this.drawWallsAndDangerZone(ctx, width, height, theme);
+    this.drawWallsAndDangerZone(ctx, width, height, theme, engineState.physicsWorld.balls, now, alpha);
     this.drawObstacles(ctx, engineState.physicsWorld.obstacles, now, alpha);
     this.drawMagneticBonds(ctx, engineState.physicsWorld, theme, now, alpha);
 
@@ -102,13 +102,17 @@ export class Renderer {
     }
 
     if (engineState.aimPoints && !engineState.physicsWorld.projectile && !engineState.isAimCancelled) {
+      const blastMult = typeof engineState.getBlastRadiusMultiplier === 'function'
+        ? engineState.getBlastRadiusMultiplier()
+        : 1.0;
       this.drawAimTrajectory(
         ctx,
         engineState.aimPoints,
         engineState.currentBall,
         engineState.physicsWorld,
         theme,
-        now
+        now,
+        blastMult
       );
     }
 
@@ -140,21 +144,51 @@ export class Renderer {
     ctx.stroke();
   }
 
-  drawWallsAndDangerZone(ctx, width, height, theme) {
+  drawWallsAndDangerZone(ctx, width, height, theme, balls = [], now = 0, alpha = 1.0) {
     const margin = this.gameConfig.canvas.wallMargin;
     const dangerY = this.gameConfig.canvas.dangerLineY;
+    const warningMargin = this.gameConfig.canvas.dangerWarningMarginY || 72;
+    const warningThresholdY = dangerY - warningMargin;
 
-    ctx.fillStyle = theme.dangerZoneFill;
+    const closeBalls = [];
+    for (const b of balls) {
+      if (b.isDropping) {
+        continue;
+      }
+      const by = this.interpolate(b.prevY, b.y, alpha);
+      if (by + b.radius >= warningThresholdY) {
+        closeBalls.push({ x: this.interpolate(b.prevX, b.x, alpha), y: by, radius: b.radius });
+      }
+    }
+
+    const isWarning = closeBalls.length > 0;
+    const pulse = isWarning
+      ? theme.magneticPulseBase + theme.magneticPulseAmp * Math.sin(now * (theme.dangerWarningPulseSpeed || 0.01))
+      : 1.0;
+
+    ctx.fillStyle = isWarning && theme.dangerZoneWarningFill ? theme.dangerZoneWarningFill : theme.dangerZoneFill;
     ctx.fillRect(margin, dangerY, width - margin * 2, height - dangerY);
 
     ctx.save();
     ctx.setLineDash(theme.dangerLineDash);
     ctx.strokeStyle = theme.dangerLineColor;
-    ctx.lineWidth = theme.dangerLineWidth;
+    ctx.lineWidth = isWarning ? theme.dangerLineWidth + 1.5 : theme.dangerLineWidth;
+    ctx.globalAlpha = isWarning ? pulse : 1.0;
     ctx.beginPath();
     ctx.moveTo(margin, dangerY);
     ctx.lineTo(width - margin, dangerY);
     ctx.stroke();
+
+    if (isWarning) {
+      ctx.setLineDash([]);
+      ctx.strokeStyle = theme.dangerBallRingColor || theme.dangerLineColor;
+      ctx.lineWidth = theme.aimTargetMatchLineWidth;
+      for (const cb of closeBalls) {
+        ctx.beginPath();
+        ctx.arc(cb.x, cb.y, cb.radius + theme.aimTargetRingPadding, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.stroke();
+      }
+    }
     ctx.restore();
 
     ctx.strokeStyle = theme.wallGlowColor;
@@ -559,7 +593,7 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawAimTrajectory(ctx, points, currentBall, physicsWorld, theme, now) {
+  drawAimTrajectory(ctx, points, currentBall, physicsWorld, theme, now, blastRadiusMultiplier = 1.0) {
     if (!points || points.length < 2 || !currentBall) {
       return;
     }
@@ -593,12 +627,106 @@ export class Renderer {
     ctx.lineWidth = theme.aimGhostLineWidth;
     ctx.stroke();
 
-    if (points.snapTarget && physicsWorld) {
+    const pulse = theme.magneticPulseBase + theme.magneticPulseAmp * Math.sin(now * theme.aimTargetPulseSpeed);
+    const affectedBalls = [];
+    const destroyedIds = new Set();
+
+    if (currentBall.specialType && physicsWorld) {
+      const specType = currentBall.specialType;
+      const specCfg = this.ballsConfig.specialTypes[specType];
+      if (specType === SPECIAL_TYPES.BOMB || specType === SPECIAL_TYPES.FREEZE) {
+        const radiusFactor = specType === SPECIAL_TYPES.BOMB
+          ? specCfg.blastRadiusFactor
+          : specCfg.freezeRadiusFactor;
+        const aoeRadius = currentBall.radius * radiusFactor * blastRadiusMultiplier;
+        ctx.save();
+        ctx.fillStyle = palette.highlight;
+        ctx.globalAlpha = theme.specialAoeFillAlpha || 0.14;
+        ctx.beginPath();
+        ctx.arc(endX, endY, aoeRadius, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.fill();
+        ctx.strokeStyle = palette.highlight;
+        ctx.globalAlpha = (theme.specialAoeStrokeAlpha || 0.72) * pulse;
+        ctx.lineWidth = theme.aimGhostLineWidth;
+        ctx.setLineDash(theme.specialAoeDash || [5, 5]);
+        ctx.stroke();
+        ctx.restore();
+
+        for (const b of physicsWorld.balls) {
+          if (Math.hypot(b.x - endX, b.y - endY) <= aoeRadius) {
+            affectedBalls.push(b);
+            if (specType === SPECIAL_TYPES.BOMB) {
+              destroyedIds.add(b.id);
+            }
+          }
+        }
+      } else if (specType === SPECIAL_TYPES.LIGHTNING) {
+        const bandHalf = currentBall.radius * specCfg.bandHalfHeightFactor * blastRadiusMultiplier;
+        const margin = this.gameConfig.canvas.wallMargin;
+        const bandWidth = this.canvas.width - margin * 2;
+        ctx.save();
+        ctx.fillStyle = palette.highlight;
+        ctx.globalAlpha = theme.specialAoeFillAlpha || 0.14;
+        ctx.fillRect(margin, endY - bandHalf, bandWidth, bandHalf * 2);
+        ctx.strokeStyle = palette.highlight;
+        ctx.globalAlpha = (theme.specialAoeStrokeAlpha || 0.72) * pulse;
+        ctx.lineWidth = theme.aimGhostLineWidth;
+        ctx.setLineDash(theme.specialAoeDash || [5, 5]);
+        ctx.strokeRect(margin, endY - bandHalf, bandWidth, bandHalf * 2);
+        ctx.restore();
+
+        for (const b of physicsWorld.balls) {
+          if (Math.abs(b.y - endY) <= bandHalf) {
+            affectedBalls.push(b);
+            destroyedIds.add(b.id);
+          }
+        }
+      } else if (specType === SPECIAL_TYPES.RAINBOW) {
+        const neighborRadius = currentBall.radius * specCfg.neighborRadiusFactor;
+        const seen = new Set();
+        for (const other of physicsWorld.balls) {
+          if (other.colorId && Math.hypot(other.x - endX, other.y - endY) <= neighborRadius) {
+            const cluster = physicsWorld.findColorCluster(other);
+            for (const member of cluster) {
+              if (!seen.has(member.id)) {
+                seen.add(member.id);
+                affectedBalls.push(member);
+                if (member.armorHits <= 1) {
+                  destroyedIds.add(member.id);
+                }
+              }
+            }
+          }
+        }
+      } else if (specType === SPECIAL_TYPES.ANVIL) {
+        const pierceRadius = currentBall.radius * specCfg.pierceRadiusFactor;
+        const seen = new Set();
+        for (const pt of points) {
+          for (const b of physicsWorld.balls) {
+            if (!seen.has(b.id) && Math.hypot(b.x - pt.x, b.y - pt.y) <= pierceRadius) {
+              seen.add(b.id);
+              affectedBalls.push(b);
+              destroyedIds.add(b.id);
+            }
+          }
+        }
+      }
+
+      if (affectedBalls.length > 0) {
+        ctx.strokeStyle = theme.targetHighlightColor;
+        ctx.lineWidth = theme.aimTargetMatchLineWidth;
+        ctx.globalAlpha = pulse;
+        for (const member of affectedBalls) {
+          ctx.beginPath();
+          ctx.arc(member.x, member.y, member.radius + theme.aimTargetRingPadding, 0, MATH_CONSTANTS.TWO_PI);
+          ctx.stroke();
+        }
+      }
+    } else if (points.snapTarget && physicsWorld) {
       const target = points.snapTarget;
       const isMatchingColor = currentBall.colorId && currentBall.colorId === target.colorId;
       const cluster = isMatchingColor ? physicsWorld.findColorCluster(target) : [target];
       const willMatch = isMatchingColor && cluster.length + 1 >= this.gameConfig.defaults.matchMinCount;
-      const pulse = theme.magneticPulseBase + theme.magneticPulseAmp * Math.sin(now * theme.aimTargetPulseSpeed);
       ctx.strokeStyle = willMatch ? theme.targetHighlightColor : palette.highlight;
       ctx.lineWidth = willMatch ? theme.aimTargetMatchLineWidth : theme.aimTargetNormalLineWidth;
       ctx.globalAlpha = pulse;
@@ -606,6 +734,26 @@ export class Renderer {
         ctx.beginPath();
         ctx.arc(member.x, member.y, member.radius + theme.aimTargetRingPadding, 0, MATH_CONSTANTS.TWO_PI);
         ctx.stroke();
+        if (willMatch && member.armorHits <= 1) {
+          destroyedIds.add(member.id);
+        }
+      }
+    }
+
+    if (destroyedIds.size > 0 && physicsWorld && typeof physicsWorld.findDetachedIfRemoved === 'function') {
+      const avalancheBalls = physicsWorld.findDetachedIfRemoved(destroyedIds);
+      if (avalancheBalls.length > 0) {
+        ctx.save();
+        ctx.strokeStyle = theme.avalancheDropHighlightColor || theme.anchorRingColor;
+        ctx.lineWidth = theme.aimTargetNormalLineWidth;
+        ctx.setLineDash(theme.specialAoeDash || [5, 5]);
+        ctx.globalAlpha = pulse;
+        for (const ab of avalancheBalls) {
+          ctx.beginPath();
+          ctx.arc(ab.x, ab.y, ab.radius + theme.aimTargetRingPadding + 2, 0, MATH_CONSTANTS.TWO_PI);
+          ctx.stroke();
+        }
+        ctx.restore();
       }
     }
 

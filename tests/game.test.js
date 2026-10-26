@@ -194,3 +194,68 @@ test('ParticleSystem object pooling recycles particles on clear and update', () 
   engine.particleSystem.spawnBurst(200, 200, '#ffffff', 5, 5);
   assert.equal(engine.particleSystem.particlePool.length, 5);
 });
+
+test('Special ball equip and unequip restores original regular ball and inventory count', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  const originalColor = engine.currentBall.colorId;
+  const initialBombCount = engine.specialInventory[SPECIAL_TYPES.BOMB];
+  assert.ok(initialBombCount >= 1);
+
+  engine.equipSpecialBall(SPECIAL_TYPES.BOMB);
+  assert.equal(engine.currentBall.specialType, SPECIAL_TYPES.BOMB);
+  assert.equal(engine.specialInventory[SPECIAL_TYPES.BOMB], initialBombCount - 1);
+
+  engine.equipSpecialBall(SPECIAL_TYPES.BOMB);
+  assert.equal(engine.currentBall.specialType, null);
+  assert.equal(engine.currentBall.colorId, originalColor);
+  assert.equal(engine.specialInventory[SPECIAL_TYPES.BOMB], initialBombCount);
+});
+
+test('Tutorial banner stays active until dismissed and levelTutorialKey persists for Pause modal', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  assert.equal(engine.activeTutorialKey, 'gameplay.tutorial.pendulum');
+  assert.equal(engine.levelTutorialKey, 'gameplay.tutorial.pendulum');
+
+  engine.dismissTutorial();
+  assert.equal(engine.activeTutorialKey, null);
+  assert.equal(engine.levelTutorialKey, 'gameplay.tutorial.pendulum');
+});
+
+test('PhysicsWorld.findDetachedIfRemoved accurately predicts avalanche balls when anchors are severed', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  const anchors = engine.physicsWorld.balls.filter((b) => b.isAnchor);
+  assert.ok(anchors.length >= 2);
+  const anchorIds = new Set(anchors.map((a) => a.id));
+  const predictedDrops = engine.physicsWorld.findDetachedIfRemoved(anchorIds);
+  assert.equal(predictedDrops.length, engine.physicsWorld.balls.length - anchors.length);
+});
+
+test('Daily play bonus is claimed once per date and buySpecialAmmo consumes coins to add ammo', () => {
+  const engine = createTestEngine();
+  engine.storageManager.setCoins(100);
+  engine.startDailyChallenge('2026-10-26');
+  const coinsAfterFirstDaily = engine.storageManager.getCoins();
+  assert.equal(coinsAfterFirstDaily, 100 + gameConfig.daily.firstPlayBonusCoins);
+
+  engine.startDailyChallenge('2026-10-26');
+  assert.equal(engine.storageManager.getCoins(), coinsAfterFirstDaily);
+
+  const prevBombCount = engine.specialInventory[SPECIAL_TYPES.BOMB];
+  const bought = engine.buySpecialAmmo(SPECIAL_TYPES.BOMB);
+  assert.equal(bought, true);
+  assert.equal(engine.specialInventory[SPECIAL_TYPES.BOMB], prevBombCount + 1);
+  assert.equal(engine.storageManager.getCoins(), coinsAfterFirstDaily - gameConfig.specialShopCosts.bomb);
+});
+
+test('Reduced motion setting disables screen shake while preserving particle updates', () => {
+  const engine = createTestEngine();
+  engine.setReducedMotion(true);
+  engine.particleSystem.addScreenShake(10);
+  assert.equal(engine.particleSystem.shakeIntensity, 0);
+  engine.setReducedMotion(false);
+  engine.particleSystem.addScreenShake(8);
+  assert.equal(engine.particleSystem.shakeIntensity, 8);
+});

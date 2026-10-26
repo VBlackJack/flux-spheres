@@ -32,15 +32,20 @@
         <span class="brand-subtitle" data-i18n="app.header.subtitle.edition"></span>
       </div>
       <nav class="nav-controls">
-        <button id="btn-levels" type="button" class="nav-btn primary" data-i18n="app.nav.button.levels"></button>
-        <button id="btn-endless" type="button" class="nav-btn accent" data-i18n="app.nav.button.endless"></button>
-        <button id="btn-daily" type="button" class="nav-btn accent" data-i18n="app.nav.button.daily"></button>
-        <button id="btn-shop" type="button" class="nav-btn gold" data-i18n="app.nav.button.shop"></button>
-        <button id="btn-restart" type="button" class="nav-btn" data-i18n="app.nav.button.restart"></button>
-        <button id="btn-pause" type="button" class="nav-btn" data-i18n="app.nav.button.pause"></button>
-        <button id="btn-sound" type="button" class="nav-btn"></button>
-        <button id="btn-contrast" type="button" class="nav-btn"></button>
-        <button id="btn-lang" type="button" class="nav-btn badge-btn"></button>
+        <div class="nav-group nav-modes">
+          <button id="btn-levels" type="button" class="nav-btn primary" data-i18n="app.nav.button.levels"></button>
+          <button id="btn-endless" type="button" class="nav-btn accent" data-i18n="app.nav.button.endless"></button>
+          <button id="btn-daily" type="button" class="nav-btn accent" data-i18n="app.nav.button.daily"></button>
+          <button id="btn-shop" type="button" class="nav-btn gold" data-i18n="app.nav.button.shop"></button>
+        </div>
+        <div class="nav-group nav-settings">
+          <button id="btn-restart" type="button" class="nav-btn" data-i18n="app.nav.button.restart"></button>
+          <button id="btn-pause" type="button" class="nav-btn" data-i18n="app.nav.button.pause"></button>
+          <button id="btn-sound" type="button" class="nav-btn icon-btn"></button>
+          <button id="btn-contrast" type="button" class="nav-btn icon-btn"></button>
+          <button id="btn-motion" type="button" class="nav-btn icon-btn"></button>
+          <button id="btn-lang" type="button" class="nav-btn badge-btn"></button>
+        </div>
       </nav>
     </header>
 
@@ -48,6 +53,7 @@
       <div class="hud-stat-box">
         <span class="hud-label" data-i18n="hud.stats.score.label"></span>
         <span id="hud-score-value" class="hud-value"></span>
+        <span id="hud-star-progress" class="hud-subvalue gold-text"></span>
       </div>
       <div class="hud-center-info">
         <div id="hud-mode-banner" class="hud-mode-banner"></div>
@@ -57,7 +63,7 @@
         </div>
       </div>
       <div class="hud-stat-box">
-        <span class="hud-label" data-i18n="hud.stats.shots.label"></span>
+        <span id="hud-shots-label" class="hud-label" data-i18n="hud.stats.shots.label"></span>
         <span id="hud-shots-value" class="hud-value highlight"></span>
       </div>
       <div class="hud-stat-box">
@@ -71,12 +77,20 @@
     </section>
 
     <main class="stage-container">
-      <div class="canvas-wrapper">
-        <canvas id="game-canvas" role="img" data-i18n-aria-label="app.header.title.main"></canvas>
-        <div id="tutorial-banner" class="tutorial-banner hidden" aria-live="polite"></div>
-        <div id="cancel-aim-banner" class="cancel-aim-banner hidden" data-i18n="hud.launcher.cancel.hint"></div>
-        <button id="btn-polarity" type="button" class="polarity-floating-btn"></button>
-        <button id="btn-swap-ball" type="button" class="swap-floating-btn" data-i18n="hud.launcher.swap.hint"></button>
+      <div class="stage-column">
+        <div class="canvas-wrapper">
+          <canvas id="game-canvas" role="img" data-i18n-aria-label="app.header.title.main"></canvas>
+          <div id="tutorial-banner" class="tutorial-banner hidden" aria-live="polite">
+            <span id="tutorial-banner-text"></span>
+            <button id="btn-dismiss-tutorial" type="button" class="tutorial-dismiss-btn">✕</button>
+          </div>
+          <div id="special-equipped-banner" class="special-equipped-banner hidden" aria-live="polite"></div>
+          <div id="cancel-aim-banner" class="cancel-aim-banner hidden" data-i18n="hud.launcher.cancel.hint"></div>
+        </div>
+        <div class="launcher-controls-dock">
+          <button id="btn-polarity" type="button" class="polarity-floating-btn"></button>
+          <button id="btn-swap-ball" type="button" class="swap-floating-btn" data-i18n="hud.launcher.swap.hint"></button>
+        </div>
       </div>
 
       <aside class="powerups-panel">
@@ -113,9 +127,18 @@
     <div class="modal-card wide">
       <h2 id="modal-shop-title" class="modal-title gold-text" data-i18n="modals.shop.title.main"></h2>
       <p id="shop-balance" class="modal-stat-line gold-text"></p>
-      <div id="shop-grid" class="levels-grid"></div>
-      <h3 class="modal-subtitle" data-i18n="modals.shop.achievements.title"></h3>
-      <div id="achievements-grid" class="levels-grid"></div>
+      <div class="modal-tabs" role="tablist">
+        <button id="tab-shop-upgrades" type="button" class="modal-tab active" role="tab" aria-selected="true" data-i18n="modals.shop.tabs.upgrades"></button>
+        <button id="tab-shop-achievements" type="button" class="modal-tab" role="tab" aria-selected="false"></button>
+        <button id="tab-shop-codex" type="button" class="modal-tab" role="tab" aria-selected="false" data-i18n="modals.shop.tabs.codex"></button>
+      </div>
+      <div id="shop-upgrades-pane" class="shop-pane">
+        <div id="shop-grid" class="levels-grid"></div>
+        <h3 class="modal-subtitle" data-i18n="modals.shop.specialAmmo.title"></h3>
+        <div id="shop-ammo-grid" class="ammo-shop-grid"></div>
+      </div>
+      <div id="achievements-grid" class="levels-grid hidden"></div>
+      <div id="codex-pane" class="codex-pane hidden"></div>
       <div class="modal-actions">
         <button id="btn-close-shop" type="button" class="modal-btn" data-i18n="modals.shop.button.close"></button>
       </div>
@@ -155,6 +178,7 @@
   <div id="modal-pause" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-pause-title">
     <div class="modal-card">
       <h2 id="modal-pause-title" class="modal-title" data-i18n="modals.pause.title.main"></h2>
+      <p id="pause-level-tip" class="pause-level-tip hidden"></p>
       <ul class="instructions-list">
         <li data-i18n="modals.pause.instructions.aim"></li>
         <li data-i18n="modals.pause.instructions.swap"></li>
@@ -164,6 +188,18 @@
       <div class="modal-actions">
         <button id="btn-resume" type="button" class="modal-btn primary" data-i18n="modals.pause.button.resume"></button>
         <button id="btn-restart-pause" type="button" class="modal-btn" data-i18n="modals.pause.button.restart"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Action Modal -->
+  <div id="modal-confirm" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-title">
+    <div class="modal-card">
+      <h2 id="modal-confirm-title" class="modal-title" data-i18n="modals.confirm.title.main"></h2>
+      <p id="modal-confirm-message" class="modal-stat-line muted" data-i18n="modals.confirm.message"></p>
+      <div class="modal-actions">
+        <button id="btn-confirm-yes" type="button" class="modal-btn danger" data-i18n="modals.confirm.button.confirm"></button>
+        <button id="btn-confirm-no" type="button" class="modal-btn primary" data-i18n="modals.confirm.button.cancel"></button>
       </div>
     </div>
   </div>

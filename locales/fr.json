@@ -14,13 +14,23 @@
         "levels": "Niveaux",
         "endless": "Survie",
         "daily": "Défi du Jour",
+        "dailyBonusBadge": "Défi du Jour (+{{coins}} ⬡)",
         "shop": "Boutique",
+        "shopBadge": "Boutique ({{count}})",
         "restart": "Recommencer",
         "pause": "Pause",
-        "soundOn": "Son : Activé",
-        "soundOff": "Son : Muet",
-        "contrastOn": "Contraste : Fort",
-        "contrastOff": "Contraste : Standard",
+        "soundOn": "🔊",
+        "soundOff": "🔇",
+        "soundOnAria": "Son : Activé",
+        "soundOffAria": "Son : Muet",
+        "contrastOn": "◐+",
+        "contrastOff": "◐",
+        "contrastOnAria": "Contraste : Fort",
+        "contrastOffAria": "Contraste : Standard",
+        "motionOn": "✨",
+        "motionReduced": "💤",
+        "motionOnAria": "Effets de mouvement : Complets",
+        "motionReducedAria": "Effets de mouvement : Réduits",
         "language": "FR"
       }
     }
@@ -28,7 +38,9 @@
   "hud": {
     "stats": {
       "score": {
-        "label": "Score"
+        "label": "Score",
+        "starProgress": "{{stars}} • Prochain : {{next}}",
+        "starMax": "{{stars}} • MAX"
       },
       "highScore": {
         "label": "Record"
@@ -48,6 +60,7 @@
       },
       "shots": {
         "label": "Tirs restants",
+        "waveLabel": "Vague dans",
         "infinite": "∞"
       },
       "combo": {
@@ -59,15 +72,21 @@
     },
     "launcher": {
       "swap": {
-        "hint": "Échanger (Espace / Clic)"
+        "hint": "⇄ Échanger (Espace)"
       },
       "polarity": {
-        "normal": "Polarité : Normale (F)",
-        "inverted": "Polarité : Inversée (F)"
+        "normal": "🧲 Polarité : Normale (F)",
+        "inverted": "🧲 Polarité : Inversée (F)"
       },
       "cancel": {
         "hint": "Relâcher ici pour annuler le tir"
+      },
+      "specialEquipped": {
+        "hint": "{{icon}} {{name}} : {{desc}} (Recliquer pour ranger)"
       }
+    },
+    "tutorial": {
+      "dismiss": "Fermer l'astuce"
     },
     "powerups": {
       "title": {
@@ -131,6 +150,9 @@
       "achievement": {
         "unlocked": "SUCCÈS : {{name}} (+{{coins}} ⬡)"
       },
+      "dailyBonus": {
+        "claimed": "BONUS DU JOUR ! +{{coins}} ⬡"
+      },
       "special": {
         "bomb": "EXPLOSION !",
         "lightning": "DÉCHARGE ÉLECTRIQUE !",
@@ -180,8 +202,85 @@
       "title": {
         "main": "Atelier Magnétique"
       },
+      "tabs": {
+        "upgrades": "Améliorations",
+        "achievements": "Succès ({{unlocked}}/{{total}})",
+        "codex": "Codex & Guide"
+      },
       "balance": {
         "label": "Pièces disponibles : {{coins}} ⬡"
+      },
+      "specialAmmo": {
+        "title": "Munitions Spéciales (Manche actuelle)",
+        "stock": "En stock : {{count}}",
+        "buy": "+1 ({{cost}} ⬡)"
+      },
+      "codex": {
+        "modifiersTitle": "Billes Spéciales de l'Amas",
+        "obstaclesTitle": "Anomalies & Obstacles Magnétiques",
+        "modifiers": {
+          "armored": {
+            "name": "Bille Blindée",
+            "description": "Nécessite 2 impacts ou explosions pour être détruite."
+          },
+          "dormantBomb": {
+            "name": "Baril Explosif",
+            "description": "Explose lorsqu'il est détruit, emportant les billes voisines."
+          },
+          "chameleon": {
+            "name": "Bille Caméléon",
+            "description": "Change de couleur magnétique après chaque tir."
+          },
+          "coinCore": {
+            "name": "Noyau Gemme",
+            "description": "Octroie des pièces bonus lorsqu'il est détruit ou détaché."
+          },
+          "bossCore": {
+            "name": "Noyau Boss",
+            "description": "Protégé par 3 boucliers. Libère un gros butin de pièces et de points."
+          },
+          "laserLock": {
+            "name": "Verrou Quantique",
+            "description": "Détruisez tous les verrous du niveau pour désactiver les barrières."
+          }
+        },
+        "obstacles": {
+          "pivot": {
+            "icon": "⚙️",
+            "name": "Rotor à Inertie",
+            "description": "Tourne dynamiquement selon l'équilibre du poids et la force d'impact."
+          },
+          "bumper": {
+            "icon": "🔴",
+            "name": "Bumper Énergétique",
+            "description": "Fait rebondir les projectiles à haute vitesse pour des tirs en bande."
+          },
+          "repulsor": {
+            "icon": "🟠",
+            "name": "Cœur Répulsif",
+            "description": "Repousse et courbe la trajectoire des billes qui traversent son champ."
+          },
+          "attractor": {
+            "icon": "🟣",
+            "name": "Puits Attracteur",
+            "description": "Attire et infléchit la trajectoire des tirs vers son centre."
+          },
+          "barrier": {
+            "icon": "🚧",
+            "name": "Barrière Oscillante",
+            "description": "Bouclier mobile bloquant les tirs directs. Peut être désactivé par les Verrous."
+          },
+          "portal": {
+            "icon": "🌀",
+            "name": "Portails Quantiques",
+            "description": "Téléporte instantanément votre projectile vers le portail jumeau avec un boost."
+          },
+          "singularity": {
+            "icon": "🕳️",
+            "name": "Vortex de Singularité",
+            "description": "Aspire les billes qui tombent en avalanche pour octroyer un bonus de score et de Surcharge."
+          }
+        }
       },
       "achievements": {
         "title": "Succès & Récompenses",
@@ -278,6 +377,7 @@
       "title": {
         "main": "Jeu en Pause"
       },
+      "levelTip": "Objectif / Astuce : {{tip}}",
       "instructions": {
         "aim": "Viser et tirer : Souris ou tactile",
         "swap": "Changer de bille : Clic sur le chargeur ou Espace",
@@ -287,6 +387,16 @@
       "button": {
         "resume": "Reprendre",
         "restart": "Recommencer"
+      }
+    },
+    "confirm": {
+      "title": {
+        "main": "Abandonner la partie en cours ?"
+      },
+      "message": "Votre progression actuelle dans cette manche sera perdue.",
+      "button": {
+        "confirm": "Confirmer",
+        "cancel": "Continuer la partie"
       }
     }
   },

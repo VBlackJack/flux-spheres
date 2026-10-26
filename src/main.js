@@ -123,6 +123,20 @@ class Application {
       };
     };
 
+    const getAimAdjustedCoords = (e, pos) => {
+      if (e.pointerType === 'touch') {
+        const cancelThresholdY = gameConfig.canvas.launcherY + gameConfig.canvas.cancelAimOffsetY;
+        if (pos.y > cancelThresholdY) {
+          return pos;
+        }
+        return {
+          x: pos.x,
+          y: pos.y + (gameConfig.canvas.touchAimVerticalOffset || 0)
+        };
+      }
+      return pos;
+    };
+
     const isSwapClick = (x, y) => {
       const canvasCfg = gameConfig.canvas;
       const nx = canvasCfg.launcherX + canvasCfg.nextBallOffsetX;
@@ -134,8 +148,9 @@ class Application {
       if (uiManager && uiManager.isAnyModalOpen()) {
         return;
       }
-      const pos = toLogicalCoords(e.clientX, e.clientY);
-      engine.updateAim(pos.x, pos.y);
+      const rawPos = toLogicalCoords(e.clientX, e.clientY);
+      const aimPos = getAimAdjustedCoords(e, rawPos);
+      engine.updateAim(aimPos.x, aimPos.y);
       if (uiManager) {
         uiManager.updateAimState(engine);
       }
@@ -145,8 +160,12 @@ class Application {
       if (uiManager && uiManager.isAnyModalOpen()) {
         return;
       }
-      const pos = toLogicalCoords(e.clientX, e.clientY);
-      engine.updateAim(pos.x, pos.y);
+      const rawPos = toLogicalCoords(e.clientX, e.clientY);
+      if (isSwapClick(rawPos.x, rawPos.y)) {
+        return;
+      }
+      const aimPos = getAimAdjustedCoords(e, rawPos);
+      engine.updateAim(aimPos.x, aimPos.y);
       if (uiManager) {
         uiManager.updateAimState(engine);
       }
@@ -156,8 +175,8 @@ class Application {
       if (uiManager && uiManager.isAnyModalOpen()) {
         return;
       }
-      const pos = toLogicalCoords(e.clientX, e.clientY);
-      if (isSwapClick(pos.x, pos.y)) {
+      const rawPos = toLogicalCoords(e.clientX, e.clientY);
+      if (isSwapClick(rawPos.x, rawPos.y)) {
         engine.isAimCancelled = false;
         engine.swapLauncherBalls();
         if (uiManager) {
@@ -165,7 +184,8 @@ class Application {
         }
         return;
       }
-      engine.updateAim(pos.x, pos.y);
+      const aimPos = getAimAdjustedCoords(e, rawPos);
+      engine.updateAim(aimPos.x, aimPos.y);
       engine.shoot();
       if (uiManager) {
         uiManager.updateAimState(engine);

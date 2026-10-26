@@ -21,6 +21,9 @@
     "anvilPopupOffsetY": -120,
     "wavePopupOffsetY": 40,
     "cancelAimOffsetY": 28,
+    "touchAimVerticalOffset": -54,
+    "survivalWaveWarningThreshold": 2,
+    "dangerWarningMarginY": 72,
     "tutorialDisplayShots": 2,
     "launcher": {
       "cancelRingRadius": 42,
@@ -82,6 +85,13 @@
       "costStep": 50,
       "shotsPerLevel": 2
     }
+  },
+  "specialShopCosts": {
+    "bomb": 25,
+    "lightning": 30,
+    "rainbow": 25,
+    "anvil": 35,
+    "freeze": 20
   },
   "juice": {
     "shakeDecay": 0.86,
@@ -165,6 +175,7 @@
     "bossWaveInterval": 5
   },
   "daily": {
+    "firstPlayBonusCoins": 30,
     "mutators": {
       "hyperGravity": {
         "id": "hyperGravity",
@@ -226,10 +237,13 @@
       "language": "lang",
       "muted": "muted",
       "highContrast": "high_contrast",
+      "reducedMotion": "reduced_motion",
       "unlockedLevel": "unlocked_level",
       "levelStats": "level_stats",
       "endlessHighScore": "endless_high_score",
       "dailyBest": "daily_best",
+      "dailyLastPlayedDate": "daily_last_date",
+      "dailyTodayScore": "daily_today_score",
       "coins": "coins",
       "upgrades": "upgrades",
       "achievements": "achievements"
@@ -257,6 +271,13 @@
     "dangerLineDash": [10, 8],
     "dangerLineWidth": 2,
     "dangerZoneFill": "rgba(255, 71, 87, 0.08)",
+    "dangerZoneWarningFill": "rgba(255, 71, 87, 0.22)",
+    "dangerBallRingColor": "#ff4757",
+    "dangerWarningPulseSpeed": 0.01,
+    "avalancheDropHighlightColor": "#38bdf8",
+    "specialAoeFillAlpha": 0.14,
+    "specialAoeStrokeAlpha": 0.72,
+    "specialAoeDash": [5, 5],
     "magneticLinkColor": "rgba(140, 210, 255, 0.38)",
     "magneticSameColorBase": "125, 211, 252",
     "magneticRepelColorBase": "251, 146, 60",

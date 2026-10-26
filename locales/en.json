@@ -14,13 +14,23 @@
         "levels": "Levels",
         "endless": "Survival",
         "daily": "Daily",
+        "dailyBonusBadge": "Daily (+{{coins}} ⬡)",
         "shop": "Shop",
+        "shopBadge": "Shop ({{count}})",
         "restart": "Restart",
         "pause": "Pause",
-        "soundOn": "Sound: ON",
-        "soundOff": "Sound: OFF",
-        "contrastOn": "Contrast: High",
-        "contrastOff": "Contrast: Normal",
+        "soundOn": "🔊",
+        "soundOff": "🔇",
+        "soundOnAria": "Sound: ON",
+        "soundOffAria": "Sound: OFF",
+        "contrastOn": "◐+",
+        "contrastOff": "◐",
+        "contrastOnAria": "Contrast: High",
+        "contrastOffAria": "Contrast: Normal",
+        "motionOn": "✨",
+        "motionReduced": "💤",
+        "motionOnAria": "Motion Effects: Full",
+        "motionReducedAria": "Motion Effects: Reduced",
         "language": "EN"
       }
     }
@@ -28,7 +38,9 @@
   "hud": {
     "stats": {
       "score": {
-        "label": "Score"
+        "label": "Score",
+        "starProgress": "{{stars}} • Next: {{next}}",
+        "starMax": "{{stars}} • MAX"
       },
       "highScore": {
         "label": "Best"
@@ -48,6 +60,7 @@
       },
       "shots": {
         "label": "Shots Left",
+        "waveLabel": "Next Wave",
         "infinite": "∞"
       },
       "combo": {
@@ -59,15 +72,21 @@
     },
     "launcher": {
       "swap": {
-        "hint": "Swap (Space / Click)"
+        "hint": "⇄ Swap (Space)"
       },
       "polarity": {
-        "normal": "Polarity: Normal (F)",
-        "inverted": "Polarity: Inverted (F)"
+        "normal": "🧲 Polarity: Normal (F)",
+        "inverted": "🧲 Polarity: Inverted (F)"
       },
       "cancel": {
         "hint": "Release here to cancel shot"
+      },
+      "specialEquipped": {
+        "hint": "{{icon}} {{name}}: {{desc}} (Click again to unequip)"
       }
+    },
+    "tutorial": {
+      "dismiss": "Dismiss tip"
     },
     "powerups": {
       "title": {
@@ -131,6 +150,9 @@
       "achievement": {
         "unlocked": "ACHIEVEMENT: {{name}} (+{{coins}} ⬡)"
       },
+      "dailyBonus": {
+        "claimed": "DAILY BONUS! +{{coins}} ⬡"
+      },
       "special": {
         "bomb": "BLAST WAVE!",
         "lightning": "ELECTRIC SURGE!",
@@ -180,8 +202,85 @@
       "title": {
         "main": "Magnetic Workshop"
       },
+      "tabs": {
+        "upgrades": "Upgrades",
+        "achievements": "Achievements ({{unlocked}}/{{total}})",
+        "codex": "Codex & Guide"
+      },
       "balance": {
         "label": "Available Coins: {{coins}} ⬡"
+      },
+      "specialAmmo": {
+        "title": "Special Ammo Refill (Current Run)",
+        "stock": "In Stock: {{count}}",
+        "buy": "+1 ({{cost}} ⬡)"
+      },
+      "codex": {
+        "modifiersTitle": "Cluster Ball Modifiers",
+        "obstaclesTitle": "Magnetic Anomalies & Obstacles",
+        "modifiers": {
+          "armored": {
+            "name": "Armored Sphere",
+            "description": "Requires 2 matches or blasts to shatter."
+          },
+          "dormantBomb": {
+            "name": "Dormant Barrel",
+            "description": "Detonates when destroyed, blasting nearby cluster balls."
+          },
+          "chameleon": {
+            "name": "Chameleon Sphere",
+            "description": "Cycles its magnetic color after every turn."
+          },
+          "coinCore": {
+            "name": "Coin Core",
+            "description": "Awards bonus coins when matched or dropped in an avalanche."
+          },
+          "bossCore": {
+            "name": "Boss Core",
+            "description": "Protected by 3 shields. Bursts into a massive coin and score bounty."
+          },
+          "laserLock": {
+            "name": "Quantum Lock",
+            "description": "Destroy all Lock Cores in the level to disable energy barriers."
+          }
+        },
+        "obstacles": {
+          "pivot": {
+            "icon": "⚙️",
+            "name": "Inertia Rotor",
+            "description": "Spins dynamically based on cluster weight balance and shot impact torque."
+          },
+          "bumper": {
+            "icon": "🔴",
+            "name": "Energy Bumper",
+            "description": "Ricochets projectiles at high speed for trick bank shots."
+          },
+          "repulsor": {
+            "icon": "🟠",
+            "name": "Repulsor Core",
+            "description": "Pushes and bends projectile trajectories passing through its field."
+          },
+          "attractor": {
+            "icon": "🟣",
+            "name": "Gravity Well",
+            "description": "Pulls and curves projectile trajectories toward its center."
+          },
+          "barrier": {
+            "icon": "🚧",
+            "name": "Oscillating Barrier",
+            "description": "Moving shield that blocks direct shots. Can be disabled via Quantum Locks."
+          },
+          "portal": {
+            "icon": "🌀",
+            "name": "Quantum Portals",
+            "description": "Teleports projectiles instantaneously to the linked exit portal with a speed boost."
+          },
+          "singularity": {
+            "icon": "🕳️",
+            "name": "Singularity Vortex",
+            "description": "Absorbs falling avalanche balls for bonus score and Overcharge."
+          }
+        }
       },
       "achievements": {
         "title": "Achievements & Bounties",
@@ -278,6 +377,7 @@
       "title": {
         "main": "Game Paused"
       },
+      "levelTip": "Level Tip: {{tip}}",
       "instructions": {
         "aim": "Aim & Shoot: Mouse or Touch",
         "swap": "Swap Projectile: Click Launcher or Press Space",
@@ -287,6 +387,16 @@
       "button": {
         "resume": "Resume",
         "restart": "Restart"
+      }
+    },
+    "confirm": {
+      "title": {
+        "main": "Abandon Current Run?"
+      },
+      "message": "Your current progress in this round will be lost.",
+      "button": {
+        "confirm": "Confirm",
+        "cancel": "Keep Playing"
       }
     }
   },

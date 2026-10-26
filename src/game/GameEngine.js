@@ -45,6 +45,9 @@ export class GameEngine {
 
     this.physicsWorld = new PhysicsWorld(physicsConfig, gameConfig, ballsConfig);
     this.particleSystem = new ParticleSystem(gameConfig.juice);
+    if (this.storageManager && typeof this.storageManager.getReducedMotion === 'function') {
+      this.particleSystem.setReducedMotion(this.storageManager.getReducedMotion());
+    }
     this.specialController = new SpecialBallController(ballsConfig, gameConfig);
 
     this.mode = GAME_MODES.CAMPAIGN;
@@ -65,6 +68,7 @@ export class GameEngine {
     this.hasFiredInRound = false;
     this.shotsFiredInLevel = 0;
     this.activeTutorialKey = null;
+    this.levelTutorialKey = null;
     this.isAimCancelled = false;
     this.isPolarityFlipped = false;
     this.activeMutatorKey = null;
@@ -73,6 +77,7 @@ export class GameEngine {
     this.activePalette = [];
     this.specialInventory = {};
     this.currentBall = null;
+    this.stashedRegularColorId = null;
     this.nextBall = null;
     this.aimAngle = -Math.PI * MATH_CONSTANTS.HALF;
     this.aimPoints = [];
@@ -226,11 +231,13 @@ export class GameEngine {
     this.hasFiredInRound = false;
     this.shotsFiredInLevel = 0;
     this.activeTutorialKey = levelDef.tutorialKey || null;
+    this.levelTutorialKey = levelDef.tutorialKey || null;
     this.isAimCancelled = false;
     this.isPolarityFlipped = false;
     this.activeMutatorKey = null;
     this.seededRng = null;
     this.specialInventory = { ...levelDef.specialInventory };
+    this.stashedRegularColorId = null;
 
     this.activePalette = this.ballsConfig.standardColors
       .slice(0, levelDef.paletteCount)
@@ -263,6 +270,17 @@ export class GameEngine {
   startDailyChallenge(customSeed = null) {
     const seed = customSeed || SeededRandom.getTodayDateKey();
     this.initSurvivalRun(GAME_MODES.DAILY, seed);
+    const bonusCoins = this.gameConfig.daily?.firstPlayBonusCoins || 0;
+    if (bonusCoins > 0 && this.storageManager.claimDailyPlayBonus(seed, bonusCoins)) {
+      this.audioManager.playEffect('achievement');
+      this.particleSystem.spawnFloatingText(
+        this.gameConfig.canvas.logicalWidth * MATH_CONSTANTS.HALF,
+        this.gameConfig.canvas.launcherY + this.gameConfig.canvas.launcherPopupOffsetY,
+        t('gameplay.feedback.dailyBonus.claimed', { coins: bonusCoins }),
+        this.gameConfig.theme.coinPopupColor
+      );
+      this.notifyUI();
+    }
   }
 
   initSurvivalRun(mode, seed = null) {
@@ -282,9 +300,11 @@ export class GameEngine {
     this.hasFiredInRound = false;
     this.shotsFiredInLevel = 0;
     this.activeTutorialKey = null;
+    this.levelTutorialKey = null;
     this.isAimCancelled = false;
     this.isPolarityFlipped = false;
     this.specialInventory = { ...endlessCfg.initialSpecialCounts };
+    this.stashedRegularColorId = null;
 
     this.activePalette = this.ballsConfig.standardColors
       .slice(0, endlessCfg.paletteCount)
@@ -584,21 +604,65 @@ export class GameEngine {
     if (this.state !== GAME_STATES.PLAYING || this.physicsWorld.projectile) {
       return;
     }
-    const count = this.specialInventory[specialType] || 0;
-    if (count <= 0) {
+    if (this.currentBall && this.currentBall.specialType === specialType) {
+      this.specialInventory[specialType] = (this.specialInventory[specialType] || 0) + 1;
+      const restoredColor = this.stashedRegularColorId || this.pickLauncherColor();
+      this.stashedRegularColorId = null;
+      this.currentBall = new Ball({
+        x: this.gameConfig.canvas.launcherX,
+        y: this.gameConfig.canvas.launcherY,
+        radius: this.physicsConfig.ball.radius,
+        colorId: restoredColor,
+        specialType: null,
+        isProjectile: false
+      });
+      this.audioManager.playEffect('snap');
+      this.updateAimFromAngle(this.aimAngle);
+      this.notifyUI();
       return;
     }
-    if (this.currentBall && this.currentBall.specialType === specialType) {
+    const count = this.specialInventory[specialType] || 0;
+    if (count <= 0) {
       return;
     }
     if (this.currentBall && this.currentBall.specialType) {
       const prevType = this.currentBall.specialType;
       this.specialInventory[prevType] = (this.specialInventory[prevType] || 0) + 1;
+    } else if (this.currentBall && this.currentBall.colorId) {
+      this.stashedRegularColorId = this.currentBall.colorId;
     }
     this.specialInventory[specialType] = count - 1;
     this.currentBall = this.createRandomLauncherBall(specialType);
+    this.audioManager.playEffect('snap');
     this.updateAimFromAngle(this.aimAngle);
     this.notifyUI();
+  }
+
+  dismissTutorial() {
+    if (this.activeTutorialKey) {
+      this.activeTutorialKey = null;
+      this.notifyUI();
+    }
+  }
+
+  buySpecialAmmo(specialType) {
+    const cost = this.gameConfig.specialShopCosts?.[specialType];
+    if (!Number.isFinite(cost) || cost <= 0) {
+      return false;
+    }
+    const coins = this.storageManager.getCoins();
+    if (coins < cost) {
+      return false;
+    }
+    this.storageManager.setCoins(coins - cost);
+    this.specialInventory[specialType] = (this.specialInventory[specialType] || 0) + 1;
+    this.audioManager.playEffect('overcharge');
+    this.notifyUI();
+    return true;
+  }
+
+  setReducedMotion(enabled) {
+    this.particleSystem.setReducedMotion(enabled);
   }
 
   swapLauncherBalls() {
@@ -693,6 +757,7 @@ export class GameEngine {
     projectile.vy = Math.sin(this.aimAngle) * speed;
 
     this.physicsWorld.projectile = projectile;
+    this.stashedRegularColorId = null;
     this.currentBall = this.nextBall;
     this.nextBall = this.createRandomLauncherBall();
 
@@ -702,9 +767,6 @@ export class GameEngine {
 
     this.hasFiredInRound = true;
     this.shotsFiredInLevel++;
-    if (this.shotsFiredInLevel >= this.gameConfig.canvas.tutorialDisplayShots) {
-      this.activeTutorialKey = null;
-    }
     this.audioManager.playEffect('shoot');
     this.updateAimFromAngle(this.aimAngle);
     this.notifyUI();

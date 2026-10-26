@@ -30,6 +30,14 @@ export class ParticleSystem {
     this.shockwavePool = [];
     this.textPool = [];
     this.shakeIntensity = 0;
+    this.reducedMotion = false;
+  }
+
+  setReducedMotion(enabled) {
+    this.reducedMotion = Boolean(enabled);
+    if (this.reducedMotion) {
+      this.shakeIntensity = 0;
+    }
   }
 
   clear() {
@@ -62,6 +70,9 @@ export class ParticleSystem {
   }
 
   addScreenShake(amount, maxOffset = this.juiceConfig.maxShakeOffset) {
+    if (this.reducedMotion) {
+      return;
+    }
     this.shakeIntensity = Math.min(maxOffset, this.shakeIntensity + amount);
   }
 

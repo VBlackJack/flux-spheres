@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-const CACHE_NAME = 'flux-spheres-cache-v1';
+const CACHE_NAME = 'flux-spheres-cache-v2';
 
 const PRECACHE_ASSETS = [
   './',

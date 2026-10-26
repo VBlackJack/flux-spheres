@@ -88,6 +88,38 @@ export class StorageManager {
     this.safeSetItem(this.storageConfig.keys.highContrast, Boolean(enabled));
   }
 
+  getReducedMotion() {
+    const raw = this.safeGetItem(this.storageConfig.keys.reducedMotion);
+    if (raw !== null) {
+      return raw === 'true';
+    }
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      return Boolean(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+    return false;
+  }
+
+  setReducedMotion(enabled) {
+    this.safeSetItem(this.storageConfig.keys.reducedMotion, Boolean(enabled));
+  }
+
+  hasPlayedDailyToday(dateKey) {
+    const lastDate = this.safeGetItem(this.storageConfig.keys.dailyLastPlayedDate);
+    return lastDate === dateKey;
+  }
+
+  claimDailyPlayBonus(dateKey, bonusCoins) {
+    if (this.hasPlayedDailyToday(dateKey)) {
+      return false;
+    }
+    this.safeSetItem(this.storageConfig.keys.dailyLastPlayedDate, dateKey);
+    this.safeSetItem(this.storageConfig.keys.dailyTodayScore, 0);
+    if (bonusCoins > 0) {
+      this.addCoins(bonusCoins);
+    }
+    return true;
+  }
+
   getUnlockedLevel() {
     const raw = this.safeGetItem(this.storageConfig.keys.unlockedLevel);
     const parsed = Number.parseInt(raw, 10);

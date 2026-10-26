@@ -720,11 +720,14 @@ export class PhysicsWorld {
     return cluster;
   }
 
-  getAnchoredBallIds() {
+  getAnchoredBallIds(excludedIds = null) {
     const anchoredSet = new Set();
     const queue = [];
 
     for (const ball of this.balls) {
+      if (excludedIds && excludedIds.has(ball.id)) {
+        continue;
+      }
       if (ball.isAnchor || ball.pivotRef) {
         anchoredSet.add(ball.id);
         queue.push(ball);
@@ -735,6 +738,9 @@ export class PhysicsWorld {
     while (head < queue.length) {
       const current = queue[head++];
       for (const neighborId of current.bonds) {
+        if (excludedIds && excludedIds.has(neighborId)) {
+          continue;
+        }
         if (!anchoredSet.has(neighborId)) {
           const neighbor = this.ballMap.get(neighborId);
           if (neighbor) {
@@ -746,6 +752,20 @@ export class PhysicsWorld {
     }
 
     return anchoredSet;
+  }
+
+  findDetachedIfRemoved(removedBallIds) {
+    if (!removedBallIds || removedBallIds.size === 0) {
+      return [];
+    }
+    const anchoredSet = this.getAnchoredBallIds(removedBallIds);
+    const detached = [];
+    for (const ball of this.balls) {
+      if (!removedBallIds.has(ball.id) && !anchoredSet.has(ball.id)) {
+        detached.push(ball);
+      }
+    }
+    return detached;
   }
 
   detachUnanchoredBalls() {
