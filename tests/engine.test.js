@@ -22,7 +22,7 @@ import { configRegistry } from '../src/core/ConfigRegistry.js';
 import { StorageManager } from '../src/core/StorageManager.js';
 import { Ball } from '../src/entities/Ball.js';
 import { GameEngine } from '../src/game/GameEngine.js';
-import { GAME_MODES, GAME_STATES, SPECIAL_TYPES, CLUSTER_MODIFIERS } from '../src/core/Constants.js';
+import { GAME_MODES, GAME_STATES, SPECIAL_TYPES, CLUSTER_MODIFIERS, OBSTACLE_TYPES } from '../src/core/Constants.js';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
@@ -368,4 +368,103 @@ test('An anvil crushing a dormant bomb survives the balls the blast removes mid-
   assert.equal(world.ballMap.has(bomb.id), false);
   assert.ok(world.balls.length < ballsBefore - 1, 'the blast should remove neighbours of the bomb');
   assert.equal(engine.state, GAME_STATES.PLAYING);
+});
+
+test('The energy barrier turns off when the last Lock Core falls in an avalanche', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(13);
+  const world = engine.physicsWorld;
+  const barriers = world.obstacles.filter((obs) => obs.type === OBSTACLE_TYPES.BARRIER);
+  assert.ok(barriers.length > 0, 'level 13 has a barrier');
+  world.balls.length = 0;
+  world.ballMap.clear();
+  world.addBall(makeBoardBall(OTHER_POSITION, FAR_POSITION, { isAnchor: true }));
+  // A lone Lock Core with no bond to an anchor falls on the next avalanche check.
+  world.addBall(makeBoardBall(FAR_POSITION, FAR_POSITION, { clusterModifier: CLUSTER_MODIFIERS.LASER_LOCK }));
+
+  engine.detachAndRewardAvalanche();
+
+  assert.ok(barriers.every((obs) => obs.disabled), 'no Lock Core is left, so the barrier must be off');
+});
+
+test('A barrier without any Lock Core stays up after an avalanche', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(5);
+  const world = engine.physicsWorld;
+  const barriers = world.obstacles.filter((obs) => obs.type === OBSTACLE_TYPES.BARRIER);
+  world.balls.length = 0;
+  world.ballMap.clear();
+  world.addBall(makeBoardBall(OTHER_POSITION, FAR_POSITION, { isAnchor: true }));
+  world.addBall(makeBoardBall(FAR_POSITION, FAR_POSITION));
+
+  engine.detachAndRewardAvalanche();
+
+  assert.ok(barriers.length > 0 && barriers.every((obs) => !obs.disabled));
+});
+
+test('Launcher colors that left the board are replaced on both balls and in the stash', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  const world = engine.physicsWorld;
+  const [boardColor, clearedColor] = ballsConfig.standardColors.map((c) => c.id);
+  world.balls.length = 0;
+  world.ballMap.clear();
+  world.addBall(makeBoardBall(FAR_POSITION, FAR_POSITION, { isAnchor: true, colorId: boardColor }));
+  engine.currentBall.colorId = clearedColor;
+  engine.nextBall.colorId = clearedColor;
+  engine.stashedRegularColorId = clearedColor;
+
+  engine.refreshStaleLauncherColors();
+
+  assert.equal(engine.currentBall.colorId, boardColor);
+  assert.equal(engine.nextBall.colorId, boardColor);
+  assert.equal(engine.stashedRegularColorId, boardColor);
+});
+
+test('An anvil that crushes nothing breaks the combo and counts toward the next wave', () => {
+  const engine = createTestEngine();
+  engine.startEndlessMode();
+  const world = engine.physicsWorld;
+  world.balls.length = 0;
+  world.ballMap.clear();
+  world.addBall(makeBoardBall(OTHER_POSITION, FAR_POSITION, { isAnchor: true }));
+  engine.combo = 3;
+  engine.shotsUntilWave = engine.gameConfig.endless.shotsBeforeWave;
+  const wavesBefore = engine.shotsUntilWave;
+  const anvil = new Ball({
+    x: FAR_POSITION,
+    y: engine.gameConfig.canvas.launcherY,
+    radius: physicsConfig.ball.radius,
+    colorId: null,
+    specialType: SPECIAL_TYPES.ANVIL,
+    isProjectile: true
+  });
+  anvil.vy = -physicsConfig.ball.anvilSpeed;
+  world.projectile = anvil;
+  engine.anvilCrushCount = 0;
+
+  const maxFrames = 1000;
+  for (let frame = 0; frame < maxFrames && world.projectile; frame++) {
+    engine.update();
+  }
+
+  assert.equal(world.projectile, null, 'the anvil leaves the board');
+  assert.equal(engine.combo, 0);
+  assert.equal(engine.shotsUntilWave, wavesBefore - 1);
+});
+
+test('Coins earned while a shot is in flight are written only once the run is saved again', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  const coinsBefore = engine.storageManager.getCoins();
+  engine.hasFiredInRound = true;
+  engine.physicsWorld.projectile = engine.currentBall;
+
+  engine.awardRunCoins(FAR_POSITION);
+  assert.equal(engine.storageManager.getCoins(), coinsBefore, 'a reload now would replay the shot');
+
+  engine.physicsWorld.projectile = null;
+  engine.saveRunSnapshot();
+  assert.equal(engine.storageManager.getCoins(), coinsBefore + FAR_POSITION);
+  assert.equal(engine.pendingRunCoins, 0);
 });
