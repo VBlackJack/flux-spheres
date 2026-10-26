@@ -31,7 +31,11 @@
         "motionReduced": "💤",
         "motionOnAria": "Effets de mouvement : Complets",
         "motionReducedAria": "Effets de mouvement : Réduits",
-        "language": "FR"
+        "language": "FR",
+        "soundAria": "Son",
+        "contrastAria": "Contraste élevé",
+        "motionAria": "Mouvements réduits",
+        "languageAria": "Langue : FR (français). Changer de langue"
       }
     }
   },
@@ -60,8 +64,7 @@
       },
       "shots": {
         "label": "Tirs restants",
-        "waveLabel": "Vague dans",
-        "infinite": "∞"
+        "waveLabel": "Vague dans"
       },
       "combo": {
         "label": "Combo x{{count}}"
@@ -111,6 +114,23 @@
       "freeze": {
         "name": "Cryo",
         "tooltip": "Gèle la descente et stabilise l'amas magnétique"
+      },
+      "button": {
+        "aria": "{{name}} : {{count}} en stock"
+      }
+    },
+    "canvas": {
+      "aria": {
+        "label": "Plateau de jeu. Visez à la souris, au doigt ou avec les flèches gauche/droite, tirez avec Entrée, échangez avec Espace."
+      }
+    },
+    "announcer": {
+      "achievement": {
+        "unlocked": "Succès débloqué : {{name}}, plus {{coins}} pièces."
+      },
+      "round": {
+        "victory": "Niveau terminé. Score : {{score}}. Étoiles : {{stars}} sur {{maxStars}}.",
+        "gameOver": "Partie terminée. {{reason}} Score : {{score}}."
       }
     }
   },
@@ -175,7 +195,7 @@
     "tutorial": {
       "pendulum": "Visez 3 billes de même couleur ou coupez les ancres supérieures pour déclencher une avalanche !",
       "rotor": "Le rotor central tourne selon le poids des billes et la force d'impact de vos tirs.",
-      "repulsor": "Les cœurs répulsifs et les pôles identiques courbent votre trajectoire : fiez-vous au laser !",
+      "repulsor": "Les coeurs répulsifs et les pôles identiques courbent votre trajectoire : fiez-vous au laser !",
       "portal": "Tirez dans un Portail Quantique pour téléporter votre bille derrière les barrières !",
       "boss": "Les Noyaux Boss (👑) possèdent 3 boucliers et libèrent une pluie de pièces à leur destruction !",
       "laserLock": "Détruisez tous les Verrous (🔒) pour désactiver la barrière énergétique !",
@@ -191,7 +211,8 @@
       "card": {
         "levelNumber": "Niveau {{id}}",
         "locked": "Verrouillé",
-        "bestScore": "Record : {{score}}"
+        "bestScore": "Record : {{score}}",
+        "starsAria": "Étoiles : {{stars}} sur {{maxStars}}"
       },
       "button": {
         "close": "Fermer",
@@ -213,7 +234,9 @@
       "specialAmmo": {
         "title": "Munitions Spéciales (Manche actuelle)",
         "stock": "En stock : {{count}}",
-        "buy": "+1 ({{cost}} ⬡)"
+        "buy": "+1 ({{cost}} ⬡)",
+        "unavailable": "Aucune manche en cours",
+        "unavailableHint": "Lancez un niveau, la Survie ou le Défi du Jour pour acheter des munitions."
       },
       "codex": {
         "modifiersTitle": "Billes Spéciales de l'Amas",
@@ -257,7 +280,7 @@
           },
           "repulsor": {
             "icon": "🟠",
-            "name": "Cœur Répulsif",
+            "name": "Coeur Répulsif",
             "description": "Repousse et courbe la trajectoire des billes qui traversent son champ."
           },
           "attractor": {
@@ -283,7 +306,6 @@
         }
       },
       "achievements": {
-        "title": "Succès & Récompenses",
         "reward": "Récompense : +{{coins}} ⬡",
         "unlockedBadge": "Débloqué ✓",
         "lockedBadge": "En cours",
@@ -416,7 +438,7 @@
       },
       "lvl4": {
         "name": "Anomalie Répulsive",
-        "description": "Un cœur répulsif courbe vos tirs. Le viseur prédit la déviation !"
+        "description": "Un coeur répulsif courbe vos tirs. Le viseur prédit la déviation !"
       },
       "lvl5": {
         "name": "Citadelle Oscillante",
@@ -439,7 +461,7 @@
         "description": "Une croix rotative protégée par des bumpers et des barils explosifs."
       },
       "lvl10": {
-        "name": "Cœur Oméga",
+        "name": "Coeur Oméga",
         "description": "Deux rotors blindés gardés par une barrière oscillante et des noyaux Boss."
       },
       "lvl11": {
@@ -466,11 +488,6 @@
         "name": "Nexus Absolu",
         "description": "Maîtrisez la matrice ultime alliant Noyaux Boss, portails et singularités jumelles."
       }
-    }
-  },
-  "errors": {
-    "config": {
-      "loadFailed": "Erreur lors du chargement des fichiers de configuration."
     }
   }
 }

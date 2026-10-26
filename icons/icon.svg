@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!--
+    Copyright 2026 Julien Bombled
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+  -->
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0" r="1.1">
+      <stop offset="0" stop-color="#131c33" />
+      <stop offset="1" stop-color="#070b14" />
+    </radialGradient>
+    <radialGradient id="sphere" cx="0.38" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#e0f2fe" />
+      <stop offset="0.35" stop-color="#38bdf8" />
+      <stop offset="0.75" stop-color="#2563eb" />
+      <stop offset="1" stop-color="#1e2a6e" />
+    </radialGradient>
+    <clipPath id="ring-front">
+      <rect x="0" y="256" width="512" height="256" transform="rotate(-22 256 256)" />
+    </clipPath>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)" />
+  <g fill="none" stroke="#c084fc" stroke-width="20">
+    <ellipse cx="256" cy="256" rx="226" ry="70" transform="rotate(-22 256 256)" />
+  </g>
+  <circle cx="256" cy="256" r="160" fill="url(#sphere)" />
+  <g fill="none" stroke="#c084fc" stroke-width="20" clip-path="url(#ring-front)">
+    <ellipse cx="256" cy="256" rx="226" ry="70" transform="rotate(-22 256 256)" />
+  </g>
+</svg>
