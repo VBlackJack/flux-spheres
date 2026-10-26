@@ -45,6 +45,17 @@ test('Service worker precaches every runtime asset and nothing missing', () => {
   assert.deepEqual(precached.filter((file) => !existsSync(join(REPO_ROOT, file))), []);
 });
 
+test('Service worker and data loaders revalidate instead of trusting the HTTP cache', () => {
+  const sw = readFileSync(join(REPO_ROOT, 'sw.js'), 'utf8');
+  assert.match(sw, /NETWORK_FETCH_OPTIONS = Object\.freeze\(\{ cache: 'no-cache' \}\)/);
+  assert.match(sw, /fetch\(request, NETWORK_FETCH_OPTIONS\)/);
+  assert.match(sw, /new Request\(url, PRECACHE_FETCH_OPTIONS\)/);
+  for (const file of ['src/core/ConfigRegistry.js', 'src/core/I18n.js']) {
+    const source = readFileSync(join(REPO_ROOT, file), 'utf8');
+    assert.match(source, /fetch\(path, DATA_FETCH_OPTIONS\)/, file);
+  }
+});
+
 test('Service worker cache version matches package.json version', () => {
   const pkg = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
   const source = readFileSync(join(REPO_ROOT, 'sw.js'), 'utf8');

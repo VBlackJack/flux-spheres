@@ -23,6 +23,11 @@ const NETWORK_TIMEOUT_MS = 4000;
 const NAVIGATION_FALLBACK_URL = './index.html';
 const CACHE_MATCH_OPTIONS = Object.freeze({ ignoreSearch: true });
 const HTTP_STATUS_OK = 200;
+// The host lets browsers reuse files for minutes without asking (GitHub Pages sends
+// max-age=600). Right after a deploy that mixes a new page with old scripts, styles and
+// texts, so every network request revalidates, and the install skips the HTTP cache.
+const NETWORK_FETCH_OPTIONS = Object.freeze({ cache: 'no-cache' });
+const PRECACHE_FETCH_OPTIONS = Object.freeze({ cache: 'reload' });
 
 const PRECACHE_ASSETS = [
   './',
@@ -66,7 +71,9 @@ const PRECACHE_ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS))
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE_ASSETS.map((url) => new Request(url, PRECACHE_FETCH_OPTIONS))))
   );
   self.skipWaiting();
 });
@@ -130,7 +137,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) {
     return;
   }
-  const networkFetch = fetch(request);
+  const networkFetch = fetch(request, NETWORK_FETCH_OPTIONS);
   // Clone synchronously, before the page can start reading the body, and keep
   // the worker alive until the cache write has finished.
   const cacheUpdate = networkFetch

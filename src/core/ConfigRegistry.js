@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { CONFIG_PATHS } from './Constants.js';
+import { CONFIG_PATHS, DATA_FETCH_OPTIONS } from './Constants.js';
 
 class ConfigRegistry {
   constructor() {
@@ -26,7 +26,7 @@ class ConfigRegistry {
     const entries = Object.entries(CONFIG_PATHS);
     const results = await Promise.all(
       entries.map(async ([key, path]) => {
-        const response = await fetch(path);
+        const response = await fetch(path, DATA_FETCH_OPTIONS);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${path}`);
         }

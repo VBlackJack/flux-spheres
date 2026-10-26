@@ -24,6 +24,12 @@ export const CONFIG_PATHS = Object.freeze({
   FLUX: './configs/flux.json'
 });
 
+/**
+ * Configs and texts are always revalidated with the server (a cheap 304 when unchanged),
+ * so a page from a new deploy never runs with the previous deploy's data.
+ */
+export const DATA_FETCH_OPTIONS = Object.freeze({ cache: 'no-cache' });
+
 export const LOCALE_PATHS = Object.freeze({
   fr: './locales/fr.json',
   en: './locales/en.json'
