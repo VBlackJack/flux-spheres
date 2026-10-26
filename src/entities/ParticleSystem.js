@@ -36,11 +36,12 @@ export class ParticleSystem {
   setReducedMotion(enabled) {
     this.reducedMotion = Boolean(enabled);
     if (this.reducedMotion) {
-      this.shakeIntensity = 0;
+      this.clearDecorativeEffects();
     }
   }
 
-  clear() {
+  /** Drops every effect except the floating texts, which carry information. */
+  clearDecorativeEffects() {
     while (this.particles.length > 0) {
       this.particlePool.push(this.particles.pop());
     }
@@ -50,11 +51,15 @@ export class ParticleSystem {
     while (this.shockwaves.length > 0) {
       this.shockwavePool.push(this.shockwaves.pop());
     }
+    this.lightningBolts.length = 0;
+    this.shakeIntensity = 0;
+  }
+
+  clear() {
+    this.clearDecorativeEffects();
     while (this.floatingTexts.length > 0) {
       this.textPool.push(this.floatingTexts.pop());
     }
-    this.lightningBolts.length = 0;
-    this.shakeIntensity = 0;
   }
 
   removeAt(list, index, pool = null) {
@@ -76,7 +81,13 @@ export class ParticleSystem {
     this.shakeIntensity = Math.min(maxOffset, this.shakeIntensity + amount);
   }
 
+  // Reduced motion keeps floating texts, which carry information, and drops the purely
+  // decorative effects: trails, bursts, shockwaves, lightning flashes and screen shake.
+
   spawnTrail(x, y, radius, color) {
+    if (this.reducedMotion) {
+      return;
+    }
     const cfg = this.cfg;
     const item = this.trailPool.pop() || {};
     item.x = x + (Math.random() - MATH_CONSTANTS.HALF) * cfg.trailSpread;
@@ -88,6 +99,9 @@ export class ParticleSystem {
   }
 
   spawnBurst(x, y, color, count = this.cfg.burstDefaultCount, speed = this.cfg.burstDefaultSpeed) {
+    if (this.reducedMotion) {
+      return;
+    }
     const cfg = this.cfg;
     for (let i = 0; i < count; i++) {
       const angle = (MATH_CONSTANTS.TWO_PI * i) / count + (Math.random() - MATH_CONSTANTS.HALF) * cfg.burstAngleJitter;
@@ -108,6 +122,9 @@ export class ParticleSystem {
   }
 
   spawnShockwave(x, y, color, maxRadius = this.cfg.shockwaveDefaultMaxRadius) {
+    if (this.reducedMotion) {
+      return;
+    }
     const cfg = this.cfg;
     const item = this.shockwavePool.pop() || {};
     item.x = x;
@@ -120,6 +137,9 @@ export class ParticleSystem {
   }
 
   spawnLightning(y, leftX, rightX, color) {
+    if (this.reducedMotion) {
+      return;
+    }
     const cfg = this.cfg;
     const segments = [];
     const branches = [];

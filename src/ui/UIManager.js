@@ -96,6 +96,14 @@ export function shouldIgnoreRepeatedKey(code, isRepeat) {
   return REPEAT_SENSITIVE_KEY_CODES.has(code) || SPECIAL_BALL_KEY_PATTERN.test(code);
 }
 
+/**
+ * True for Ctrl, Cmd and Alt chords, which belong to the browser (find, tab switching,
+ * history). Shift is not one of them: it selects the fast aim step.
+ */
+export function isBrowserShortcut(event) {
+  return Boolean(event.ctrlKey || event.metaKey || event.altKey);
+}
+
 /** Writes text only when it differs, so live regions are not re-announced needlessly. */
 function setTextIfChanged(element, text) {
   if (element && element.textContent !== text) {
@@ -829,6 +837,10 @@ export class UIManager {
       }
 
       if (this.isAnyModalOpen()) {
+        return;
+      }
+
+      if (isBrowserShortcut(e)) {
         return;
       }
 

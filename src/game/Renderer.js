@@ -26,6 +26,8 @@ const BOND_STYLE_COUNT = 4;
 const SEGMENT_STRIDE = 4;
 /** Cubic ease-out of the Flux shape entrance: fast at first, soft landing. */
 const INTRO_EASE_POWER = 3;
+/** Fixed render clock under reduced motion: pulses and field waves hold their resting frame. */
+const REDUCED_MOTION_CLOCK_MS = 0;
 
 /**
  * Canvas 2D renderer supporting high-DPI scaling, state interpolation,
@@ -268,7 +270,9 @@ export class Renderer {
     const width = this.logicalWidth;
     const height = this.logicalHeight;
     const theme = this.gameConfig.theme;
-    const now = performance.now();
+    // Every pulse, glow and field wave is a function of this clock: holding it still under
+    // reduced motion freezes them all, while the physics keeps moving the board.
+    const now = engineState.isReducedMotion ? REDUCED_MOTION_CLOCK_MS : performance.now();
 
     ctx.setTransform(this.scaleX, 0, 0, this.scaleY, 0, 0);
     ctx.save();
