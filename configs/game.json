@@ -71,6 +71,9 @@
     "overchargePerMatchedBall": 8,
     "overchargePerDroppedBall": 5
   },
+  "victory": {
+    "celebrationFrames": 120
+  },
   "upgrades": {
     "laserSight": {
       "maxLevel": 4,
@@ -348,6 +351,7 @@
     "portalPopupColor": "#67e8f9",
     "singularityPopupColor": "#c084fc",
     "lockPopupColor": "#38bdf8",
+    "victoryPopupColor": "#4ade80",
     "floatingTextShadowColor": "#090d16",
     "starFilledSymbol": "★",
     "starEmptySymbol": "☆"

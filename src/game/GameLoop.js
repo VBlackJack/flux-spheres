@@ -31,8 +31,8 @@ export function willSimulationAdvance(engine) {
  *
  * Interpolation alpha is forced to 1 whenever the last update did not advance the
  * simulation (hit-stop, pause, menus), because previous positions are only saved by a
- * real physics step. While the engine is not playing, the scene is static and is
- * redrawn at the configured idle interval instead of every frame. Any exception
+ * real physics step. While the engine is neither playing nor celebrating a victory, the
+ * scene is static and is redrawn at the configured idle interval instead of every frame. Any exception
  * thrown by update or render stops the loop for good and is reported once.
  *
  * @param {object} options
@@ -76,7 +76,7 @@ export function createGameLoop({
       }
 
       const alpha = lastUpdateAdvanced && fixedStepMs > 0 ? accumulator / fixedStepMs : 1.0;
-      const isLive = engine.state === GAME_STATES.PLAYING;
+      const isLive = engine.state === GAME_STATES.PLAYING || engine.isVictoryCelebrating();
       if (isLive || lastRenderTime === null || now - lastRenderTime >= idleRenderIntervalMs) {
         renderer.render(engine, alpha);
         lastRenderTime = now;

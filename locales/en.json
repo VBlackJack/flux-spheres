@@ -206,6 +206,9 @@
         "incoming": "New magnetic wave incoming!",
         "goldRush": "GOLD RUSH WAVE! Bonus Coin Cores!",
         "bossWave": "ANOMALY ALERT: Boss Core detected!"
+      },
+      "victory": {
+        "cleared": "BOARD CLEARED!"
       }
     },
     "mutators": {

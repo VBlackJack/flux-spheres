@@ -206,6 +206,9 @@
         "incoming": "Nouvelle rangée magnétique !",
         "goldRush": "VAGUE DORÉE ! Gemmes bonus !",
         "bossWave": "ALERTE ANOMALIE : Noyau Boss détecté !"
+      },
+      "victory": {
+        "cleared": "PLATEAU NETTOYÉ !"
       }
     },
     "mutators": {

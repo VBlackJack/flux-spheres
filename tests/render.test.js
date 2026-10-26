@@ -164,7 +164,12 @@ test('Game loop stops after a render throws', () => {
 
 test('Render alpha is 1 when no simulation step advanced, interpolated otherwise', () => {
   const alphas = [];
-  const engine = { state: GAME_STATES.PLAYING, hitStopFrames: 0, update: () => {} };
+  const engine = {
+    state: GAME_STATES.PLAYING,
+    hitStopFrames: 0,
+    update: () => {},
+    isVictoryCelebrating: () => false
+  };
   const renderer = { render: (_eng, alpha) => alphas.push(alpha) };
   const { loop } = createLoopHarness(engine, renderer);
 
@@ -189,7 +194,12 @@ test('Render alpha is 1 when no simulation step advanced, interpolated otherwise
 
 test('Game loop throttles rendering while the engine is not playing', () => {
   let renders = 0;
-  const engine = { state: GAME_STATES.PAUSED, hitStopFrames: 0, update: () => {} };
+  const engine = {
+    state: GAME_STATES.PAUSED,
+    hitStopFrames: 0,
+    update: () => {},
+    isVictoryCelebrating: () => false
+  };
   const loop = createGameLoop({
     engine,
     renderer: { render: () => renders++ },
@@ -208,6 +218,33 @@ test('Game loop throttles rendering while the engine is not playing', () => {
   engine.state = GAME_STATES.PLAYING;
   loop.frame(gameConfig.canvas.idleRenderIntervalMs + 1);
   assert.equal(renders, 3);
+});
+
+test('Game loop renders every frame while a victory is being celebrated', () => {
+  let renders = 0;
+  let celebrating = true;
+  const engine = {
+    state: GAME_STATES.VICTORY,
+    hitStopFrames: 0,
+    update: () => {},
+    isVictoryCelebrating: () => celebrating
+  };
+  const loop = createGameLoop({
+    engine,
+    renderer: { render: () => renders++ },
+    fixedStepMs: FIXED_STEP_MS,
+    maxAccumulatedMs: MAX_ACCUMULATED_MS,
+    idleRenderIntervalMs: gameConfig.canvas.idleRenderIntervalMs,
+    scheduleFrame: () => {},
+    onFatalError: () => {}
+  });
+  loop.frame(0);
+  loop.frame(1);
+  loop.frame(2);
+  assert.equal(renders, 3);
+  celebrating = false;
+  loop.frame(3);
+  assert.equal(renders, 3, 'once the celebration ends the static scene is throttled again');
 });
 
 /** Minimal Web Audio stub counting oscillators and recording the output chain. */
