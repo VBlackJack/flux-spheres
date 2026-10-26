@@ -14,6 +14,16 @@ All notable changes to **FluxSpheres** are documented in this file.
 - **Input-Aware Hints**: Keyboard shortcuts are shown only to mouse and keyboard players; touch players get tap and drag wording, including how to cancel a shot.
 
 ### Fixed
+- **Energy Barrier**: The barrier now turns off when the last Lock Core falls in an avalanche, not only when it is destroyed; before, it could stay up for the rest of the level and leave the spheres behind it out of reach.
+- **Coins Paid Twice**: Reloading the page while a shot was in flight replayed the shot and paid its coins again. Coins earned during a shot or a Flux shape change are now written once the run is saved.
+- **Two Tabs**: With the game open in two tabs, one tab no longer writes stale coins, upgrades or achievements over the progress made in the other.
+- **Cleared Colors**: Swapping or putting a special ball back can no longer bring back a color that left the board.
+- **Missed Anvil**: An anvil that crushes nothing is a miss: it breaks the combo and counts toward the next Endless or Daily wave.
+- **Browser Shortcuts**: Ctrl, Cmd and Alt shortcuts are left to the browser; Ctrl+F no longer flips polarity and Ctrl+1 to 5 no longer equip a special ball.
+- **Reduced Motion on the Board**: Field waves, glows and pulses hold still, and trails, bursts, shockwaves and lightning flashes are not drawn. Floating score texts stay.
+- **Flux Transition Flicker**: Spheres falling between two Flux shapes no longer flicker.
+- **Rotor Boards**: The aim preview is traced once per frame instead of up to six times.
+- **License Text**: Restored the NOTICE wording in the Apache license.
 - **Mixed Versions After a Deploy**: For up to ten minutes after an update, the page could run with the previous version's texts, styles and scripts (raw keys such as `app.nav.button.flux` on buttons, old layout). The Service Worker and the config and text loaders now revalidate every file with the server instead of trusting the browser cache.
 - **Anvil Crash**: An anvil that crushed a dormant bomb (or any sphere whose destruction removes others) stopped the game with a loading error; it now keeps crushing the spheres that are still there.
 - **Round End Idempotence**: A victory can no longer be paid twice in one frame, a lost level can no longer turn into a victory, and the score is frozen once a run ends.
