@@ -31,7 +31,7 @@
   - Option **réduction des animations** (respecte `prefers-reduced-motion`) et pause automatique au changement d'onglet.
   - Prise en charge des lecteurs d'écran : boutons bascules étiquetés avec `aria-pressed`, sphères spéciales et étoiles des niveaux nommées, annonces discrètes des succès et des fins de manche.
   - Contrôles complets à la souris, au tactile (décalage vertical du doigt et annulation du tir en glissant vers le bas) et au clavier ; une touche d'action maintenue ne se répète pas.
-  - Mise en page sans défilement sur ordinateur, téléphone et téléphone en paysage, avec des zones tactiles de 44 px. Sur téléphone, Recommencer, Son, Contraste, Animations et Langue se trouvent dans le menu **Pause**. Sur un écran d'ordinateur en paysage, le plateau occupe toute la hauteur de la fenêtre.
+  - Mise en page sans défilement sur ordinateur, téléphone et téléphone en paysage, avec des zones tactiles de 44 px. Sur téléphone en portrait, le plateau occupe toute la largeur ; navigation, réglages et statistiques se trouvent dans le menu coulissant (☰), qui met la partie en pause. Sur un écran d'ordinateur en paysage, le plateau occupe toute la hauteur de la fenêtre.
   - La partie en cours survit à un rechargement ou à un onglet fermé par le système, et reprend en pause.
 - **Installable et hors ligne** :
   - Application web progressive installable, avec icônes standard et adaptatives (maskable).

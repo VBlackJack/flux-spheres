@@ -5,6 +5,7 @@ All notable changes to **FluxSpheres** are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Full-Width Board on Phones**: In portrait, the board spans the screen width under a one-line HUD (menu, score, shots), with a single control row for Swap, Polarity and the five special balls. Navigation, settings, coins, record and overcharge move to a slide-in menu that pauses the run while open. On a 412 px wide phone the board grows from about 300 to 412 px wide.
 - **Run Resume**: The run in progress is saved after every shot and when the page is hidden, and resumes paused after a reload or a discarded tab; finishing or starting a run clears it.
 - **Input-Aware Hints**: Keyboard shortcuts are shown only to mouse and keyboard players; touch players get tap and drag wording, including how to cancel a shot.
 
