@@ -1,0 +1,305 @@
+{
+  "seed": {
+    "radix": 36,
+    "length": 6
+  },
+  "shots": {
+    "starting": 30,
+    "refillBase": 16,
+    "refillDecayPerStage": 0.5,
+    "refillMin": 8
+  },
+  "rewards": {
+    "stageClearPointsBase": 600,
+    "stageClearPointsPerStage": 150,
+    "stageClearCoins": 4,
+    "bossClearSpecials": 1
+  },
+  "initialSpecialCounts": {
+    "bomb": 1,
+    "lightning": 1,
+    "rainbow": 1,
+    "anvil": 0,
+    "freeze": 1
+  },
+  "bossStageInterval": 5,
+  "difficultyRampStages": 12,
+  "paramJitter": 0.25,
+  "transition": {
+    "clearFrames": 75,
+    "introFrames": 42,
+    "introDropDistance": 240
+  },
+  "palette": [
+    { "fromStage": 1, "count": 4 },
+    { "fromStage": 4, "count": 5 },
+    { "fromStage": 9, "count": 6 }
+  ],
+  "modifiers": [
+    { "fromStage": 1, "weights": { "coinCore": 0.08 } },
+    { "fromStage": 3, "weights": { "coinCore": 0.06, "armored": 0.06 } },
+    { "fromStage": 6, "weights": { "coinCore": 0.05, "armored": 0.07, "chameleon": 0.05, "dormantBomb": 0.05 } }
+  ],
+  "rotor": {
+    "baseAngularSpeed": 0.004,
+    "angularSpeedPerStage": 0.0004,
+    "maxAngularSpeed": 0.011
+  },
+  "budget": {
+    "base": 0,
+    "perStage": 1,
+    "max": 8
+  },
+  "obstacleClearance": 10,
+  "obstacles": [
+    {
+      "id": "bumperPair",
+      "cost": 1,
+      "minStage": 2,
+      "placements": [
+        { "type": "bumper", "x": 95, "y": 410 },
+        { "type": "bumper", "x": 445, "y": 410 }
+      ]
+    },
+    {
+      "id": "repulsor",
+      "cost": 2,
+      "minStage": 3,
+      "placements": [{ "type": "repulsor", "x": 270, "y": 445 }]
+    },
+    {
+      "id": "attractor",
+      "cost": 2,
+      "minStage": 4,
+      "placements": [{ "type": "attractor", "x": 270, "y": 435 }]
+    },
+    {
+      "id": "portalPairLeft",
+      "cost": 3,
+      "minStage": 5,
+      "placements": [
+        { "type": "portal", "x": 92, "y": 480, "pairId": "fluxLeft" },
+        { "type": "portal", "x": 448, "y": 140, "pairId": "fluxLeft" }
+      ]
+    },
+    {
+      "id": "portalPairRight",
+      "cost": 3,
+      "minStage": 5,
+      "placements": [
+        { "type": "portal", "x": 448, "y": 480, "pairId": "fluxRight" },
+        { "type": "portal", "x": 92, "y": 140, "pairId": "fluxRight" }
+      ]
+    },
+    {
+      "id": "singularityPair",
+      "cost": 3,
+      "minStage": 6,
+      "placements": [
+        { "type": "singularity", "x": 135, "y": 525 },
+        { "type": "singularity", "x": 405, "y": 525 }
+      ]
+    }
+  ],
+  "familyWeights": {
+    "parametric": 0.45,
+    "mask": 0.35,
+    "composite": 0.2
+  },
+  "layout": {
+    "centerX": 270,
+    "spacing": 40,
+    "maskTopY": 84
+  },
+  "parametric": {
+    "pendulum": {
+      "minStage": 1,
+      "anchorY": 80,
+      "startY": 116,
+      "spacingY": 36,
+      "rows": [4, 6],
+      "cols": [7, 9],
+      "anchorCount": [2, 3]
+    },
+    "ring": {
+      "minStage": 1,
+      "centerY": 240,
+      "ringCount": [2, 3],
+      "rings": [
+        { "radius": 44, "count": 6 },
+        { "radius": 84, "count": 12 },
+        { "radius": 124, "count": 16 }
+      ]
+    },
+    "hexagon": {
+      "minStage": 2,
+      "centerY": 235,
+      "layers": [2, 3]
+    },
+    "spiral": {
+      "minStage": 3,
+      "centerY": 240,
+      "arms": [3, 5],
+      "ballsPerArm": [6, 8],
+      "startRadius": 44,
+      "radiusStep": 18,
+      "angleStep": [0.32, 0.38],
+      "anchorStepInterval": 2
+    },
+    "cross": {
+      "minStage": 3,
+      "centerY": 235,
+      "armLength": [3, 4],
+      "perpSpacingFactor": 0.85
+    },
+    "dualRing": {
+      "minStage": 4,
+      "centerY": 215,
+      "centersX": [160, 380],
+      "ringCount": [1, 2],
+      "rings": [
+        { "radius": 42, "count": 6 },
+        { "radius": 82, "count": 12 }
+      ]
+    }
+  },
+  "masks": [
+    {
+      "id": "heart",
+      "minStage": 1,
+      "rows": [
+        ".AoA.AoA.",
+        "oooooooo",
+        "ooooooooo",
+        ".oooooo.",
+        "..ooooo..",
+        "..oooo..",
+        "...ooo...",
+        "...oo...",
+        "....o...."
+      ]
+    },
+    {
+      "id": "diamond",
+      "minStage": 1,
+      "rows": [
+        "...AoA...",
+        "..oooo..",
+        "..ooooo..",
+        ".oooooo.",
+        "ooooooooo",
+        ".oooooo.",
+        "..ooooo..",
+        "..oooo..",
+        "...ooo..."
+      ]
+    },
+    {
+      "id": "crown",
+      "minStage": 1,
+      "rows": [
+        "A...A...A",
+        "o..oo..o",
+        "oo.ooo.oo",
+        "oooooooo",
+        "ooooooooo",
+        "oooooooo"
+      ]
+    },
+    {
+      "id": "arrow",
+      "minStage": 2,
+      "rows": [
+        "...AoA...",
+        "...oo...",
+        "...ooo...",
+        "...oo...",
+        "ooooooooo",
+        ".oooooo.",
+        "..ooooo..",
+        "...oo...",
+        "....o...."
+      ]
+    },
+    {
+      "id": "donut",
+      "minStage": 2,
+      "rows": [
+        "..AoooA..",
+        ".oooooo.",
+        ".oo...oo.",
+        "oo....oo",
+        ".oo...oo.",
+        ".oooooo.",
+        "..ooooo.."
+      ]
+    },
+    {
+      "id": "invader",
+      "minStage": 3,
+      "rows": [
+        "..A...A..",
+        "..o..o..",
+        "..ooooo..",
+        ".o.oo.o.",
+        "ooooooooo",
+        "o.oooo.o",
+        "o.o...o.o"
+      ]
+    },
+    {
+      "id": "hourglass",
+      "minStage": 4,
+      "rows": [
+        "AoooooooA",
+        ".oooooo.",
+        "..ooooo..",
+        "...oo...",
+        "...ooo...",
+        "..oooo..",
+        ".ooooooo.",
+        "oooooooo"
+      ]
+    }
+  ],
+  "composite": {
+    "minStage": 3,
+    "centersX": [150, 390],
+    "maskTopY": 96,
+    "ringCenterY": 210,
+    "parts": [
+      {
+        "id": "miniHeart",
+        "type": "mask",
+        "rows": [
+          ".A.A.",
+          "oooo",
+          "ooooo",
+          ".oo.",
+          "..o.."
+        ]
+      },
+      {
+        "id": "miniDiamond",
+        "type": "mask",
+        "rows": [
+          "..A..",
+          ".oo.",
+          ".ooo.",
+          "oooo",
+          ".ooo.",
+          ".oo.",
+          "..o.."
+        ]
+      },
+      {
+        "id": "miniRing",
+        "type": "ring",
+        "rings": [
+          { "radius": 42, "count": 6 },
+          { "radius": 80, "count": 11 }
+        ]
+      }
+    ]
+  }
+}

@@ -24,6 +24,8 @@ const BOND_STYLE = Object.freeze({
 });
 const BOND_STYLE_COUNT = 4;
 const SEGMENT_STRIDE = 4;
+/** Cubic ease-out of the Flux shape entrance: fast at first, soft landing. */
+const INTRO_EASE_POWER = 3;
 
 /**
  * Canvas 2D renderer supporting high-DPI scaling, state interpolation,
@@ -242,6 +244,21 @@ export class Renderer {
     return prev !== undefined ? prev + (curr - prev) * alpha : curr;
   }
 
+  /**
+   * Vertical distance, in logical pixels, still left for an incoming Flux shape to travel.
+   * Eases out so the shape lands softly; 0 once it is in place or outside Flux.
+   */
+  getStageIntroOffset(engineState) {
+    if (typeof engineState.getStageIntroProgress !== 'function' || !engineState.fluxConfig) {
+      return 0;
+    }
+    const remaining = 1 - engineState.getStageIntroProgress();
+    if (remaining <= 0) {
+      return 0;
+    }
+    return engineState.fluxConfig.transition.introDropDistance * remaining ** INTRO_EASE_POWER;
+  }
+
   render(engineState, alpha = 1.0) {
     this.updateCanvasResolution();
     if (this.staticLayerDirty) {
@@ -265,11 +282,21 @@ export class Renderer {
     ctx.drawImage(this.staticLayer, 0, 0, width, height);
 
     this.drawDangerZone(ctx, width, height, theme, engineState.physicsWorld.balls, now, alpha);
+
+    // A new Flux shape slides down into place; only the drawing moves, not the physics.
+    const introOffset = this.getStageIntroOffset(engineState);
+    if (introOffset > 0) {
+      ctx.save();
+      ctx.translate(0, -introOffset);
+    }
     this.drawObstacles(ctx, engineState.physicsWorld.obstacles, now, alpha);
     this.drawMagneticBonds(ctx, engineState.physicsWorld, theme, now, alpha);
 
     for (const ball of engineState.physicsWorld.balls) {
       this.drawBall(ctx, ball, now, alpha);
+    }
+    if (introOffset > 0) {
+      ctx.restore();
     }
 
     for (const ball of engineState.physicsWorld.droppingBalls) {

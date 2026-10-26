@@ -20,7 +20,6 @@ import {
   OBSTACLE_TYPES,
   SPECIAL_TYPES,
   CLUSTER_MODIFIERS,
-  LAYOUT_TYPES,
   DAILY_MUTATORS,
   MATH_CONSTANTS
 } from '../core/Constants.js';
@@ -32,14 +31,27 @@ import { ParticleSystem } from '../entities/ParticleSystem.js';
 import { PhysicsWorld } from '../physics/PhysicsWorld.js';
 import { SpecialBallController } from './SpecialBallController.js';
 import { captureRunSnapshot, isValidRunSnapshot, applyRunSnapshot } from './RunSnapshot.js';
+import { generateLayout, NO_PIVOT_SLOT } from './layouts/LayoutGenerators.js';
+import { generateFluxStage } from './layouts/FluxStageGenerator.js';
 
 export class GameEngine {
-  constructor({ gameConfig, physicsConfig, ballsConfig, obstaclesConfig, levelsConfig, audioManager, storageManager, onStateChange }) {
+  constructor({
+    gameConfig,
+    physicsConfig,
+    ballsConfig,
+    obstaclesConfig,
+    levelsConfig,
+    fluxConfig = null,
+    audioManager,
+    storageManager,
+    onStateChange
+  }) {
     this.gameConfig = gameConfig;
     this.physicsConfig = physicsConfig;
     this.ballsConfig = ballsConfig;
     this.obstaclesConfig = obstaclesConfig;
     this.levelsConfig = levelsConfig;
+    this.fluxConfig = fluxConfig;
     this.audioManager = audioManager;
     this.storageManager = storageManager;
     this.onStateChange = onStateChange;
@@ -48,8 +60,9 @@ export class GameEngine {
     // Daily runs draw avalanche drift from the seeded stream so scores stay reproducible
     this.physicsWorld.setRandomSource(() => this.random());
     this.particleSystem = new ParticleSystem(gameConfig.juice);
+    this.isReducedMotion = false;
     if (this.storageManager && typeof this.storageManager.getReducedMotion === 'function') {
-      this.particleSystem.setReducedMotion(this.storageManager.getReducedMotion());
+      this.setReducedMotion(this.storageManager.getReducedMotion());
     }
     this.specialController = new SpecialBallController(ballsConfig, gameConfig);
 
@@ -80,6 +93,14 @@ export class GameEngine {
     this.activeMutatorKey = null;
     this.dailySeedKey = null;
     this.seededRng = null;
+    this.fluxSeed = null;
+    this.fluxStage = 0;
+    this.fluxFamily = null;
+    this.fluxPreviousFamily = null;
+    this.fluxShapeIds = [];
+    this.fluxIsBossStage = false;
+    this.stageTransitionFrames = 0;
+    this.stageIntroFrames = 0;
 
     this.activePalette = [];
     this.specialInventory = {};
@@ -96,6 +117,52 @@ export class GameEngine {
 
   isSurvivalMode() {
     return this.mode === GAME_MODES.ENDLESS || this.mode === GAME_MODES.DAILY;
+  }
+
+  /** True for modes where every shot spends a limited reserve (Campaign and Flux). */
+  usesShotBudget() {
+    return this.mode === GAME_MODES.CAMPAIGN || this.mode === GAME_MODES.FLUX;
+  }
+
+  /**
+   * True while a cleared Flux shape gives way to the next one: the outgoing balls fall,
+   * then the new shape slides in. Shooting waits until the new shape is in place.
+   */
+  isStageChanging() {
+    return this.stageTransitionFrames > 0 || this.stageIntroFrames > 0;
+  }
+
+  /**
+   * Progress of the incoming Flux shape's entrance, from 0 (just spawned) to 1 (in place).
+   */
+  getStageIntroProgress() {
+    const introFrames = this.fluxConfig?.transition.introFrames || 0;
+    if (this.stageIntroFrames <= 0 || introFrames <= 0) {
+      return 1;
+    }
+    return 1 - this.stageIntroFrames / introFrames;
+  }
+
+  /**
+   * Simulation speed factor read by the game loop. Time slows down while a shot flies
+   * close to one of the last few spheres of a shot-limited board, so the deciding hit
+   * can be watched; reduced motion keeps normal speed.
+   * @returns {number} 1 for normal speed, below 1 for slow motion.
+   */
+  getTimeScale() {
+    const slowMotion = this.gameConfig.juice.slowMotion;
+    const projectile = this.physicsWorld.projectile;
+    if (this.isReducedMotion || !projectile || !this.usesShotBudget() || this.state !== GAME_STATES.PLAYING) {
+      return 1;
+    }
+    const balls = this.physicsWorld.balls;
+    if (balls.length === 0 || balls.length > slowMotion.maxRemainingBalls) {
+      return 1;
+    }
+    const isNearTarget = balls.some(
+      (b) => Math.hypot(b.x - projectile.x, b.y - projectile.y) <= slowMotion.triggerDistance
+    );
+    return isNearTarget ? slowMotion.timeScale : 1;
   }
 
   /**
@@ -123,6 +190,8 @@ export class GameEngine {
       this.storageManager.setEndlessHighScore(this.score);
     } else if (this.mode === GAME_MODES.DAILY) {
       this.storageManager.setDailyHighScore(this.score, this.dailySeedKey);
+    } else if (this.mode === GAME_MODES.FLUX) {
+      this.storageManager.setFluxRecord(this.score, this.fluxStage);
     }
   }
 
@@ -198,6 +267,14 @@ export class GameEngine {
     this.dailySeedKey = null;
     this.seededRng = null;
     this.stashedRegularColorId = null;
+    this.fluxSeed = null;
+    this.fluxStage = 0;
+    this.fluxFamily = null;
+    this.fluxPreviousFamily = null;
+    this.fluxShapeIds = [];
+    this.fluxIsBossStage = false;
+    this.stageTransitionFrames = 0;
+    this.stageIntroFrames = 0;
   }
 
   checkAndUnlockAchievement(achievementId) {
@@ -384,6 +461,155 @@ export class GameEngine {
     this.notifyUI();
   }
 
+  /**
+   * Starts a Flux run: an endless chain of generated shapes sharing one shot reserve.
+   * @param {string|null} seed - Run seed; a fresh random seed when omitted.
+   */
+  startFluxRun(seed = null) {
+    this.initFluxRun(seed || this.createFluxSeed());
+    this.buildFluxStage({ persist: false });
+    this.currentBall = this.createRandomLauncherBall();
+    this.nextBall = this.createRandomLauncherBall();
+    this.state = GAME_STATES.PLAYING;
+    const canvasCfg = this.gameConfig.canvas;
+    this.updateAim(canvasCfg.launcherX, canvasCfg.launcherY + canvasCfg.initialAimOffsetY);
+    this.notifyUI();
+  }
+
+  /**
+   * Rebuilds a saved Flux run at its stage: same seed, same shape, same obstacles. The
+   * caller (applyRunSnapshot) then puts the saved balls and counters back.
+   */
+  restoreFluxRun(seed, stage, previousFamily) {
+    this.initFluxRun(seed);
+    this.fluxStage = stage;
+    this.fluxPreviousFamily = previousFamily;
+    this.buildFluxStage({ persist: false });
+    this.currentBall = this.createRandomLauncherBall();
+    this.nextBall = this.createRandomLauncherBall();
+    this.state = GAME_STATES.PLAYING;
+  }
+
+  createFluxSeed() {
+    const { radix, length } = this.fluxConfig.seed;
+    return Math.floor(Math.random() * radix ** length)
+      .toString(radix)
+      .padStart(length, '0');
+  }
+
+  initFluxRun(seed) {
+    this.resetRunState(GAME_MODES.FLUX);
+    this.fluxSeed = seed;
+    this.seededRng = new SeededRandom(seed);
+    this.fluxStage = 1;
+    this.fluxPreviousFamily = null;
+    this.shotsRemaining = this.fluxConfig.shots.starting + this.getStartingShotsBonus();
+    this.specialInventory = { ...this.fluxConfig.initialSpecialCounts };
+    this.audioManager.stopAll();
+    this.particleSystem.clear();
+  }
+
+  /**
+   * Replaces the board with the generated shape of the current Flux stage.
+   * @param {{persist: boolean}} options - persist stores the run right away, so a reload
+   *   resumes on the new shape; restoring a saved run passes false to keep that save.
+   */
+  buildFluxStage({ persist }) {
+    const stageDef = generateFluxStage({
+      seed: this.fluxSeed,
+      stage: this.fluxStage,
+      previousFamily: this.fluxPreviousFamily,
+      fluxConfig: this.fluxConfig,
+      obstaclesConfig: this.obstaclesConfig,
+      ballRadius: this.physicsConfig.ball.radius
+    });
+
+    this.physicsWorld.clear();
+    this.activePalette = this.ballsConfig.standardColors
+      .slice(0, stageDef.paletteCount)
+      .map((c) => c.id);
+    for (const obsDef of stageDef.obstacles) {
+      this.physicsWorld.obstacles.push(new Obstacle(obsDef, this.obstaclesConfig));
+    }
+    const balls = this.materializeLayout(stageDef.spec, stageDef.modifierWeights);
+    if (stageDef.bossBallIndex !== null) {
+      const bossBall = balls[stageDef.bossBallIndex];
+      bossBall.clusterModifier = CLUSTER_MODIFIERS.BOSS_CORE;
+      bossBall.armorHits = this.ballsConfig.clusterModifiers.bossCore.initialArmor;
+    }
+    this.physicsWorld.rebuildInitialBonds();
+
+    this.fluxFamily = stageDef.family;
+    this.fluxShapeIds = stageDef.shapeIds;
+    this.fluxIsBossStage = stageDef.isBoss;
+    this.hasFiredInRound = false;
+    this.combo = 0;
+    this.freezeTurnsRemaining = 0;
+    this.stageIntroFrames = this.isReducedMotion ? 0 : this.fluxConfig.transition.introFrames;
+
+    for (const launcherBall of [this.currentBall, this.nextBall]) {
+      if (launcherBall && !launcherBall.specialType && !this.activePalette.includes(launcherBall.colorId)) {
+        launcherBall.colorId = this.pickLauncherColor();
+      }
+    }
+    if (this.currentBall) {
+      this.updateAimFromAngle(this.aimAngle);
+    }
+    if (persist) {
+      const snapshot = captureRunSnapshot(this, this.storageManager.getRunSnapshotVersion());
+      if (snapshot) {
+        this.storageManager.saveRunSnapshot(snapshot);
+      }
+    }
+  }
+
+  /** Shots given back when a Flux shape is cleared; the refill shrinks as stages go by. */
+  getFluxShotRefill(stage) {
+    const shots = this.fluxConfig.shots;
+    return Math.max(shots.refillMin, Math.round(shots.refillBase - shots.refillDecayPerStage * (stage - 1)));
+  }
+
+  /**
+   * Pays a cleared Flux shape (points, coins, refilled shots, specials after a boss) and
+   * starts the transition to the next stage.
+   */
+  completeFluxStage() {
+    const rewards = this.fluxConfig.rewards;
+    const clearedStage = this.fluxStage;
+    const points = rewards.stageClearPointsBase + rewards.stageClearPointsPerStage * clearedStage;
+    const refill = this.getFluxShotRefill(clearedStage);
+    this.addScore(points);
+    this.storageManager.addCoins(rewards.stageClearCoins);
+    this.shotsRemaining += refill;
+    if (this.fluxIsBossStage) {
+      for (let i = 0; i < rewards.bossClearSpecials; i++) {
+        this.grantRandomSpecialBall();
+      }
+    }
+    this.audioManager.playEffect('victory');
+    this.particleSystem.spawnFloatingText(
+      this.gameConfig.canvas.logicalWidth * MATH_CONSTANTS.HALF,
+      this.gameConfig.canvas.logicalHeight * MATH_CONSTANTS.HALF,
+      t('gameplay.feedback.flux.stageCleared', { stage: clearedStage, points, shots: refill }),
+      this.gameConfig.theme.victoryPopupColor
+    );
+    this.fluxPreviousFamily = this.fluxFamily;
+    this.fluxStage = clearedStage + 1;
+    this.stageTransitionFrames = this.fluxConfig.transition.clearFrames;
+    this.notifyUI({ fluxStageCleared: clearedStage });
+  }
+
+  /** Lets the cleared shape's last balls fall, then brings in the next shape. */
+  updateStageTransition() {
+    this.physicsWorld.stepDroppingBalls();
+    this.particleSystem.update(this.gameConfig.juice.shakeDecay);
+    this.stageTransitionFrames--;
+    if (this.stageTransitionFrames === 0) {
+      this.buildFluxStage({ persist: true });
+      this.notifyUI();
+    }
+  }
+
   initSurvivalRun(mode, seed = null) {
     const endlessCfg = this.gameConfig.endless;
     const dailyCfg = this.gameConfig.daily;
@@ -527,175 +753,39 @@ export class GameEngine {
   }
 
   buildLevelLayout(layout, modifierWeights = {}) {
+    this.materializeLayout(generateLayout(layout), modifierWeights);
+  }
+
+  /**
+   * Creates the balls and structural bonds of a layout spec (see LayoutGenerators.js).
+   * Pivot slots resolve against the board's pivot obstacles in obstacle order; a slot
+   * without a pivot leaves the anchor fixed in place.
+   * @param {{balls: object[], bonds: number[][]}} spec - Layout spec, in creation order.
+   * @param {Object<string, number>} modifierWeights - Cluster modifier roll weights.
+   * @returns {Array<import('../entities/Ball.js').Ball>} The created balls, in spec order.
+   */
+  materializeLayout(spec, modifierWeights = {}) {
     const r = this.physicsConfig.ball.radius;
     const pivots = this.physicsWorld.obstacles.filter((o) => o.type === OBSTACLE_TYPES.PIVOT);
-    const primaryPivot = pivots[0] || null;
-
-    if (layout.type === LAYOUT_TYPES.PENDULUM) {
-      for (const anchorPos of layout.anchors) {
-        const anchorBall = this.createClusterBall({
-          x: anchorPos.x,
-          y: anchorPos.y,
-          radius: r,
-          colorId: this.pickPaletteColor(),
-          isAnchor: true
-        });
-        this.physicsWorld.addBall(anchorBall);
-      }
-
-      for (let row = 0; row < layout.rows; row++) {
-        const offset = (row % 2) * (layout.spacingX * MATH_CONSTANTS.HALF);
-        for (let col = 0; col < layout.cols; col++) {
-          const x = layout.startX + col * layout.spacingX + offset;
-          const y = layout.startY + row * layout.spacingY;
-          const ball = this.createClusterBall({
-            x,
-            y,
-            radius: r,
-            colorId: this.pickPaletteColor(),
-            clusterModifier: this.rollModifier(modifierWeights),
-            isAnchor: false
-          });
-          this.physicsWorld.addBall(ball);
-        }
-      }
-    } else if (layout.type === LAYOUT_TYPES.RING) {
-      this.spawnConcentricRings(layout.centerX, layout.centerY, layout.rings, primaryPivot, modifierWeights);
-    } else if (layout.type === LAYOUT_TYPES.DUAL_RING) {
-      layout.clusters.forEach((cluster, index) => {
-        this.spawnConcentricRings(
-          cluster.centerX,
-          cluster.centerY,
-          cluster.rings,
-          pivots[index] || null,
-          modifierWeights
-        );
+    const created = spec.balls.map((ballSpec) => {
+      const ball = this.createClusterBall({
+        x: ballSpec.x,
+        y: ballSpec.y,
+        radius: r,
+        colorId: this.pickPaletteColor(),
+        clusterModifier: ballSpec.allowModifier ? this.rollModifier(modifierWeights) : null,
+        isAnchor: ballSpec.isAnchor,
+        pivotRef: ballSpec.pivotSlot === NO_PIVOT_SLOT ? null : pivots[ballSpec.pivotSlot] || null,
+        pivotRadius: ballSpec.pivotRadius,
+        pivotAngle: ballSpec.pivotAngle
       });
-    } else if (layout.type === LAYOUT_TYPES.HEXAGON) {
-      const layers = layout.layers;
-      const spacing = layout.spacing;
-      for (let q = -layers; q <= layers; q++) {
-        const r1 = Math.max(-layers, -q - layers);
-        const r2 = Math.min(layers, -q + layers);
-        for (let s = r1; s <= r2; s++) {
-          if (q === 0 && s === 0) {
-            continue;
-          }
-          const x = layout.centerX + spacing * (q + s * MATH_CONSTANTS.HALF);
-          const y = layout.centerY + spacing * (Math.sqrt(3) * MATH_CONSTANTS.HALF * s);
-          const dist = Math.hypot(x - layout.centerX, y - layout.centerY);
-          const angle = Math.atan2(y - layout.centerY, x - layout.centerX);
-          const isInner = Math.abs(q) <= 1 && Math.abs(s) <= 1 && Math.abs(q + s) <= 1;
-
-          const ball = this.createClusterBall({
-            x,
-            y,
-            radius: r,
-            colorId: this.pickPaletteColor(),
-            clusterModifier: isInner ? null : this.rollModifier(modifierWeights),
-            isAnchor: isInner,
-            pivotRef: isInner ? primaryPivot : null,
-            pivotRadius: isInner ? dist : 0,
-            pivotAngle: angle
-          });
-          this.physicsWorld.addBall(ball);
-        }
-      }
-    } else if (layout.type === LAYOUT_TYPES.SPIRAL) {
-      const arms = layout.arms;
-      const ballsPerArm = layout.ballsPerArm;
-      for (let arm = 0; arm < arms; arm++) {
-        const baseAngle = (MATH_CONSTANTS.TWO_PI * arm) / arms;
-        let prevArmBall = null;
-        for (let step = 0; step < ballsPerArm; step++) {
-          const dist = layout.startRadius + step * layout.radiusStep;
-          const angle = baseAngle + step * layout.angleStep;
-          const x = layout.centerX + Math.cos(angle) * dist;
-          const y = layout.centerY + Math.sin(angle) * dist;
-          const isInner = step % layout.anchorStepInterval === 0;
-
-          const ball = this.createClusterBall({
-            x,
-            y,
-            radius: r,
-            colorId: this.pickPaletteColor(),
-            clusterModifier: isInner ? null : this.rollModifier(modifierWeights),
-            isAnchor: isInner,
-            pivotRef: isInner ? primaryPivot : null,
-            pivotRadius: isInner ? dist : 0,
-            pivotAngle: angle
-          });
-          this.physicsWorld.addBall(ball);
-          if (prevArmBall) {
-            this.physicsWorld.createBond(prevArmBall, ball, false);
-          }
-          prevArmBall = ball;
-        }
-      }
-    } else if (layout.type === LAYOUT_TYPES.CROSS) {
-      const armLength = layout.armLength;
-      const spacing = layout.spacing;
-      const perpFactor = layout.perpSpacingFactor;
-      const directions = [
-        { dx: 1, dy: 0 },
-        { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 },
-        { dx: 0, dy: -1 }
-      ];
-      for (const dir of directions) {
-        const armGrid = new Map();
-        for (let step = 1; step <= armLength; step++) {
-          for (let perp = -1; perp <= 1; perp++) {
-            if (step === 1 && perp !== 0) {
-              continue;
-            }
-            const x = layout.centerX + (dir.dx * step - dir.dy * perp * perpFactor) * spacing;
-            const y = layout.centerY + (dir.dy * step + dir.dx * perp * perpFactor) * spacing;
-            const dist = Math.hypot(x - layout.centerX, y - layout.centerY);
-            const angle = Math.atan2(y - layout.centerY, x - layout.centerX);
-            const isInner = perp === 0;
-
-            const ball = this.createClusterBall({
-              x,
-              y,
-              radius: r,
-              colorId: this.pickPaletteColor(),
-              clusterModifier: isInner ? null : this.rollModifier(modifierWeights),
-              isAnchor: isInner,
-              pivotRef: isInner ? primaryPivot : null,
-              pivotRadius: isInner ? dist : 0,
-              pivotAngle: angle
-            });
-            this.physicsWorld.addBall(ball);
-            armGrid.set(`${step}:${perp}`, ball);
-          }
-        }
-        for (let step = 1; step <= armLength; step++) {
-          const centerBall = armGrid.get(`${step}:0`);
-          const prevCenter = armGrid.get(`${step - 1}:0`);
-          if (centerBall && prevCenter) {
-            this.physicsWorld.createBond(prevCenter, centerBall, false);
-          }
-          for (const perp of [-1, 1]) {
-            const flankBall = armGrid.get(`${step}:${perp}`);
-            if (!flankBall) {
-              continue;
-            }
-            if (centerBall) {
-              this.physicsWorld.createBond(centerBall, flankBall, false);
-            }
-            const prevFlank = armGrid.get(`${step - 1}:${perp}`);
-            if (prevFlank) {
-              this.physicsWorld.createBond(prevFlank, flankBall, false);
-            }
-            const prevSpine = armGrid.get(`${step - 1}:0`);
-            if (prevSpine) {
-              this.physicsWorld.createBond(prevSpine, flankBall, false);
-            }
-          }
-        }
-      }
+      this.physicsWorld.addBall(ball);
+      return ball;
+    });
+    for (const [a, b] of spec.bonds) {
+      this.physicsWorld.createBond(created[a], created[b], false);
     }
+    return created;
   }
 
   spawnConcentricRings(centerX, centerY, rings, pivotObstacle, modifierWeights = {}) {
@@ -816,6 +906,7 @@ export class GameEngine {
   }
 
   setReducedMotion(enabled) {
+    this.isReducedMotion = Boolean(enabled);
     this.particleSystem.setReducedMotion(enabled);
   }
 
@@ -892,7 +983,7 @@ export class GameEngine {
       this.isAimCancelled = false;
       return;
     }
-    if (this.mode === GAME_MODES.CAMPAIGN && this.shotsRemaining <= 0) {
+    if (this.isStageChanging() || (this.usesShotBudget() && this.shotsRemaining <= 0)) {
       return;
     }
     const ballCfg = this.physicsConfig.ball;
@@ -915,7 +1006,7 @@ export class GameEngine {
     this.currentBall = this.nextBall;
     this.nextBall = this.createRandomLauncherBall();
 
-    if (this.mode === GAME_MODES.CAMPAIGN) {
+    if (this.usesShotBudget()) {
       this.shotsRemaining = Math.max(0, this.shotsRemaining - 1);
     }
 
@@ -934,6 +1025,13 @@ export class GameEngine {
     }
     if (this.state !== GAME_STATES.PLAYING) {
       return;
+    }
+    if (this.stageTransitionFrames > 0) {
+      this.updateStageTransition();
+      return;
+    }
+    if (this.stageIntroFrames > 0) {
+      this.stageIntroFrames--;
     }
 
     const theme = this.gameConfig.theme;
@@ -1629,7 +1727,9 @@ export class GameEngine {
   }
 
   evaluateRoundEnd() {
-    if (!this.isRunPlaying()) {
+    // A cleared Flux shape is paid once: later checks in the same frame see the empty
+    // board of the transition, not a second clear.
+    if (!this.isRunPlaying() || this.stageTransitionFrames > 0) {
       return;
     }
     if (this.mode === GAME_MODES.CAMPAIGN) {
@@ -1666,11 +1766,26 @@ export class GameEngine {
         return;
       }
 
-      if (this.shotsRemaining <= 0 && !this.physicsWorld.projectile && this.outOfShotsGraceFrames === 0) {
-        this.outOfShotsGraceFrames = this.physicsConfig.simulation.outOfShotsGraceFrames;
+      this.startOutOfShotsGraceIfNeeded();
+    } else if (this.mode === GAME_MODES.FLUX) {
+      if (this.physicsWorld.balls.length === 0) {
+        this.outOfShotsGraceFrames = 0;
+        this.completeFluxStage();
+        return;
       }
+      this.startOutOfShotsGraceIfNeeded();
     } else if (this.isSurvivalMode() && this.physicsWorld.balls.length === 0) {
       this.spawnEndlessWave();
+    }
+  }
+
+  /**
+   * With the reserve empty and nothing in flight, waits a short grace period for chain
+   * reactions to clear the board before the run is lost (see update()).
+   */
+  startOutOfShotsGraceIfNeeded() {
+    if (this.shotsRemaining <= 0 && !this.physicsWorld.projectile && this.outOfShotsGraceFrames === 0) {
+      this.outOfShotsGraceFrames = this.physicsConfig.simulation.outOfShotsGraceFrames;
     }
   }
 
@@ -1728,6 +1843,8 @@ export class GameEngine {
       this.startCampaignLevel(this.currentLevelId);
     } else if (this.mode === GAME_MODES.DAILY) {
       this.startDailyChallenge(this.dailySeedKey, true);
+    } else if (this.mode === GAME_MODES.FLUX) {
+      this.startFluxRun();
     } else {
       this.startEndlessMode();
     }

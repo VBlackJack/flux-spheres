@@ -35,6 +35,9 @@ const NON_INTERACTIVE_ANCESTOR_SELECTOR = '.hidden, [hidden], [inert]';
 /** Root class mirroring the in-app reduced motion setting for CSS. */
 export const REDUCED_MOTION_CLASS = 'reduced-motion';
 
+/** Cubic ease-out of the victory score roll-up: fast at first, settling on the total. */
+const COUNT_UP_EASE_POWER = 3;
+
 /** App shell class that slides the menu in on portrait phones. */
 const DRAWER_OPEN_CLASS = 'drawer-open';
 
@@ -140,6 +143,7 @@ export class UIManager {
       btnLevels: document.getElementById('btn-levels'),
       btnEndless: document.getElementById('btn-endless'),
       btnDaily: document.getElementById('btn-daily'),
+      btnFlux: document.getElementById('btn-flux'),
       btnShop: document.getElementById('btn-shop'),
       btnRestart: document.getElementById('btn-restart'),
       btnPause: document.getElementById('btn-pause'),
@@ -192,6 +196,7 @@ export class UIManager {
       gameOverReason: document.getElementById('gameover-reason'),
       gameOverScore: document.getElementById('gameover-score'),
       gameOverBest: document.getElementById('gameover-best'),
+      gameOverStage: document.getElementById('gameover-stage'),
       btnRetry: document.getElementById('btn-retry'),
       btnLevelsGameOver: document.getElementById('btn-levels-gameover'),
       modalPause: document.getElementById('modal-pause'),
@@ -217,6 +222,9 @@ export class UIManager {
     this.lastFocusedElement = null;
     this.prevEngineState = null;
     this.isVictoryModalRevealed = false;
+    this.isVictoryPresented = false;
+    this.victoryStarsLabel = null;
+    this.scoreCountUpFrame = null;
     this.inputMode = this.detectInitialInputMode();
     this.isDrawerOpen = false;
     this.drawerMedia = null;
@@ -536,6 +544,15 @@ export class UIManager {
         this.requestDestructiveAction(() => {
           this.hideAllModals();
           this.engine.startDailyChallenge();
+        });
+      });
+    }
+
+    if (this.elements.btnFlux) {
+      this.elements.btnFlux.addEventListener('click', () => {
+        this.requestDestructiveAction(() => {
+          this.hideAllModals();
+          this.engine.startFluxRun();
         });
       });
     }
@@ -1053,6 +1070,73 @@ export class UIManager {
     );
   }
 
+  /**
+   * Victory stars as one element per star, so CSS can pop them in one after another.
+   * The glyphs are decorative; the label next to them carries the count.
+   */
+  buildVictoryStars(stars, maxStars) {
+    const theme = this.gameConfig.theme;
+    const stepMs = this.gameConfig.victory.starRevealStepMs;
+    const glyphs = document.createElement('span');
+    glyphs.setAttribute('aria-hidden', 'true');
+    for (let i = 0; i < maxStars; i++) {
+      const star = document.createElement('span');
+      const isFilled = i < stars;
+      star.className = isFilled ? 'victory-star filled' : 'victory-star';
+      star.textContent = isFilled ? theme.starFilledSymbol : theme.starEmptySymbol;
+      star.style.animationDelay = `${i * stepMs}ms`;
+      glyphs.append(star);
+    }
+    this.victoryStarsLabel = document.createElement('span');
+    this.victoryStarsLabel.className = 'victory-stars-label';
+    this.victoryStarsLabel.textContent = t('modals.victory.stats.stars', { stars, maxStars });
+    this.elements.victoryStars.replaceChildren(glyphs, this.victoryStarsLabel);
+  }
+
+  /**
+   * Rolls the victory score up from zero (ease-out), or writes it at once under reduced
+   * motion. Every frame goes through the same i18n line as the final value.
+   */
+  startScoreCountUp(finalScore) {
+    this.stopScoreCountUp();
+    const writeScore = (value) => {
+      setTextIfChanged(this.elements.victoryScore, t('modals.victory.stats.score', { score: formatNumber(value) }));
+    };
+    const durationMs = this.gameConfig.victory.countUpMs;
+    if (this.storageManager.getReducedMotion() || durationMs <= 0 || typeof requestAnimationFrame !== 'function') {
+      writeScore(finalScore);
+      return;
+    }
+    let startTime = null;
+    const step = (now) => {
+      if (startTime === null) {
+        startTime = now;
+      }
+      const progress = Math.min(1, (now - startTime) / durationMs);
+      const eased = 1 - (1 - progress) ** COUNT_UP_EASE_POWER;
+      writeScore(Math.round(finalScore * eased));
+      this.scoreCountUpFrame = progress < 1 ? requestAnimationFrame(step) : null;
+    };
+    writeScore(0);
+    this.scoreCountUpFrame = requestAnimationFrame(step);
+  }
+
+  stopScoreCountUp() {
+    if (this.scoreCountUpFrame !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this.scoreCountUpFrame);
+    }
+    this.scoreCountUpFrame = null;
+  }
+
+  /** Display name of a Flux shape; a two-part shape reads "left and right". */
+  formatFluxShapeName(shapeIds) {
+    const names = shapeIds.map((id) => t(`gameplay.flux.shapes.${id}`));
+    if (names.length > 1) {
+      return t('gameplay.flux.shapes.pairFormat', { left: names[0], right: names[1] });
+    }
+    return names[0] || '';
+  }
+
   formatStars(stars, maxStars) {
     const theme = this.gameConfig.theme;
     const filled = Math.max(0, Math.min(maxStars, stars));
@@ -1535,6 +1619,9 @@ export class UIManager {
 
     this.elements.btnLevels.classList.toggle('active-mode', engine.mode === GAME_MODES.CAMPAIGN);
     this.elements.btnEndless.classList.toggle('active-mode', engine.mode === GAME_MODES.ENDLESS);
+    if (this.elements.btnFlux) {
+      this.elements.btnFlux.classList.toggle('active-mode', engine.mode === GAME_MODES.FLUX);
+    }
     if (this.elements.btnDaily) {
       this.elements.btnDaily.classList.toggle('active-mode', engine.mode === GAME_MODES.DAILY);
       const todayKey = SeededRandom.getTodayDateKey();
@@ -1560,6 +1647,8 @@ export class UIManager {
       bestScore = this.storageManager.getLevelStats()[engine.currentLevelId]?.bestScore || 0;
     } else if (engine.mode === GAME_MODES.DAILY) {
       bestScore = this.storageManager.getDailyHighScore(engine.dailySeedKey || SeededRandom.getTodayDateKey());
+    } else if (engine.mode === GAME_MODES.FLUX) {
+      bestScore = this.storageManager.getFluxHighScore();
     } else {
       bestScore = this.storageManager.getEndlessHighScore();
     }
@@ -1609,6 +1698,22 @@ export class UIManager {
             : t('hud.stats.score.maxReached')
         );
         this.elements.starProgress.classList.remove('hidden');
+      }
+    } else if (engine.mode === GAME_MODES.FLUX) {
+      setTextIfChanged(
+        this.elements.modeBanner,
+        t(engine.fluxIsBossStage ? 'hud.stats.mode.fluxBoss' : 'hud.stats.mode.flux', {
+          stage: engine.fluxStage,
+          shape: this.formatFluxShapeName(engine.fluxShapeIds)
+        })
+      );
+      if (this.elements.shotsLabel) {
+        setTextIfChanged(this.elements.shotsLabel, t('hud.stats.shots.label'));
+      }
+      setTextIfChanged(this.elements.shotsValue, formatNumber(engine.shotsRemaining));
+      this.elements.shotsValue.classList.toggle('warning', engine.shotsRemaining <= warningShotsThreshold);
+      if (this.elements.starProgress) {
+        this.elements.starProgress.classList.add('hidden');
       }
     } else {
       if (engine.mode === GAME_MODES.DAILY) {
@@ -1708,6 +1813,10 @@ export class UIManager {
     const transitionedState = this.prevEngineState !== engine.state;
     this.prevEngineState = engine.state;
 
+    if (extra.fluxStageCleared) {
+      this.announce(t('hud.announcer.round.fluxStageCleared', { stage: extra.fluxStageCleared }));
+    }
+
     if (unlockedAchievementId) {
       const spec = this.gameConfig.achievements?.[unlockedAchievementId];
       this.announce(
@@ -1755,12 +1864,28 @@ export class UIManager {
       this.isVictoryModalRevealed = canRevealVictory;
     }
 
+    if (engine.state !== GAME_STATES.VICTORY && this.isVictoryPresented) {
+      this.isVictoryPresented = false;
+      this.stopScoreCountUp();
+    }
+
     if (canRevealVictory) {
       const summary = engine.victorySummary || extra;
       const stars = summary.stars || engine.computeStars(engine.score);
       const maxStars = this.gameConfig.scoring.maxStars;
       const scoreText = formatNumber(engine.score);
-      setTextIfChanged(this.elements.victoryScore, t('modals.victory.stats.score', { score: scoreText }));
+      // Score roll-up and star pops play once per victory, the first time the window
+      // shows; later refreshes only keep the texts current (e.g. after a language switch).
+      if (!this.isVictoryPresented) {
+        this.isVictoryPresented = true;
+        this.buildVictoryStars(stars, maxStars);
+        this.startScoreCountUp(engine.score);
+      } else {
+        if (this.scoreCountUpFrame === null) {
+          setTextIfChanged(this.elements.victoryScore, t('modals.victory.stats.score', { score: scoreText }));
+        }
+        setTextIfChanged(this.victoryStarsLabel, t('modals.victory.stats.stars', { stars, maxStars }));
+      }
       setTextIfChanged(
         this.elements.victoryBonus,
         t('modals.victory.stats.shotsBonus', {
@@ -1768,14 +1893,6 @@ export class UIManager {
           coins: formatNumber(summary.earnedCoins || 0)
         })
       );
-      // Star glyphs are decorative; the sentence next to them carries the count.
-      const starsGlyphs = document.createElement('span');
-      starsGlyphs.setAttribute('aria-hidden', 'true');
-      starsGlyphs.textContent = this.formatStars(stars, maxStars);
-      const starsLabel = document.createElement('span');
-      starsLabel.className = 'victory-stars-label';
-      starsLabel.textContent = t('modals.victory.stats.stars', { stars, maxStars });
-      this.elements.victoryStars.replaceChildren(starsGlyphs, starsLabel);
       if (isVictoryJustRevealed) {
         this.saveLastFocusedElement();
         this.announce(t('hud.announcer.round.victory', { score: scoreText, stars, maxStars }));
@@ -1799,6 +1916,19 @@ export class UIManager {
           highScore: formatNumber(Math.max(bestScore, engine.score))
         })
       );
+      if (this.elements.gameOverStage) {
+        const isFlux = engine.mode === GAME_MODES.FLUX;
+        if (isFlux) {
+          setTextIfChanged(
+            this.elements.gameOverStage,
+            t('modals.gameOver.stats.fluxStage', {
+              stage: engine.fluxStage,
+              best: Math.max(engine.fluxStage, this.storageManager.getFluxBestStage())
+            })
+          );
+        }
+        this.elements.gameOverStage.classList.toggle('hidden', !isFlux);
+      }
       if (transitionedState) {
         this.saveLastFocusedElement();
         this.announce(t('hud.announcer.round.gameOver', { reason: t(reasonKey), score: scoreText }));

@@ -15,6 +15,7 @@
         "endless": "Survival",
         "daily": "Daily",
         "dailyBonusBadge": "Daily (+{{coins}} ⬡)",
+        "flux": "Flux Mode",
         "shop": "Shop",
         "shopBadge": "Shop ({{count}})",
         "restart": "Restart",
@@ -73,7 +74,9 @@
       "mode": {
         "campaign": "Level {{level}}: {{name}}",
         "endless": "Survival Mode • Wave {{wave}}",
-        "daily": "Daily Challenge ({{mutator}}) • Wave {{wave}}"
+        "daily": "Daily Challenge ({{mutator}}) • Wave {{wave}}",
+        "flux": "Flux Mode • Shape {{stage}}: {{shape}}",
+        "fluxBoss": "Flux Mode • Shape {{stage}}: {{shape}} (Boss)"
       },
       "shots": {
         "label": "Shots Left",
@@ -152,7 +155,8 @@
       },
       "round": {
         "victory": "Level cleared. Score: {{score}}. Stars: {{stars}} of {{maxStars}}.",
-        "gameOver": "Game over. {{reason}} Score: {{score}}."
+        "gameOver": "Game over. {{reason}} Score: {{score}}.",
+        "fluxStageCleared": "Shape {{stage}} cleared. The next shape is coming."
       }
     }
   },
@@ -209,6 +213,9 @@
       },
       "victory": {
         "cleared": "BOARD CLEARED!"
+      },
+      "flux": {
+        "stageCleared": "SHAPE {{stage}} CLEARED! +{{points}} • +{{shots}} shots"
       }
     },
     "mutators": {
@@ -216,6 +223,27 @@
       "turboRotors": "Turbo Rotors",
       "superMagnetism": "Super Magnetism",
       "volatileCluster": "Volatile Cluster"
+    },
+    "flux": {
+      "shapes": {
+        "pendulum": "Pendulum",
+        "ring": "Ring",
+        "hexagon": "Hexagon",
+        "spiral": "Spiral",
+        "cross": "Cross",
+        "dualRing": "Twin Rings",
+        "heart": "Heart",
+        "diamond": "Diamond",
+        "crown": "Crown",
+        "arrow": "Arrow",
+        "donut": "Donut",
+        "invader": "Invader",
+        "hourglass": "Hourglass",
+        "miniHeart": "Small Heart",
+        "miniDiamond": "Small Diamond",
+        "miniRing": "Small Rotor",
+        "pairFormat": "{{left}} and {{right}}"
+      }
     },
     "tutorial": {
       "pendulum": "Match 3+ same-color balls or sever upper anchors to trigger a magnetic avalanche!",
@@ -261,7 +289,7 @@
         "stock": "In Stock: {{count}}",
         "buy": "+1 ({{cost}} ⬡)",
         "unavailable": "No active run",
-        "unavailableHint": "Start a level, Survival or Daily run to buy ammo."
+        "unavailableHint": "Start a level, Survival, Daily or Flux run to buy ammo."
       },
       "codex": {
         "modifiersTitle": "Cluster Ball Modifiers",
@@ -345,7 +373,7 @@
           },
           "bossSlayer": {
             "name": "Crown Breaker",
-            "description": "Destroy a Boss Core (👑) in Campaign or Survival."
+            "description": "Destroy a Boss Core (👑) in Campaign, Survival or Flux Mode."
           },
           "sharpshooter": {
             "name": "Sharpshooter",
@@ -413,7 +441,8 @@
       },
       "stats": {
         "score": "Final Score: {{score}}",
-        "highScore": "High Score: {{highScore}}"
+        "highScore": "High Score: {{highScore}}",
+        "fluxStage": "Shape reached: {{stage}} (best: {{best}})"
       },
       "button": {
         "retry": "Try Again",
