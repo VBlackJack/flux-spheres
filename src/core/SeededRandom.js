@@ -55,8 +55,4 @@ export class SeededRandom {
     t ^= t + Math.imul(t ^ (t >>> SHIFT_7), t | 61);
     return ((t ^ (t >>> SHIFT_14)) >>> 0) / UINT32_MAX_PLUS_ONE;
   }
-
-  nextInt(maxExclusive) {
-    return Math.floor(this.next() * maxExclusive);
-  }
 }

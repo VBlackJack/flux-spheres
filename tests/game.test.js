@@ -352,6 +352,7 @@ test('Daily Challenge spawns central rotor, applies Turbo Rotors multiplier, and
   }
 
   engine.addScore(1500);
+  engine.persistRunHighScore();
   assert.ok(engine.storageManager.getDailyHighScore('2026-10-27') >= 1500);
   assert.equal(engine.storageManager.getDailyHighScore('2026-10-28'), 0);
 });

@@ -322,7 +322,8 @@
         "ballsPerArm": 8,
         "startRadius": 44,
         "radiusStep": 18,
-        "angleStep": 0.36
+        "angleStep": 0.36,
+        "anchorStepInterval": 2
       },
       "obstacles": [
         {
@@ -725,7 +726,8 @@
         "ballsPerArm": 7,
         "startRadius": 44,
         "radiusStep": 19,
-        "angleStep": 0.34
+        "angleStep": 0.34,
+        "anchorStepInterval": 2
       },
       "obstacles": [
         {
