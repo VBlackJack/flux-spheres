@@ -32,31 +32,69 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="top-bar">
-      <div class="brand-group">
-        <h1 class="brand-title" data-i18n="app.header.title.main"></h1>
-        <span class="brand-subtitle" data-i18n="app.header.subtitle.edition"></span>
+    <!-- On portrait phones this header becomes the slide-in menu (see .app-shell.drawer-open). -->
+    <header id="app-drawer" class="top-bar" data-i18n-aria-label="app.drawer.aria.label">
+      <div class="drawer-head">
+        <div class="brand-group">
+          <h1 class="brand-title" data-i18n="app.header.title.main"></h1>
+          <span class="brand-subtitle" data-i18n="app.header.subtitle.edition"></span>
+        </div>
+        <button id="btn-close-drawer" type="button" class="drawer-close-btn" data-i18n-aria-label="app.drawer.button.closeAria" data-i18n-title="app.drawer.button.closeAria"><span aria-hidden="true">✕</span></button>
       </div>
+      <dl class="drawer-stats">
+        <div class="drawer-stat drawer-stat-wide">
+          <dt class="visually-hidden" data-i18n="app.drawer.stats.round"></dt>
+          <dd id="drawer-mode" class="drawer-mode"></dd>
+          <dd id="drawer-star-progress" class="drawer-star-progress gold-text"></dd>
+        </div>
+        <div class="drawer-stat">
+          <dt data-i18n="hud.stats.coins.label"></dt>
+          <dd id="drawer-coins" class="gold-text"></dd>
+        </div>
+        <div class="drawer-stat">
+          <dt data-i18n="hud.stats.highScore.label"></dt>
+          <dd id="drawer-best"></dd>
+        </div>
+        <div class="drawer-stat">
+          <dt data-i18n="hud.stats.overcharge.label"></dt>
+          <dd id="drawer-overcharge"></dd>
+        </div>
+      </dl>
       <nav class="nav-controls">
         <div class="nav-group nav-modes">
-          <button id="btn-levels" type="button" class="nav-btn primary" data-i18n="app.nav.button.levels"></button>
-          <button id="btn-endless" type="button" class="nav-btn accent" data-i18n="app.nav.button.endless"></button>
-          <button id="btn-daily" type="button" class="nav-btn accent" data-i18n="app.nav.button.daily"></button>
-          <button id="btn-shop" type="button" class="nav-btn gold" data-i18n="app.nav.button.shop"></button>
+          <button id="btn-levels" type="button" data-closes-drawer class="nav-btn primary" data-i18n="app.nav.button.levels"></button>
+          <button id="btn-endless" type="button" data-closes-drawer class="nav-btn accent" data-i18n="app.nav.button.endless"></button>
+          <button id="btn-daily" type="button" data-closes-drawer class="nav-btn accent" data-i18n="app.nav.button.daily"></button>
+          <button id="btn-shop" type="button" data-closes-drawer class="nav-btn gold" data-i18n="app.nav.button.shop"></button>
         </div>
         <div class="nav-group nav-settings">
-          <button id="btn-restart" type="button" class="nav-btn" data-i18n="app.nav.button.restart"></button>
-          <button id="btn-pause" type="button" class="nav-btn" data-i18n="app.nav.button.pause"></button>
-          <button id="btn-sound" type="button" class="nav-btn icon-btn"></button>
-          <button id="btn-contrast" type="button" class="nav-btn icon-btn"></button>
-          <button id="btn-motion" type="button" class="nav-btn icon-btn"></button>
-          <button id="btn-lang" type="button" class="nav-btn badge-btn"></button>
+          <button id="btn-restart" type="button" data-closes-drawer class="nav-btn" data-i18n="app.nav.button.restart"></button>
+          <button id="btn-pause" type="button" data-closes-drawer class="nav-btn" data-i18n="app.nav.button.pause"></button>
+          <div class="nav-setting">
+            <button id="btn-sound" type="button" class="nav-btn icon-btn"></button>
+            <span class="nav-setting-caption" data-caption-for="btn-sound" aria-hidden="true"></span>
+          </div>
+          <div class="nav-setting">
+            <button id="btn-contrast" type="button" class="nav-btn icon-btn"></button>
+            <span class="nav-setting-caption" data-caption-for="btn-contrast" aria-hidden="true"></span>
+          </div>
+          <div class="nav-setting">
+            <button id="btn-motion" type="button" class="nav-btn icon-btn"></button>
+            <span class="nav-setting-caption" data-caption-for="btn-motion" aria-hidden="true"></span>
+          </div>
+          <div class="nav-setting">
+            <button id="btn-lang" type="button" class="nav-btn badge-btn"></button>
+            <span class="nav-setting-caption" data-i18n="app.nav.button.languageCaption" aria-hidden="true"></span>
+          </div>
         </div>
       </nav>
     </header>
 
+    <div id="drawer-backdrop" class="drawer-backdrop" aria-hidden="true"></div>
+
     <section class="hud-bar">
-      <div class="hud-stat-box">
+      <button id="btn-menu" type="button" class="hud-menu-btn" aria-controls="app-drawer" aria-expanded="false" data-i18n-aria-label="app.drawer.button.openAria" data-i18n-title="app.drawer.button.openAria"><span aria-hidden="true">☰</span></button>
+      <div class="hud-stat-box hud-stat-score">
         <span class="hud-label" data-i18n="hud.stats.score.label"></span>
         <span id="hud-score-value" class="hud-value"></span>
         <span id="hud-star-progress" class="hud-subvalue gold-text"><span id="hud-star-glyphs" class="hud-subvalue-part"></span> <span id="hud-star-next" class="hud-subvalue-part"></span></span>
@@ -68,15 +106,15 @@
           <span id="hud-frozen-badge" class="hud-badge frozen hidden"></span>
         </div>
       </div>
-      <div class="hud-stat-box">
+      <div class="hud-stat-box hud-stat-shots">
         <span id="hud-shots-label" class="hud-label" data-i18n="hud.stats.shots.label"></span>
         <span id="hud-shots-value" class="hud-value highlight"></span>
       </div>
-      <div class="hud-stat-box">
+      <div class="hud-stat-box hud-stat-coins">
         <span class="hud-label" data-i18n="hud.stats.coins.label"></span>
         <span id="hud-coins-value" class="hud-value gold-text"></span>
       </div>
-      <div class="hud-stat-box">
+      <div class="hud-stat-box hud-stat-best">
         <span class="hud-label" data-i18n="hud.stats.highScore.label"></span>
         <span id="hud-best-value" class="hud-value"></span>
       </div>
@@ -96,8 +134,8 @@
           </div>
         </div>
         <div class="launcher-controls-dock">
-          <button id="btn-polarity" type="button" class="polarity-floating-btn"></button>
-          <button id="btn-swap-ball" type="button" class="swap-floating-btn"></button>
+          <button id="btn-polarity" type="button" class="polarity-floating-btn"><span class="launcher-icon" aria-hidden="true"></span> <span class="launcher-text"></span></button>
+          <button id="btn-swap-ball" type="button" class="swap-floating-btn"><span class="launcher-icon" aria-hidden="true"></span> <span class="launcher-text"></span></button>
         </div>
       </div>
 

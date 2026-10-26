@@ -35,6 +35,9 @@ const NON_INTERACTIVE_ANCESTOR_SELECTOR = '.hidden, [hidden], [inert]';
 /** Root class mirroring the in-app reduced motion setting for CSS. */
 export const REDUCED_MOTION_CLASS = 'reduced-motion';
 
+/** App shell class that slides the menu in on portrait phones. */
+const DRAWER_OPEN_CLASS = 'drawer-open';
+
 /** Pointer types that mean a finger-like input without a keyboard at hand. */
 const TOUCH_POINTER_TYPES = new Set(['touch', 'pen']);
 
@@ -146,6 +149,17 @@ export class UIManager {
       btnLang: document.getElementById('btn-lang'),
       swapBtn: document.getElementById('btn-swap-ball'),
       polarityBtn: document.getElementById('btn-polarity'),
+      drawer: document.getElementById('app-drawer'),
+      drawerBackdrop: document.getElementById('drawer-backdrop'),
+      btnMenu: document.getElementById('btn-menu'),
+      btnCloseDrawer: document.getElementById('btn-close-drawer'),
+      hudBar: document.querySelector('.hud-bar'),
+      stageContainer: document.querySelector('.stage-container'),
+      drawerMode: document.getElementById('drawer-mode'),
+      drawerStarProgress: document.getElementById('drawer-star-progress'),
+      drawerCoins: document.getElementById('drawer-coins'),
+      drawerBest: document.getElementById('drawer-best'),
+      drawerOvercharge: document.getElementById('drawer-overcharge'),
       tutorialBanner: document.getElementById('tutorial-banner'),
       tutorialBannerText: document.getElementById('tutorial-banner-text'),
       btnDismissTutorial: document.getElementById('btn-dismiss-tutorial'),
@@ -203,6 +217,8 @@ export class UIManager {
     this.lastFocusedElement = null;
     this.prevEngineState = null;
     this.inputMode = this.detectInitialInputMode();
+    this.isDrawerOpen = false;
+    this.drawerMedia = null;
   }
 
   detectInitialInputMode() {
@@ -242,10 +258,24 @@ export class UIManager {
     return t('hud.launcher.shortcutFormat', { label, key: t(shortcutKey) });
   }
 
+  /**
+   * Fills a launcher button's icon and text parts. The text stays in the
+   * accessibility tree even where the compact layout only shows the icon.
+   */
+  setLauncherButton(button, iconKey, labelKey, shortcutKey) {
+    if (!button) {
+      return;
+    }
+    setTextIfChanged(button.querySelector('.launcher-icon'), t(iconKey));
+    setTextIfChanged(button.querySelector('.launcher-text'), this.formatLauncherLabel(labelKey, shortcutKey));
+  }
+
   updateInputHints() {
-    setTextIfChanged(
+    this.setLauncherButton(
       this.elements.swapBtn,
-      this.formatLauncherLabel('hud.launcher.swap.label', 'hud.launcher.swap.shortcut')
+      'hud.launcher.swap.icon',
+      'hud.launcher.swap.label',
+      'hud.launcher.swap.shortcut'
     );
     for (const { elementId, key } of PAUSE_INPUT_HINTS) {
       setTextIfChanged(document.getElementById(elementId), t(`${key}.${this.inputMode}`));
@@ -359,11 +389,136 @@ export class UIManager {
     }
   }
 
+  /** True when the layout turns the header into a slide-in menu (portrait phones). */
+  isDrawerLayout() {
+    return Boolean(this.drawerMedia && this.drawerMedia.matches);
+  }
+
+  /**
+   * Opens the slide-in menu. The run is paused like it is for the Shop or the
+   * level select, and everything behind the menu is taken out of reach.
+   */
+  openDrawer() {
+    if (this.isDrawerOpen || !this.isDrawerLayout() || this.isAnyModalOpen()) {
+      return;
+    }
+    this.isDrawerOpen = true;
+    if (this.engine.state === GAME_STATES.PLAYING) {
+      this.autoPausedByOverlay = true;
+      this.engine.state = GAME_STATES.PAUSED;
+    }
+    this.syncDrawerState();
+    if (this.elements.btnCloseDrawer) {
+      this.elements.btnCloseDrawer.focus();
+    }
+  }
+
+  /**
+   * Closes the slide-in menu and gives focus back to the menu button.
+   * @param {{resume: boolean}} options - resume: restart a run the menu paused. A menu
+   *   action that opens a dialog passes false, and that dialog resumes the run when it closes.
+   */
+  closeDrawer({ resume }) {
+    if (!this.isDrawerOpen) {
+      return;
+    }
+    this.isDrawerOpen = false;
+    this.syncDrawerState();
+    if (this.elements.btnMenu && this.isDrawerLayout()) {
+      this.elements.btnMenu.focus();
+    }
+    if (resume && this.autoPausedByOverlay && this.engine.state === GAME_STATES.PAUSED) {
+      this.autoPausedByOverlay = false;
+      this.engine.state = GAME_STATES.PLAYING;
+      this.refresh(this.engine, this.lastExtra);
+    }
+  }
+
+  syncDrawerState() {
+    const isOpen = this.isDrawerOpen;
+    if (this.elements.appShell) {
+      this.elements.appShell.classList.toggle(DRAWER_OPEN_CLASS, isOpen);
+    }
+    for (const behind of [this.elements.hudBar, this.elements.stageContainer]) {
+      if (behind) {
+        behind.inert = isOpen;
+      }
+    }
+    if (this.elements.btnMenu) {
+      this.elements.btnMenu.setAttribute('aria-expanded', String(isOpen));
+    }
+    const drawer = this.elements.drawer;
+    if (drawer) {
+      if (isOpen) {
+        drawer.setAttribute('role', 'dialog');
+        drawer.setAttribute('aria-modal', 'true');
+      } else {
+        drawer.removeAttribute('role');
+        drawer.removeAttribute('aria-modal');
+      }
+    }
+  }
+
+  /** Copies the HUD values the compact layout hides into the menu. */
+  syncDrawerStats() {
+    const mirrors = [
+      [this.elements.modeBanner, this.elements.drawerMode],
+      [this.elements.starProgress, this.elements.drawerStarProgress],
+      [this.elements.coinsValue, this.elements.drawerCoins],
+      [this.elements.highScoreValue, this.elements.drawerBest],
+      [this.elements.overchargePct, this.elements.drawerOvercharge]
+    ];
+    for (const [source, mirror] of mirrors) {
+      if (source && mirror) {
+        setTextIfChanged(mirror, source.textContent);
+        mirror.classList.toggle('hidden', source.classList.contains('hidden'));
+      }
+    }
+  }
+
+  bindDrawerEvents() {
+    const query = this.gameConfig.defaults.drawerMediaQuery;
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function' && query) {
+      this.drawerMedia = window.matchMedia(query);
+      this.drawerMedia.addEventListener('change', () => {
+        if (!this.drawerMedia.matches) {
+          this.closeDrawer({ resume: true });
+        }
+      });
+    }
+    if (this.elements.btnMenu) {
+      this.elements.btnMenu.addEventListener('click', () => {
+        this.openDrawer();
+      });
+    }
+    if (this.elements.btnCloseDrawer) {
+      this.elements.btnCloseDrawer.addEventListener('click', () => {
+        this.closeDrawer({ resume: true });
+      });
+    }
+    if (this.elements.drawerBackdrop) {
+      this.elements.drawerBackdrop.addEventListener('click', () => {
+        this.closeDrawer({ resume: true });
+      });
+    }
+    // Bound before the buttons' own handlers so the menu is gone, and focus is back
+    // on the menu button, before they open a dialog or change the run.
+    if (this.elements.drawer) {
+      for (const button of this.elements.drawer.querySelectorAll('[data-closes-drawer]')) {
+        button.addEventListener('click', () => {
+          this.closeDrawer({ resume: false });
+        });
+      }
+    }
+  }
+
   isRunActive() {
     return this.engine.state === GAME_STATES.PLAYING || this.engine.state === GAME_STATES.PAUSED;
   }
 
   bindEvents() {
+    this.bindDrawerEvents();
+
     this.elements.btnLevels.addEventListener('click', () => {
       this.openLevelsModal();
     });
@@ -396,6 +551,12 @@ export class UIManager {
     });
 
     this.elements.btnPause.addEventListener('click', () => {
+      // From the menu, the run is held by the menu pause: turn it into a regular
+      // pause so the Pause dialog opens.
+      if (this.autoPausedByOverlay && this.engine.state === GAME_STATES.PAUSED) {
+        this.autoPausedByOverlay = false;
+        this.engine.state = GAME_STATES.PLAYING;
+      }
       this.engine.togglePause();
     });
 
@@ -616,12 +777,20 @@ export class UIManager {
         this.trapModalFocus(e);
         return;
       }
+      if (e.code === 'Tab' && this.isDrawerOpen) {
+        this.trapFocusWithin(this.elements.drawer, e);
+        return;
+      }
 
       if (shouldIgnoreRepeatedKey(e.code, e.repeat)) {
         return;
       }
 
       if (e.code === 'Escape') {
+        if (this.isDrawerOpen) {
+          this.closeDrawer({ resume: true });
+          return;
+        }
         if (this.elements.modalConfirm && !this.elements.modalConfirm.classList.contains('hidden')) {
           this.pendingConfirmCallback = null;
           this.closeOverlayModal(this.elements.modalConfirm);
@@ -744,7 +913,11 @@ export class UIManager {
   }
 
   trapModalFocus(e) {
-    const activeModal = this.getActiveTopModal();
+    this.trapFocusWithin(this.getActiveTopModal(), e);
+  }
+
+  /** Keeps Tab and Shift+Tab cycling inside a container (a modal or the open menu). */
+  trapFocusWithin(activeModal, e) {
     if (!activeModal) {
       return;
     }
@@ -895,7 +1068,7 @@ export class UIManager {
         setAttributeIfChanged(btn, 'aria-label', ariaLabel);
         setAttributeIfChanged(btn, 'aria-pressed', String(pressed));
         btn.title = tooltip;
-        // Touch screens never show the title, so the Pause copies spell the state out.
+        // Touch screens never show the title, so the menu and Pause copies spell the state out.
         setTextIfChanged(document.querySelector(`[data-caption-for="${btn.id}"]`), tooltip);
       }
     }
@@ -1395,7 +1568,7 @@ export class UIManager {
       const polKey = engine.isPolarityFlipped
         ? 'hud.launcher.polarity.inverted'
         : 'hud.launcher.polarity.normal';
-      setTextIfChanged(this.elements.polarityBtn, this.formatLauncherLabel(polKey, 'hud.launcher.polarity.shortcut'));
+      this.setLauncherButton(this.elements.polarityBtn, 'hud.launcher.polarity.icon', polKey, 'hud.launcher.polarity.shortcut');
       this.elements.polarityBtn.classList.toggle('active', Boolean(engine.isPolarityFlipped));
     }
 
@@ -1621,6 +1794,7 @@ export class UIManager {
       }
     }
 
+    this.syncDrawerStats();
     this.syncModalInertState();
   }
 }

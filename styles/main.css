@@ -286,6 +286,67 @@ body {
   white-space: nowrap;
 }
 
+/* Slide-in menu parts: only portrait phones turn the header into a menu. */
+.hud-menu-btn,
+.drawer-close-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  background: var(--surface-raised);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.drawer-backdrop,
+.drawer-stats,
+.nav-setting-caption {
+  display: none;
+}
+
+.nav-setting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.drawer-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.drawer-stat-wide {
+  grid-column: 1 / -1;
+}
+
+.drawer-stat dt {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.drawer-stat dd {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.drawer-stat .drawer-mode {
+  font-size: 0.9rem;
+}
+
+.drawer-stat .drawer-star-progress {
+  font-size: 0.8rem;
+}
+
 .hud-value.highlight {
   color: var(--accent-blue);
 }
@@ -1101,7 +1162,8 @@ body {
   #btn-sound,
   #btn-contrast,
   #btn-motion,
-  #btn-lang {
+  #btn-lang,
+  .nav-setting {
     display: none;
   }
   .nav-settings {
@@ -1207,54 +1269,252 @@ body {
   }
 }
 
-/* Portrait phones: one column, canvas fills what the header, HUD and power-ups leave. */
+/*
+ * Portrait phones: the board takes the full width, a one-line HUD sits above it and
+ * a single control row below it (launcher buttons and special balls). The header
+ * becomes a slide-in menu holding navigation, settings and the stats the HUD drops.
+ */
 @media (max-width: 680px) {
   :root {
-    --stage-reserve-x: var(--canvas-border);
+    --shell-pad-x: 0px;
+    --shell-pad-y: 0px;
+    --shell-gap: 0px;
+    --stage-reserve-x: 0px;
     --canvas-max-width: 100cqw;
+    --control-row-height: var(--touch-target);
+    --overcharge-line-height: 4px;
+    --stage-reserve-y: calc(
+      var(--control-row-height) + var(--overcharge-line-height) + 2 * var(--stage-column-gap) + var(--canvas-border)
+    );
+    --drawer-width: min(320px, 86vw);
+    --drawer-transition: 0.22s ease;
+  }
+
+  /* Slide-in menu: the header leaves the flow and waits off-screen. */
+  .top-bar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: var(--drawer-width);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 16px;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+    background: var(--bg-panel);
+    border-width: 0 1px 0 0;
+    border-radius: 0 16px 16px 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform var(--drawer-transition), visibility 0s linear 0.22s;
+  }
+  .app-shell.drawer-open .top-bar {
+    transform: none;
+    visibility: visible;
+    transition: transform var(--drawer-transition);
+  }
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: rgba(7, 11, 20, 0.62);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--drawer-transition);
+  }
+  .app-shell.drawer-open .drawer-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .drawer-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  /* The compact chrome hides the title; the menu shows it again. */
+  .brand-group {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+  .drawer-close-btn {
+    display: inline-flex;
+  }
+  .drawer-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 8px;
+    padding: 12px;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
   }
   .nav-controls {
-    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
     flex-wrap: nowrap;
-    justify-content: space-between;
-    gap: 4px;
+    gap: 16px;
+    width: 100%;
   }
   .nav-modes {
-    flex: 1 1 auto;
-    min-width: 0;
-    flex-wrap: nowrap;
-    gap: 4px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
-  .nav-modes .nav-btn {
-    flex: 1 1 auto;
+  .nav-settings {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: start;
+    gap: 8px;
   }
-  .stage-container {
-    flex-direction: column;
+  #btn-restart,
+  #btn-pause {
+    grid-column: span 2;
+  }
+  #btn-restart,
+  #btn-sound,
+  #btn-contrast,
+  #btn-motion,
+  #btn-lang {
+    display: inline-block;
+  }
+  .nav-setting {
+    display: flex;
+  }
+  .nav-setting .nav-btn {
+    width: 100%;
+  }
+  .nav-setting-caption {
+    display: block;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .nav-controls .nav-btn {
+    font-size: 0.85rem;
+    padding: 6px 8px;
+  }
+
+  /* One-line HUD: menu button, score, shots and the live badges. */
+  .hud-bar {
+    display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 12px;
+    padding: 0 8px 0 max(4px, env(safe-area-inset-left));
+    border-width: 0 0 1px;
+    border-radius: 0;
   }
-  .stage-column {
-    flex: 1 1 auto;
-    width: 100%;
-    container-type: size;
+  .hud-menu-btn {
+    display: inline-flex;
   }
-  .canvas-area {
-    flex: 1 1 auto;
-  }
-  .launcher-controls-dock {
-    width: 100%;
-    max-width: 440px;
-    align-self: center;
+  .hud-stat-box {
+    flex-direction: row;
+    align-items: baseline;
     gap: 6px;
   }
-  .powerups-panel {
-    width: 100%;
-    max-width: 440px;
-    max-height: none;
-    overflow: visible;
+  .hud-stat-coins,
+  .hud-stat-best,
+  .hud-mode-banner,
+  .hud-stat-score .hud-subvalue {
+    display: none;
   }
+  .hud-center-info {
+    order: 0;
+    margin-left: auto;
+  }
+  .hud-value {
+    font-size: 1.05rem;
+  }
+
+  /*
+   * Board, overcharge line and control row share one grid: the wrappers around the
+   * launcher buttons and special balls step aside so all seven buttons sit in one row.
+   */
+  .stage-container {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    gap: var(--stage-column-gap) 4px;
+    align-items: stretch;
+    justify-items: stretch;
+  }
+  .stage-column,
+  .launcher-controls-dock,
+  .powerups-panel,
   .powerups-bar {
-    grid-template-columns: repeat(5, 1fr);
+    display: contents;
+  }
+  .canvas-area {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .canvas-wrapper {
+    border-width: 1px 0;
+    border-radius: 0;
+  }
+  .overcharge-widget {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
+  }
+  .overcharge-header,
+  .powerups-header {
+    display: none;
+  }
+  .overcharge-track {
+    height: var(--overcharge-line-height);
+    border-radius: 0;
+  }
+  .polarity-floating-btn,
+  .swap-floating-btn,
+  .powerup-btn {
+    grid-row: 3;
+    min-width: 0;
+    min-height: var(--control-row-height);
+    padding: 2px;
+  }
+  .polarity-floating-btn {
+    margin-left: max(4px, env(safe-area-inset-left));
+  }
+  .powerup-btn:last-child {
+    margin-right: max(4px, env(safe-area-inset-right));
+  }
+  .powerup-btn {
+    flex-direction: column;
+    gap: 1px;
+  }
+  .powerup-count {
+    padding: 0 5px;
+    font-size: 0.7rem;
+  }
+  .launcher-icon {
+    font-size: 1.2rem;
+  }
+  /* The launcher label stays readable by screen readers; only its pixels go away. */
+  .launcher-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
   }
 }
 
