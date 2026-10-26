@@ -52,9 +52,18 @@
   user-select: none;
 }
 
+/* No pull-to-refresh or scroll chaining: a stray swipe must not reload the page mid-run. */
 html,
 body {
   height: 100%;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Taps stay taps: rapid presses on launcher buttons must not trigger double-tap zoom. */
+button,
+[role='button'] {
+  touch-action: manipulation;
 }
 
 body {
