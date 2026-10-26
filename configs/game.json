@@ -123,8 +123,8 @@
     "bounceBurstCount": 5,
     "bounceBurstSpeed": 2.5,
     "hitStopMinCombo": 3,
-    "hitStopFramesCombo": 3,
-    "hitStopFramesSpecial": 4,
+    "hitStopFramesCombo": 6,
+    "hitStopFramesSpecial": 14,
     "slowMotion": {
       "timeScale": 0.4,
       "maxRemainingBalls": 3,

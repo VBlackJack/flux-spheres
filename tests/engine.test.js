@@ -255,6 +255,37 @@ test('A rainbow or freeze shot that hits nothing is not a match', () => {
   }
 });
 
+test('Chain reactions resolve one cluster per check so a cascade plays out step by step', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  engine.physicsWorld.clear();
+  const world = engine.physicsWorld;
+  const spacing = physicsConfig.ball.radius * physicsConfig.simulation.bondRestDistanceFactor;
+  const buildCluster = (originX) => {
+    const cluster = [0, 1, 2].map((i) => makeBoardBall(originX + i * spacing, FAR_POSITION, { isAnchor: true }));
+    cluster.forEach((b) => world.addBall(b));
+    world.createBond(cluster[0], cluster[1], false);
+    world.createBond(cluster[1], cluster[2], false);
+    return cluster;
+  };
+  const first = buildCluster(FAR_POSITION);
+  const second = buildCluster(OTHER_POSITION);
+  world.addBall(
+    makeBoardBall(FAR_POSITION, OTHER_POSITION, { isAnchor: true, colorId: ballsConfig.standardColors[1].id })
+  );
+  world.pendingChainCandidateIds.add(first[0].id);
+  world.pendingChainCandidateIds.add(second[0].id);
+
+  engine.evaluateAutomaticChainReactions();
+  assert.equal(first.some((b) => world.ballMap.has(b.id)), false, 'the first cluster goes off');
+  assert.ok(second.every((b) => world.ballMap.has(b.id)), 'the second cluster waits for the next check');
+  assert.ok(world.pendingChainCandidateIds.has(second[0].id));
+
+  engine.evaluateAutomaticChainReactions();
+  assert.equal(second.some((b) => world.ballMap.has(b.id)), false);
+  assert.equal(engine.state, GAME_STATES.PLAYING);
+});
+
 test('An all-armored match that destroys nothing awards no points and no combo', () => {
   const engine = createTestEngine();
   engine.startCampaignLevel(1);
