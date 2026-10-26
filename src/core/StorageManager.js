@@ -350,4 +350,28 @@ export class StorageManager {
     this.safeSetItem(this.storageConfig.keys.upgrades, JSON.stringify(upgrades));
     return true;
   }
+
+  getRunSnapshotVersion() {
+    return this.storageConfig.runSnapshotVersion;
+  }
+
+  /** Returns the saved run as a plain object, or null when none is stored or it is unreadable. */
+  loadRunSnapshot() {
+    const parsed = this.readJsonObject(this.storageConfig.keys.runSnapshot);
+    return Object.keys(parsed).length > 0 ? parsed : null;
+  }
+
+  saveRunSnapshot(snapshot) {
+    this.safeSetItem(this.storageConfig.keys.runSnapshot, JSON.stringify(snapshot));
+  }
+
+  clearRunSnapshot() {
+    const fullKey = this.buildKey(this.storageConfig.keys.runSnapshot);
+    this.memoryFallback.delete(fullKey);
+    try {
+      localStorage.removeItem(fullKey);
+    } catch {
+      // localStorage is restricted; the in-memory copy is already gone
+    }
+  }
 }

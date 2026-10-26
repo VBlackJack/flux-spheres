@@ -83,11 +83,22 @@ class Application {
 
       this.bindCanvasInput(canvas, engine, gameConfig, uiManager);
 
-      // High scores are only written at run end; also flush them when the page is left mid-run
-      window.addEventListener('pagehide', () => engine.persistRunHighScore());
+      // High scores are only written at run end; also flush them when the page is left mid-run.
+      // The run itself is stored too: mobile browsers discard hidden tabs without warning.
+      const persistOnLeave = () => {
+        engine.persistRunHighScore();
+        engine.saveRunSnapshot();
+      };
+      window.addEventListener('pagehide', persistOnLeave);
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          persistOnLeave();
+        }
+      });
 
-      const startLevel = storageManager.getUnlockedLevel();
-      engine.startCampaignLevel(startLevel);
+      if (!engine.restoreSavedRun()) {
+        engine.startCampaignLevel(storageManager.getUnlockedLevel());
+      }
 
       const gameLoop = createGameLoop({
         engine,

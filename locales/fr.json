@@ -35,7 +35,8 @@
         "soundAria": "Son",
         "contrastAria": "Contraste élevé",
         "motionAria": "Mouvements réduits",
-        "languageAria": "Langue : FR (français). Changer de langue"
+        "languageAria": "Langue : FR (français). Changer de langue",
+        "languageCaption": "Langue"
       }
     }
   },
@@ -43,8 +44,8 @@
     "stats": {
       "score": {
         "label": "Score",
-        "starProgress": "{{stars}} • Prochain : {{next}}",
-        "starMax": "{{stars}} • MAX"
+        "nextThreshold": "• Prochain : {{next}}",
+        "maxReached": "• MAX"
       },
       "highScore": {
         "label": "Record"
@@ -75,18 +76,25 @@
     },
     "launcher": {
       "swap": {
-        "hint": "⇄ Échanger (Espace)"
+        "label": "⇄ Échanger",
+        "shortcut": "Espace"
       },
       "polarity": {
-        "normal": "🧲 Polarité : Normale (F)",
-        "inverted": "🧲 Polarité : Inversée (F)"
+        "normal": "🧲 Polarité : Normale",
+        "inverted": "🧲 Polarité : Inversée",
+        "shortcut": "F"
       },
       "cancel": {
         "hint": "Relâcher ici pour annuler le tir"
       },
       "specialEquipped": {
-        "hint": "{{icon}} {{name}} : {{desc}} (Recliquer pour ranger)"
-      }
+        "hint": "{{icon}} {{name}} : {{desc}} ({{unequip}})",
+        "unequip": {
+          "pointer": "Recliquer pour ranger",
+          "touch": "Touchez à nouveau pour ranger"
+        }
+      },
+      "shortcutFormat": "{{label}} ({{key}})"
     },
     "tutorial": {
       "dismiss": "Fermer l'astuce"
@@ -210,7 +218,7 @@
       "starsTotal": "Étoiles de Campagne : {{stars}} / {{maxStars}} ★",
       "card": {
         "levelNumber": "Niveau {{id}}",
-        "locked": "Verrouillé",
+        "locked": "Verrouillé : terminez le niveau {{previous}}",
         "bestScore": "Record : {{score}}",
         "starsAria": "Étoiles : {{stars}} sur {{maxStars}}"
       },
@@ -401,8 +409,18 @@
       },
       "levelTip": "Objectif / Astuce : {{tip}}",
       "instructions": {
-        "aim": "Viser et tirer : Souris ou tactile",
-        "swap": "Changer de bille : Clic sur le chargeur ou Espace",
+        "aim": {
+          "pointer": "Viser et tirer : déplacez la souris, cliquez pour tirer",
+          "touch": "Viser et tirer : glissez le doigt sur le plateau, relâchez pour tirer"
+        },
+        "swap": {
+          "pointer": "Changer de bille : clic sur le chargeur ou Espace",
+          "touch": "Changer de bille : touchez le chargeur ou le bouton Échanger"
+        },
+        "cancel": {
+          "pointer": "Annuler un tir : relâchez le clic sous le lanceur",
+          "touch": "Annuler un tir : ramenez le doigt sous le lanceur avant de relâcher"
+        },
         "keyboard": "Clavier : Flèches pour viser, Entrée pour tirer, F pour inverser la polarité, 1-5 pour les billes spéciales",
         "physics": "Astuce : Détachez les ancres ou déséquilibrez les rotors pour créer des réactions en chaîne !"
       },

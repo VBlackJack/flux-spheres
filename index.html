@@ -59,7 +59,7 @@
       <div class="hud-stat-box">
         <span class="hud-label" data-i18n="hud.stats.score.label"></span>
         <span id="hud-score-value" class="hud-value"></span>
-        <span id="hud-star-progress" class="hud-subvalue gold-text"></span>
+        <span id="hud-star-progress" class="hud-subvalue gold-text"><span id="hud-star-glyphs" class="hud-subvalue-part"></span> <span id="hud-star-next" class="hud-subvalue-part"></span></span>
       </div>
       <div class="hud-center-info">
         <div id="hud-mode-banner" class="hud-mode-banner"></div>
@@ -97,7 +97,7 @@
         </div>
         <div class="launcher-controls-dock">
           <button id="btn-polarity" type="button" class="polarity-floating-btn"></button>
-          <button id="btn-swap-ball" type="button" class="swap-floating-btn" data-i18n="hud.launcher.swap.hint"></button>
+          <button id="btn-swap-ball" type="button" class="swap-floating-btn"></button>
         </div>
       </div>
 
@@ -190,16 +190,29 @@
       <h2 id="modal-pause-title" class="modal-title" data-i18n="modals.pause.title.main"></h2>
       <p id="pause-level-tip" class="pause-level-tip hidden"></p>
       <ul class="instructions-list">
-        <li data-i18n="modals.pause.instructions.aim"></li>
-        <li data-i18n="modals.pause.instructions.swap"></li>
-        <li data-i18n="modals.pause.instructions.keyboard"></li>
+        <li id="pause-instruction-aim"></li>
+        <li id="pause-instruction-swap"></li>
+        <li id="pause-instruction-cancel"></li>
+        <li id="pause-instruction-keyboard" class="pointer-only" data-i18n="modals.pause.instructions.keyboard"></li>
         <li data-i18n="modals.pause.instructions.physics"></li>
       </ul>
       <div class="pause-settings-row">
-        <button id="btn-sound-pause" type="button" class="nav-btn icon-btn"></button>
-        <button id="btn-contrast-pause" type="button" class="nav-btn icon-btn"></button>
-        <button id="btn-motion-pause" type="button" class="nav-btn icon-btn"></button>
-        <button id="btn-lang-pause" type="button" class="nav-btn badge-btn"></button>
+        <div class="pause-setting">
+          <button id="btn-sound-pause" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-sound-pause" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-contrast-pause" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-contrast-pause" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-motion-pause" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-motion-pause" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-lang-pause" type="button" class="nav-btn badge-btn"></button>
+          <span class="pause-setting-caption" data-i18n="app.nav.button.languageCaption" aria-hidden="true"></span>
+        </div>
       </div>
       <div class="modal-actions">
         <button id="btn-resume" type="button" class="modal-btn primary" data-i18n="modals.pause.button.resume"></button>

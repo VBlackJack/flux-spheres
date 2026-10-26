@@ -268,8 +268,10 @@
       "dailyLastPlayedDate": "daily_last_date",
       "coins": "coins",
       "upgrades": "upgrades",
-      "achievements": "achievements"
-    }
+      "achievements": "achievements",
+      "runSnapshot": "run_snapshot"
+    },
+    "runSnapshotVersion": 1
   },
   "defaults": {
     "language": "fr",
@@ -277,7 +279,8 @@
     "initialUnlockedLevel": 1,
     "matchMinCount": 3,
     "initialCoins": 50,
-    "reducedMotionMediaQuery": "(prefers-reduced-motion: reduce)"
+    "reducedMotionMediaQuery": "(prefers-reduced-motion: reduce)",
+    "coarsePointerMediaQuery": "(pointer: coarse)"
   },
   "theme": {
     "fontFamily": "system-ui, sans-serif",

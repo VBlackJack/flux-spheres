@@ -49,6 +49,12 @@ export const GAME_STATES = Object.freeze({
   GAME_OVER: 'game_over'
 });
 
+/** How the player is currently driving the game; selects touch or mouse/keyboard hints. */
+export const INPUT_MODES = Object.freeze({
+  POINTER: 'pointer',
+  TOUCH: 'touch'
+});
+
 export const SPECIAL_TYPES = Object.freeze({
   BOMB: 'bomb',
   LIGHTNING: 'lightning',
