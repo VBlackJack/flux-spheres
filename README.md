@@ -26,9 +26,9 @@
 - **Game Feel**:
   - Slow motion when a shot flies close to one of the last three spheres of a level or Flux shape.
   - The victory score rolls up and the earned stars pop in one after another; both respect reduced motion.
-- **Magnetic Workshop & Codex**:
+- **Workshop & Codex**:
   - Permanent upgrades (*Curved Laser Sight*, *Magnetic Amplifier*, *Overcharge Capacitor*, *Projectile Reserve*).
-  - In-run Special Ammo refills, Bounties/Achievements, and an illustrated **Codex & Guide**.
+  - In-run Special Ammo refills (an empty special ball opens this tab), Bounties/Achievements, and an illustrated **Codex & Guide**.
 - **Accessibility & Comfort**:
   - Bilingual interface (**FR** / **EN**) with zero hardcoded strings; the first visit follows the browser language.
   - **High Contrast** mode with enhanced borders and polarity symbols; buttons meet WCAG AA contrast.
@@ -37,7 +37,7 @@
   - Optional **Tilt Control** on phones and tablets: tilting the device leans gravity sideways.
   - Screen reader support: labelled toggles with `aria-pressed`, named power-ups and level stars, and polite announcements for achievements and round results.
   - Full mouse, touch (with vertical finger offset and pull-down shot cancellation), and keyboard controls; held action keys do not auto-repeat.
-  - Zero-scroll layout on desktop, phones and landscape phones, with 44 px touch targets. On portrait phones the board spans the full width; navigation, settings and stats live in the slide-in menu (☰), which pauses the run. On landscape desktops the board uses the full window height, centered between two columns of the same width: navigation and round stats on the left, overcharge, special balls, Polarity and Swap on the right.
+  - Zero-scroll layout on desktop, phones and landscape phones, with 44 px touch targets. On portrait phones the board spans the full width; navigation and stats live in the slide-in menu (☰), which pauses the run, and a line under the score keeps the round, coins and best score in view. On landscape desktops the board uses the full window height, centered between two columns of the same width: navigation and round stats on the left, overcharge, special balls, Polarity and Swap on the right.
   - The run in progress survives a reload or a discarded tab and resumes paused.
 - **Installable & Offline**:
   - Installable Progressive Web App with standard and maskable icons.
@@ -54,9 +54,9 @@
 | **Cancel Aim** | Drag below the launcher ring | - |
 | **Swap Ball** | Click secondary ball or **Swap** button | `Space` |
 | **Flip Polarity** | Click **Polarity** button | `F` |
-| **Equip / Unequip Special Ball** | Click Special Ball slot (click again to stash) | `1` to `5` |
+| **Equip / Unequip Special Ball** | Click Special Ball slot (click again to stash) | `1` to `6` |
 | **Pause / Close Modal** | Click **Pause** or modal backdrop | `Escape` |
-| **Settings (phones)** | Open **Pause** | - |
+| **Settings** | Click **⚙ Settings**, or open **Pause** | - |
 
 ---
 

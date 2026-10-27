@@ -4,6 +4,19 @@ All notable changes to **FluxSpheres** are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Navigation**: The menu now holds two groups: the game modes, then the round actions (a highlighted Pause, Restart, Workshop and Settings). The six setting toggles moved into a Settings dialog, and only the mode being played is highlighted (`aria-current`).
+- **Level Select**: The grid uses the dialog's full height, the level being played (or the furthest unlocked) is highlighted and scrolled into view, and the main button resumes or plays that level instead of starting Survival.
+- **Workshop**: One name for the menu button and its dialog. Special ammo has its own tab, and finished upgrades show a MAX status instead of a disabled button.
+- **Board Readability**: Polarity letters are quieter and modifier badges larger.
+- **Phones**: A line under the score shows the round, coins and best score; each launcher control and special ball is named under its icon, Polarity shows its current state, and the overcharge gauge is labelled.
+- **Score Goal**: A gauge under the score fills toward the next star.
+- **Empty Special Balls**: During a round, an empty special ball shows a "+" and opens the Workshop ammo tab.
+
+### Fixed
+- **Saved Run Restore**: A run saved after its level tutorial was dismissed was discarded on reload instead of resumed.
+- **Keyboard Focus**: The board takes keyboard focus and shows it, so the arrow keys it announces have a visible target.
+
 ## [1.4.0] - 2026-10-27
 
 ### Added

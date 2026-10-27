@@ -61,40 +61,17 @@
         </div>
       </dl>
       <nav class="nav-controls">
-        <div class="nav-group nav-modes">
-          <button id="btn-levels" type="button" data-closes-drawer class="nav-btn primary" data-i18n="app.nav.button.levels"></button>
-          <button id="btn-endless" type="button" data-closes-drawer class="nav-btn accent" data-i18n="app.nav.button.endless"></button>
-          <button id="btn-daily" type="button" data-closes-drawer class="nav-btn accent" data-i18n="app.nav.button.daily"></button>
-          <button id="btn-flux" type="button" data-closes-drawer class="nav-btn accent" data-i18n="app.nav.button.flux"></button>
-          <button id="btn-shop" type="button" data-closes-drawer class="nav-btn gold" data-i18n="app.nav.button.shop"></button>
+        <div class="nav-group nav-modes" role="group" data-i18n-aria-label="app.nav.groups.modes">
+          <button id="btn-levels" type="button" data-closes-drawer class="nav-btn mode-btn" data-i18n="app.nav.button.levels"></button>
+          <button id="btn-endless" type="button" data-closes-drawer class="nav-btn mode-btn" data-i18n="app.nav.button.endless"></button>
+          <button id="btn-daily" type="button" data-closes-drawer class="nav-btn mode-btn" data-i18n="app.nav.button.daily"></button>
+          <button id="btn-flux" type="button" data-closes-drawer class="nav-btn mode-btn" data-i18n="app.nav.button.flux"></button>
         </div>
-        <div class="nav-group nav-settings">
+        <div class="nav-group nav-actions" role="group" data-i18n-aria-label="app.nav.groups.round">
+          <button id="btn-pause" type="button" data-closes-drawer class="nav-btn primary" data-i18n="app.nav.button.pause"></button>
           <button id="btn-restart" type="button" data-closes-drawer class="nav-btn" data-i18n="app.nav.button.restart"></button>
-          <button id="btn-pause" type="button" data-closes-drawer class="nav-btn" data-i18n="app.nav.button.pause"></button>
-          <div class="nav-setting">
-            <button id="btn-sound" type="button" class="nav-btn icon-btn"></button>
-            <span class="nav-setting-caption" data-caption-for="btn-sound" aria-hidden="true"></span>
-          </div>
-          <div class="nav-setting">
-            <button id="btn-contrast" type="button" class="nav-btn icon-btn"></button>
-            <span class="nav-setting-caption" data-caption-for="btn-contrast" aria-hidden="true"></span>
-          </div>
-          <div class="nav-setting">
-            <button id="btn-patterns" type="button" class="nav-btn icon-btn"></button>
-            <span class="nav-setting-caption" data-caption-for="btn-patterns" aria-hidden="true"></span>
-          </div>
-          <div class="nav-setting">
-            <button id="btn-tilt" type="button" class="nav-btn icon-btn"></button>
-            <span class="nav-setting-caption" data-caption-for="btn-tilt" aria-hidden="true"></span>
-          </div>
-          <div class="nav-setting">
-            <button id="btn-motion" type="button" class="nav-btn icon-btn"></button>
-            <span class="nav-setting-caption" data-caption-for="btn-motion" aria-hidden="true"></span>
-          </div>
-          <div class="nav-setting">
-            <button id="btn-lang" type="button" class="nav-btn badge-btn"></button>
-            <span class="nav-setting-caption" data-i18n="app.nav.button.languageCaption" aria-hidden="true"></span>
-          </div>
+          <button id="btn-shop" type="button" data-closes-drawer class="nav-btn gold" data-i18n="app.nav.button.shop"></button>
+          <button id="btn-settings" type="button" data-closes-drawer class="nav-btn settings-btn" aria-haspopup="dialog"><span class="settings-btn-icon" aria-hidden="true" data-i18n="app.nav.button.settingsIcon"></span> <span data-i18n="app.nav.button.settings"></span></button>
         </div>
       </nav>
     </header>
@@ -106,7 +83,7 @@
       <div class="hud-stat-box hud-stat-score">
         <span class="hud-label" data-i18n="hud.stats.score.label"></span>
         <span id="hud-score-value" class="hud-value"></span>
-        <span id="hud-star-progress" class="hud-subvalue gold-text"><span id="hud-star-glyphs" class="hud-subvalue-part"></span> <span id="hud-star-next" class="hud-subvalue-part"></span></span>
+        <span id="hud-star-progress" class="hud-subvalue gold-text"><span id="hud-star-glyphs" class="hud-subvalue-part"></span> <span id="hud-star-next" class="hud-subvalue-part"></span><span id="hud-star-meter" class="star-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" data-i18n-aria-label="hud.stats.score.progressAria"><span id="hud-star-meter-fill" class="star-meter-fill"></span></span></span>
       </div>
       <div class="hud-center-info">
         <div id="hud-mode-banner" class="hud-mode-banner"></div>
@@ -127,13 +104,14 @@
         <span class="hud-label" data-i18n="hud.stats.highScore.label"></span>
         <span id="hud-best-value" class="hud-value"></span>
       </div>
+      <p id="hud-compact-info" class="hud-compact-info"></p>
     </section>
 
     <main class="stage-container">
       <div class="stage-column">
         <div class="canvas-area">
           <div class="canvas-wrapper">
-            <canvas id="game-canvas" role="img"></canvas>
+            <canvas id="game-canvas" role="application" tabindex="0"></canvas>
             <div id="tutorial-banner" class="tutorial-banner hidden" aria-live="polite">
               <span id="tutorial-banner-text"></span>
               <button id="btn-dismiss-tutorial" type="button" class="tutorial-dismiss-btn"><span aria-hidden="true">✕</span></button>
@@ -143,8 +121,8 @@
           </div>
         </div>
         <div class="launcher-controls-dock">
-          <button id="btn-polarity" type="button" class="polarity-floating-btn"><span class="launcher-icon" aria-hidden="true"></span> <span class="launcher-text"></span></button>
-          <button id="btn-swap-ball" type="button" class="swap-floating-btn"><span class="launcher-icon" aria-hidden="true"></span> <span class="launcher-text"></span></button>
+          <button id="btn-polarity" type="button" class="polarity-floating-btn"><span class="launcher-icon" aria-hidden="true"></span> <span class="launcher-text"></span><span class="launcher-caption" aria-hidden="true"></span></button>
+          <button id="btn-swap-ball" type="button" class="swap-floating-btn"><span class="launcher-icon" aria-hidden="true"></span> <span class="launcher-text"></span><span class="launcher-caption" aria-hidden="true"></span></button>
         </div>
       </div>
 
@@ -173,7 +151,7 @@
       <p id="levels-stars-summary" class="modal-stat-line gold-text"></p>
       <div id="levels-grid" class="levels-grid"></div>
       <div class="modal-actions">
-        <button id="btn-play-endless-modal" type="button" class="modal-btn accent" data-i18n="modals.levelSelect.button.playEndless"></button>
+        <button id="btn-play-level-modal" type="button" class="modal-btn primary"></button>
         <button id="btn-close-levels" type="button" class="modal-btn" data-i18n="modals.levelSelect.button.close"></button>
       </div>
     </div>
@@ -186,11 +164,14 @@
       <p id="shop-balance" class="modal-stat-line gold-text"></p>
       <div class="modal-tabs" role="tablist">
         <button id="tab-shop-upgrades" type="button" class="modal-tab active" role="tab" aria-selected="true" aria-controls="shop-upgrades-pane" tabindex="0" data-i18n="modals.shop.tabs.upgrades"></button>
+        <button id="tab-shop-ammo" type="button" class="modal-tab" role="tab" aria-selected="false" aria-controls="shop-ammo-pane" tabindex="-1" data-i18n="modals.shop.tabs.ammo"></button>
         <button id="tab-shop-achievements" type="button" class="modal-tab" role="tab" aria-selected="false" aria-controls="achievements-grid" tabindex="-1"></button>
         <button id="tab-shop-codex" type="button" class="modal-tab" role="tab" aria-selected="false" aria-controls="codex-pane" tabindex="-1" data-i18n="modals.shop.tabs.codex"></button>
       </div>
       <div id="shop-upgrades-pane" class="shop-pane" role="tabpanel" aria-labelledby="tab-shop-upgrades">
         <div id="shop-grid" class="levels-grid"></div>
+      </div>
+      <div id="shop-ammo-pane" class="shop-pane hidden" role="tabpanel" aria-labelledby="tab-shop-ammo">
         <h3 class="modal-subtitle" data-i18n="modals.shop.specialAmmo.title"></h3>
         <div id="shop-ammo-grid" class="ammo-shop-grid"></div>
       </div>
@@ -273,6 +254,42 @@
       <div class="modal-actions">
         <button id="btn-resume" type="button" class="modal-btn primary" data-i18n="modals.pause.button.resume"></button>
         <button id="btn-restart-pause" type="button" class="modal-btn" data-i18n="modals.pause.button.restart"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="modal-settings" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
+    <div class="modal-card">
+      <h2 id="modal-settings-title" class="modal-title" data-i18n="modals.settings.title.main"></h2>
+      <div class="pause-settings-row">
+        <div class="pause-setting">
+          <button id="btn-sound" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-sound" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-contrast" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-contrast" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-patterns" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-patterns" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-tilt" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-tilt" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-motion" type="button" class="nav-btn icon-btn"></button>
+          <span class="pause-setting-caption" data-caption-for="btn-motion" aria-hidden="true"></span>
+        </div>
+        <div class="pause-setting">
+          <button id="btn-lang" type="button" class="nav-btn badge-btn"></button>
+          <span class="pause-setting-caption" data-i18n="app.nav.button.languageCaption" aria-hidden="true"></span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-close-settings" type="button" class="modal-btn primary" data-i18n="modals.settings.button.close"></button>
       </div>
     </div>
   </div>

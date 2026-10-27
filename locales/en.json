@@ -16,8 +16,8 @@
         "daily": "Daily",
         "dailyBonusBadge": "Daily (+{{coins}} ⬡)",
         "flux": "Flux Mode",
-        "shop": "Shop",
-        "shopBadge": "Shop ({{count}})",
+        "shop": "Workshop",
+        "shopBadge": "Workshop ({{count}})",
         "restart": "Restart",
         "pause": "Pause",
         "soundOn": "🔊",
@@ -47,7 +47,13 @@
         "tiltOff": "📱",
         "tiltOnAria": "Tilt control: On",
         "tiltOffAria": "Tilt control: Off",
-        "tiltAria": "Tilt control"
+        "tiltAria": "Tilt control",
+        "settings": "Settings",
+        "settingsIcon": "⚙"
+      },
+      "groups": {
+        "modes": "Game modes",
+        "round": "Current round"
       }
     },
     "drawer": {
@@ -68,7 +74,8 @@
       "score": {
         "label": "Score",
         "nextThreshold": "• Next: {{next}}",
-        "maxReached": "• MAX"
+        "maxReached": "• MAX",
+        "progressAria": "Progress to the next star"
       },
       "highScore": {
         "label": "Best"
@@ -97,19 +104,25 @@
       },
       "frozen": {
         "label": "Frozen ({{turns}})"
-      }
+      },
+      "compactLine": "{{mode}} • {{coins}} • Best {{best}}"
     },
     "launcher": {
       "swap": {
         "icon": "⇄",
         "label": "Swap",
-        "shortcut": "Space"
+        "shortcut": "Space",
+        "caption": "Swap"
       },
       "polarity": {
         "icon": "🧲",
         "normal": "Polarity: Normal",
         "inverted": "Polarity: Inverted",
-        "shortcut": "F"
+        "shortcut": "F",
+        "caption": {
+          "normal": "Normal",
+          "inverted": "Inverted"
+        }
       },
       "cancel": {
         "hint": "Release here to cancel shot"
@@ -155,7 +168,9 @@
         "tooltip": "Fires three homing rockets at the hardest spheres on the board"
       },
       "button": {
-        "aria": "{{name}}: {{count}} in stock"
+        "aria": "{{name}}: {{count}} in stock",
+        "buyAria": "{{name}}: none left. Open the Workshop to buy more",
+        "emptyMark": "+"
       }
     },
     "canvas": {
@@ -303,21 +318,24 @@
         "levelNumber": "Level {{id}}",
         "locked": "Locked: clear level {{previous}}",
         "bestScore": "Best: {{score}}",
-        "starsAria": "Stars: {{stars}} of {{maxStars}}"
+        "starsAria": "Stars: {{stars}} of {{maxStars}}",
+        "current": "Current"
       },
       "button": {
         "close": "Close",
-        "playEndless": "Play Survival Mode"
+        "resume": "Resume level {{level}}",
+        "play": "Play level {{level}}"
       }
     },
     "shop": {
       "title": {
-        "main": "Magnetic Workshop"
+        "main": "Workshop"
       },
       "tabs": {
         "upgrades": "Upgrades",
         "achievements": "Achievements ({{unlocked}}/{{total}})",
-        "codex": "Codex & Guide"
+        "codex": "Codex & Guide",
+        "ammo": "Ammo"
       },
       "balance": {
         "label": "Available Coins: {{coins}} ⬡"
@@ -466,7 +484,8 @@
       "card": {
         "level": "Lv. {{level}} / {{maxLevel}}",
         "maxed": "MAX",
-        "buy": "Upgrade ({{cost}} ⬡)"
+        "buy": "Upgrade ({{cost}} ⬡)",
+        "maxedAria": "Maximum level reached"
       },
       "upgrades": {
         "laserSight": {
@@ -557,6 +576,14 @@
       "button": {
         "confirm": "Confirm",
         "cancel": "Keep Playing"
+      }
+    },
+    "settings": {
+      "title": {
+        "main": "Settings"
+      },
+      "button": {
+        "close": "Close"
       }
     }
   },
