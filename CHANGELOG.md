@@ -4,6 +4,8 @@ All notable changes to **FluxSpheres** are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-27
+
 ### Added
 - **Flux Mode**: A new endless mode that chains procedurally generated shapes under one shot reserve. Each stage picks a parametric shape (pendulum, ring, hexagon, spiral, cross, twin rings), a hanging silhouette from a character mask (heart, diamond, crown, arrow, donut, invader, hourglass) or a pair of small shapes, never repeating the previous family. A per-stage budget buys bumpers, portals, repulsors, attractors and singularities that fit around the shape; palette size and cluster modifiers follow stage tables; every fifth stage has a Boss Core. Clearing a shape pays points and coins and refills shots, and the next shape slides in. Runs are seeded and resume on the same shape after a reload; the best score and the furthest stage are kept separately. Tuning lives in `configs/flux.json`.
 - **Layout Registry**: Campaign layouts are now pure geometry generators in `src/game/layouts/LayoutGenerators.js`, shared by the campaign and Flux Mode; all 16 levels produce the same positions, anchors and bonds as before.
@@ -14,6 +16,18 @@ All notable changes to **FluxSpheres** are documented in this file.
 - **Input-Aware Hints**: Keyboard shortcuts are shown only to mouse and keyboard players; touch players get tap and drag wording, including how to cancel a shot.
 
 ### Fixed
+- **High Contrast Everywhere**: The High Contrast setting, and the system's increased contrast preference, now raise the HUD, menus and dialogs too, not only the board; forced colors mode gets visible borders and focus rings.
+- **Menu and Victory**: The slide-in menu can no longer be open when the Victory or Game Over window appears.
+- **Focus After a Confirmation**: Closing a confirmation opened from Pause or Levels puts the keyboard focus back in that window.
+- **Tutorial Announcements**: Screen readers now announce the level tutorial when it appears.
+- **Tablet Touch Targets**: Buttons are at least 44 px on touch screens of every size, tablets included.
+- **Sharp Board on a New Screen**: Moving the window to a screen with another pixel density redraws the board sharp.
+- **Missing Language File**: If one language file fails to load, texts fall back to the other language instead of showing raw keys.
+- **Board Description**: The board's description for screen readers matches the input in use (touch, or mouse and keyboard).
+- **Boss Cores in Avalanches**: A Boss Core that falls in an avalanche pays its coins and points and counts toward the Boss Slayer achievement, like a destroyed one.
+- **Flux Seeds**: A Flux seed gives the same run whatever mode was played just before.
+- **Saved Runs**: A saved run holding a value of the wrong type is discarded instead of corrupting the score.
+- **Broken Settings**: A zero or missing timing or overcharge setting now shows the loading error instead of freezing the game.
 - **Energy Barrier**: The barrier now turns off when the last Lock Core falls in an avalanche, not only when it is destroyed; before, it could stay up for the rest of the level and leave the spheres behind it out of reach.
 - **Coins Paid Twice**: Reloading the page while a shot was in flight replayed the shot and paid its coins again. Coins earned during a shot or a Flux shape change are now written once the run is saved.
 - **Two Tabs**: With the game open in two tabs, one tab no longer writes stale coins, upgrades or achievements over the progress made in the other.
@@ -53,6 +67,8 @@ All notable changes to **FluxSpheres** are documented in this file.
 - **Performance**: Aim preview, avalanche prediction and cluster searches are cached; the spatial grid is rebuilt once per substep; the static background is pre-rendered; the canvas backing store follows its displayed size.
 - **Audio**: Simultaneous voices are capped, effects are throttled behind a limiter, and the audio context is suspended while hidden or muted.
 - **High Scores**: Written when a run ends or the page is left instead of on every scoring event.
+- **Engine**: Physics callbacks and scratch arrays are no longer allocated on every simulation step, and the seeded random generator keeps a bounded 32-bit state with the same sequence.
+- **Release Checks**: The typography guard also reads LICENSE and dotfiles and catches double-encoded text and more look-alike characters; CI checks that a release tag matches the package version and that the version has a CHANGELOG section.
 - **Tooling**: CI runs on Node.js 24 with every test suite, plus guards for typography and offline asset coverage; French README added.
 
 ## [1.2.5] - 2026-10-26
