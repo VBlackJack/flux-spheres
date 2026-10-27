@@ -190,7 +190,7 @@
       "obstacles": [
         {
           "type": "barrier",
-          "x": 200,
+          "x": 205,
           "y": 430,
           "width": 115,
           "oscillateRangeX": 95,

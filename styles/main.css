@@ -79,7 +79,8 @@
   --shell-pad-x: 16px;
   --shell-gap: 10px;
   --canvas-max-width: 460px;
-  --canvas-aspect: 540 / 820;
+  /* Board shape until the UI sets it from canvas.logicalWidth / logicalHeight. */
+  --canvas-aspect: 470 / 820;
   --canvas-border: 2px;
   --dock-height: var(--touch-target);
   --stage-column-gap: 8px;
