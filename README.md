@@ -32,7 +32,9 @@
 - **Accessibility & Comfort**:
   - Bilingual interface (**FR** / **EN**) with zero hardcoded strings; the first visit follows the browser language.
   - **High Contrast** mode with enhanced borders and polarity symbols; buttons meet WCAG AA contrast.
+  - **Color Patterns** setting: each color gets its own pattern (stripes, dots, grid, rings) inside the spheres.
   - **Reduced Motion** toggle (`prefers-reduced-motion` aware) and automatic pause on tab switch.
+  - Optional **Tilt Control** on phones and tablets: tilting the device leans gravity sideways.
   - Screen reader support: labelled toggles with `aria-pressed`, named power-ups and level stars, and polite announcements for achievements and round results.
   - Full mouse, touch (with vertical finger offset and pull-down shot cancellation), and keyboard controls; held action keys do not auto-repeat.
   - Zero-scroll layout on desktop, phones and landscape phones, with 44 px touch targets. On portrait phones the board spans the full width; navigation, settings and stats live in the slide-in menu (☰), which pauses the run. On landscape desktops the board uses the full window height, centered between two columns of the same width: navigation and round stats on the left, overcharge, special balls, Polarity and Swap on the right.

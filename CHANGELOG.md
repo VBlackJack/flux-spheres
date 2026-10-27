@@ -5,6 +5,12 @@ All notable changes to **FluxSpheres** are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Launcher Preview**: The two colors after the next ball are shown beside the launcher, smaller and in loading order (`canvas.launcherPreviewCount`). The queue is drawn when a run starts, so Daily Challenge players get the same one, and saved runs keep it.
+- **Color Patterns**: A new setting draws a pattern unique to each color inside the spheres (stripes, dots, grid, rings), for players who cannot tell the colors apart.
+- **Tilt Control**: On phones and tablets, an optional setting tilts gravity with the device, up to 40% of it sideways (`tilt` in `configs/game.json`). It is hidden where the device does not report its orientation, and asks permission where the browser requires it.
+- **Liquid Surface**: Spheres falling off the board ripple a liquid surface at the bottom; reduced motion keeps it still.
+- **Cracked Walls**: Shots bouncing off the side walls crack them, up to twelve cracks per run.
+- **Automatic Star Thresholds**: A level without star thresholds gets them from its starting sphere count (`scoring.autoStarPointsPerBall`); tuned levels keep theirs.
 - **Rail Anchors**: An anchor can slide along a horizontal rail; the pull of the spheres it holds drags it, so clearing one side of a cluster lets the other side swing it over.
 - **Thrusters**: A thruster sphere pushes upward against gravity and lifts what it is bonded to.
 - **Tethers**: A tether sphere binds to spheres farther away with long links that hold weight, never snap and never carry a color group.

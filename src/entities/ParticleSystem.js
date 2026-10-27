@@ -26,6 +26,11 @@ export class ParticleSystem {
     this.floatingTexts = [];
     this.lightningBolts = [];
     this.streaks = [];
+    // Surface of the liquid at the bottom of the board: one height and speed per column.
+    this.liquidHeights = new Array(this.cfg.liquidColumns).fill(0);
+    this.liquidVelocities = new Array(this.cfg.liquidColumns).fill(0);
+    // Cracks left by shots bouncing off the side walls; they last for the whole run.
+    this.wallCracks = [];
     this.particlePool = [];
     this.trailPool = [];
     this.shockwavePool = [];
@@ -59,8 +64,30 @@ export class ParticleSystem {
 
   clear() {
     this.clearDecorativeEffects();
+    this.wallCracks.length = 0;
+    this.liquidHeights.fill(0);
+    this.liquidVelocities.fill(0);
     while (this.floatingTexts.length > 0) {
       this.textPool.push(this.floatingTexts.pop());
+    }
+  }
+
+  /** Springs every column back to rest and lets its ripple spread to its neighbors. */
+  updateLiquid() {
+    const cfg = this.cfg;
+    const heights = this.liquidHeights;
+    const velocities = this.liquidVelocities;
+    for (let i = 0; i < heights.length; i++) {
+      velocities[i] += -cfg.liquidTension * heights[i] - cfg.liquidDampening * velocities[i];
+      heights[i] += velocities[i];
+    }
+    for (let i = 0; i < heights.length; i++) {
+      if (i > 0) {
+        velocities[i - 1] += cfg.liquidSpread * (heights[i] - heights[i - 1]) * MATH_CONSTANTS.HALF;
+      }
+      if (i < heights.length - 1) {
+        velocities[i + 1] += cfg.liquidSpread * (heights[i] - heights[i + 1]) * MATH_CONSTANTS.HALF;
+      }
     }
   }
 
@@ -183,6 +210,41 @@ export class ParticleSystem {
     });
   }
 
+  /**
+   * A sphere falling into the liquid makes a ripple where it lands.
+   * @param {number} xFraction - Landing position across the board, from 0 to 1.
+   * @param {number} speed - Falling speed; faster spheres splash harder.
+   */
+  splashLiquid(xFraction, speed) {
+    if (this.reducedMotion) {
+      return;
+    }
+    const cfg = this.cfg;
+    const column = Math.min(cfg.liquidColumns - 1, Math.max(0, Math.floor(xFraction * cfg.liquidColumns)));
+    this.liquidVelocities[column] += Math.min(cfg.liquidMaxSplash, Math.abs(speed) * cfg.liquidSplashScale);
+  }
+
+  /**
+   * A shot bouncing off a side wall leaves a crack there, up to a fixed number per run.
+   * @param {number} x - Wall x where the shot bounced.
+   * @param {number} y - Height of the bounce.
+   * @param {number} direction - 1 when the crack grows rightward (left wall), -1 otherwise.
+   */
+  addWallCrack(x, y, direction) {
+    const cfg = this.cfg;
+    if (this.wallCracks.length >= cfg.wallCrackMaxCount) {
+      return;
+    }
+    const points = [{ x, y }];
+    for (let i = 1; i <= cfg.wallCrackSegments; i++) {
+      points.push({
+        x: x + direction * (cfg.wallCrackLength * i) / cfg.wallCrackSegments,
+        y: y + (Math.random() - MATH_CONSTANTS.HALF) * cfg.wallCrackJitter
+      });
+    }
+    this.wallCracks.push(points);
+  }
+
   /** A curved rocket trail from a launch point to its target. */
   spawnStreak(x1, y1, x2, y2, color) {
     if (this.reducedMotion) {
@@ -253,6 +315,8 @@ export class ParticleSystem {
         this.removeAt(this.lightningBolts, i);
       }
     }
+
+    this.updateLiquid();
 
     for (let i = this.streaks.length - 1; i >= 0; i--) {
       const streak = this.streaks[i];

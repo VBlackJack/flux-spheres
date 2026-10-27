@@ -32,7 +32,9 @@
 - **Accessibilité et confort** :
   - Interface bilingue (**FR** / **EN**) sans aucun texte codé en dur ; à la première visite, la langue suit celle du navigateur.
   - Mode **contraste élevé** avec bordures renforcées et symboles de polarité ; les boutons respectent le contraste WCAG AA.
+  - Option **motifs de couleur** : chaque couleur reçoit son propre motif (rayures, points, grille, anneaux) à l'intérieur des sphères.
   - Option **réduction des animations** (respecte `prefers-reduced-motion`) et pause automatique au changement d'onglet.
+  - Option **contrôle par inclinaison** sur téléphone et tablette : incliner l'appareil penche la gravité sur le côté.
   - Prise en charge des lecteurs d'écran : boutons bascules étiquetés avec `aria-pressed`, sphères spéciales et étoiles des niveaux nommées, annonces discrètes des succès et des fins de manche.
   - Contrôles complets à la souris, au tactile (décalage vertical du doigt et annulation du tir en glissant vers le bas) et au clavier ; une touche d'action maintenue ne se répète pas.
   - Mise en page sans défilement sur ordinateur, téléphone et téléphone en paysage, avec des zones tactiles de 44 px. Sur téléphone en portrait, le plateau occupe toute la largeur ; navigation, réglages et statistiques se trouvent dans le menu coulissant (☰), qui met la partie en pause. Sur un écran d'ordinateur en paysage, le plateau occupe toute la hauteur de la fenêtre, centré entre deux colonnes de même largeur : navigation et statistiques de la manche à gauche, surcharge, billes spéciales, Polarité et Échanger à droite.

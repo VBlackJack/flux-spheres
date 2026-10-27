@@ -23,6 +23,7 @@ import { StorageManager } from '../src/core/StorageManager.js';
 import { Ball } from '../src/entities/Ball.js';
 import { GameEngine } from '../src/game/GameEngine.js';
 import { Renderer } from '../src/game/Renderer.js';
+import { SeededRandom } from '../src/core/SeededRandom.js';
 import { generateLayout, MASK_CELLS } from '../src/game/layouts/LayoutGenerators.js';
 import { CLUSTER_MODIFIERS, LAYOUT_TYPES } from '../src/core/Constants.js';
 
@@ -264,6 +265,8 @@ test('Survival waves roll chains, bubbles and the three new cores', () => {
   const seen = new Set();
   const waves = 40;
   engine.startEndlessMode();
+  // Survival rolls with Math.random; a fixed seed keeps this sweep from ever being unlucky.
+  engine.seededRng = new SeededRandom('survival-sweep');
   for (let wave = 0; wave < waves; wave++) {
     engine.spawnEndlessWave();
     for (const ball of engine.physicsWorld.balls) {

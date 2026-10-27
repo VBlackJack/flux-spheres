@@ -37,7 +37,17 @@
         "contrastAria": "High contrast",
         "motionAria": "Reduced motion",
         "languageAria": "Language: EN (English). Switch language",
-        "languageCaption": "Language"
+        "languageCaption": "Language",
+        "patternsOn": "▦",
+        "patternsOff": "▢",
+        "patternsOnAria": "Color patterns: On",
+        "patternsOffAria": "Color patterns: Off",
+        "patternsAria": "Color patterns",
+        "tiltOn": "📱",
+        "tiltOff": "📱",
+        "tiltOnAria": "Tilt control: On",
+        "tiltOffAria": "Tilt control: Off",
+        "tiltAria": "Tilt control"
       }
     },
     "drawer": {

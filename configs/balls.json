@@ -7,7 +7,8 @@
       "shadow": "#7f1d1d",
       "glow": "rgba(239, 68, 68, 0.55)",
       "symbol": "N",
-      "polarity": 1
+      "polarity": 1,
+      "pattern": "stripesH"
     },
     {
       "id": "cobalt",
@@ -16,7 +17,8 @@
       "shadow": "#1e3a8a",
       "glow": "rgba(59, 130, 246, 0.55)",
       "symbol": "S",
-      "polarity": -1
+      "polarity": -1,
+      "pattern": "stripesV"
     },
     {
       "id": "emerald",
@@ -25,7 +27,8 @@
       "shadow": "#064e3b",
       "glow": "rgba(16, 185, 129, 0.55)",
       "symbol": "+",
-      "polarity": 1
+      "polarity": 1,
+      "pattern": "stripesD"
     },
     {
       "id": "amber",
@@ -34,7 +37,8 @@
       "shadow": "#78350f",
       "glow": "rgba(245, 158, 11, 0.55)",
       "symbol": "-",
-      "polarity": -1
+      "polarity": -1,
+      "pattern": "dots"
     },
     {
       "id": "violet",
@@ -43,7 +47,8 @@
       "shadow": "#581c87",
       "glow": "rgba(168, 85, 247, 0.55)",
       "symbol": "Ω",
-      "polarity": 1
+      "polarity": 1,
+      "pattern": "grid"
     },
     {
       "id": "cyan",
@@ -52,7 +57,8 @@
       "shadow": "#164e63",
       "glow": "rgba(6, 182, 212, 0.55)",
       "symbol": "Φ",
-      "polarity": -1
+      "polarity": -1,
+      "pattern": "rings"
     }
   ],
   "specialTypes": {
@@ -294,6 +300,10 @@
     "glow": "rgba(148, 163, 184, 0.4)"
   },
   "render": {
+    "patternColor": "rgba(255, 255, 255, 0.38)",
+    "patternLineWidth": 2,
+    "patternSpacingFactor": 0.45,
+    "patternDotRadiusFactor": 0.11,
     "railColor": "rgba(148, 163, 184, 0.7)",
     "railLineWidth": 3,
     "railStopRadius": 4,

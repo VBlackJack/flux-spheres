@@ -182,6 +182,38 @@ function scheduleNextFrame(callback) {
   }
 }
 
+/** Screen orientation angles, in degrees, as reported by screen.orientation.angle. */
+const SCREEN_ANGLES = Object.freeze({ PORTRAIT: 0, LANDSCAPE_LEFT: 90, UPSIDE_DOWN: 180, LANDSCAPE_RIGHT: 270 });
+const FULL_TURN_DEGREES = 360;
+
+/**
+ * Signed share of gravity pushed sideways by the device tilt. The tilt axis follows the
+ * screen orientation; tilts inside the dead zone count as level, and the share reaches
+ * its maximum at fullTiltDegrees.
+ * @param {{gamma: number|null, beta: number|null}} orientation - A deviceorientation event.
+ * @param {number} screenAngle - screen.orientation.angle.
+ * @param {{fullTiltDegrees: number, deadZoneDegrees: number, maxGravityShare: number}} tiltCfg
+ */
+export function computeTiltShare(orientation, screenAngle, tiltCfg) {
+  const angle = ((screenAngle % FULL_TURN_DEGREES) + FULL_TURN_DEGREES) % FULL_TURN_DEGREES;
+  const gamma = orientation.gamma || 0;
+  const beta = orientation.beta || 0;
+  let degrees = gamma;
+  if (angle === SCREEN_ANGLES.UPSIDE_DOWN) {
+    degrees = -gamma;
+  } else if (angle === SCREEN_ANGLES.LANDSCAPE_LEFT) {
+    degrees = beta;
+  } else if (angle === SCREEN_ANGLES.LANDSCAPE_RIGHT) {
+    degrees = -beta;
+  }
+  const magnitude = Math.abs(degrees) - tiltCfg.deadZoneDegrees;
+  if (magnitude <= 0) {
+    return 0;
+  }
+  const span = tiltCfg.fullTiltDegrees - tiltCfg.deadZoneDegrees;
+  return Math.sign(degrees) * Math.min(1, magnitude / span) * tiltCfg.maxGravityShare;
+}
+
 /** Writes text only when it differs, so live regions are not re-announced needlessly. */
 function setTextIfChanged(element, text) {
   if (element && element.textContent !== text) {
@@ -235,6 +267,8 @@ export class UIManager {
       btnPause: document.getElementById('btn-pause'),
       btnSound: document.getElementById('btn-sound'),
       btnContrast: document.getElementById('btn-contrast'),
+      btnPatterns: document.getElementById('btn-patterns'),
+      btnTilt: document.getElementById('btn-tilt'),
       btnMotion: document.getElementById('btn-motion'),
       btnLang: document.getElementById('btn-lang'),
       swapBtn: document.getElementById('btn-swap-ball'),
@@ -291,6 +325,8 @@ export class UIManager {
       btnRestartPause: document.getElementById('btn-restart-pause'),
       btnSoundPause: document.getElementById('btn-sound-pause'),
       btnContrastPause: document.getElementById('btn-contrast-pause'),
+      btnPatternsPause: document.getElementById('btn-patterns-pause'),
+      btnTiltPause: document.getElementById('btn-tilt-pause'),
       btnMotionPause: document.getElementById('btn-motion-pause'),
       btnLangPause: document.getElementById('btn-lang-pause'),
       modalConfirm: document.getElementById('modal-confirm'),
@@ -388,6 +424,8 @@ export class UIManager {
     this.bindEvents();
     this.updateSoundButton();
     this.updateContrastButton();
+    this.updatePatternsButton();
+    this.setupTiltControl();
     this.updateMotionButton();
     this.updateLanguageButton();
 
@@ -396,6 +434,8 @@ export class UIManager {
       this.buildPowerupButtons();
       this.updateSoundButton();
       this.updateContrastButton();
+      this.updatePatternsButton();
+      this.updateTiltButton();
       this.updateMotionButton();
       this.updateLanguageButton();
       this.refresh(this.engine, this.lastExtra);
@@ -698,6 +738,20 @@ export class UIManager {
     }
     if (this.elements.btnContrastPause) {
       this.elements.btnContrastPause.addEventListener('click', toggleContrast);
+    }
+
+    const togglePatterns = () => {
+      const nextPatterns = !this.storageManager.getColorPatterns();
+      this.storageManager.setColorPatterns(nextPatterns);
+      if (this.renderer) {
+        this.renderer.setColorPatterns(nextPatterns);
+      }
+      this.updatePatternsButton();
+    };
+    for (const btn of [this.elements.btnPatterns, this.elements.btnPatternsPause]) {
+      if (btn) {
+        btn.addEventListener('click', togglePatterns);
+      }
     }
 
     const toggleMotion = () => {
@@ -1307,6 +1361,80 @@ export class UIManager {
     }
   }
 
+  updatePatternsButton() {
+    const isOn = this.storageManager.getColorPatterns();
+    this.applyToggleState([this.elements.btnPatterns, this.elements.btnPatternsPause], {
+      label: t(isOn ? 'app.nav.button.patternsOn' : 'app.nav.button.patternsOff'),
+      ariaLabel: t('app.nav.button.patternsAria'),
+      tooltip: t(isOn ? 'app.nav.button.patternsOnAria' : 'app.nav.button.patternsOffAria'),
+      pressed: isOn
+    });
+  }
+
+  /**
+   * Tilt control exists only on touch devices that report their orientation. Where the
+   * browser asks permission (iOS), it starts off and is turned on from the button, since
+   * the permission request must come from a tap.
+   */
+  setupTiltControl() {
+    this.isTiltActive = false;
+    this.handleOrientation = (event) => {
+      const screenAngle = typeof screen !== 'undefined' && screen.orientation ? screen.orientation.angle : 0;
+      this.engine.setTilt(computeTiltShare(event, screenAngle, this.gameConfig.tilt));
+    };
+    const isSupported =
+      typeof window !== 'undefined' &&
+      typeof window.DeviceOrientationEvent !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia(this.gameConfig.tilt.touchMediaQuery).matches;
+    for (const btn of [this.elements.btnTilt, this.elements.btnTiltPause]) {
+      btn?.closest('.nav-setting, .pause-setting')?.classList.toggle('hidden', !isSupported);
+    }
+    if (!isSupported) {
+      return;
+    }
+    const needsPermission = typeof window.DeviceOrientationEvent.requestPermission === 'function';
+    if (this.storageManager.getTilt() && !needsPermission) {
+      this.setTiltActive(true);
+    }
+    const toggleTilt = async () => {
+      const next = !this.isTiltActive;
+      if (next && needsPermission) {
+        const answer = await window.DeviceOrientationEvent.requestPermission().catch(() => 'denied');
+        if (answer !== 'granted') {
+          return;
+        }
+      }
+      this.storageManager.setTilt(next);
+      this.setTiltActive(next);
+    };
+    for (const btn of [this.elements.btnTilt, this.elements.btnTiltPause]) {
+      btn?.addEventListener('click', toggleTilt);
+    }
+    this.updateTiltButton();
+  }
+
+  setTiltActive(isActive) {
+    this.isTiltActive = isActive;
+    if (isActive) {
+      window.addEventListener('deviceorientation', this.handleOrientation);
+    } else {
+      window.removeEventListener('deviceorientation', this.handleOrientation);
+      this.engine.setTilt(0);
+    }
+    this.updateTiltButton();
+  }
+
+  updateTiltButton() {
+    const isOn = Boolean(this.isTiltActive);
+    this.applyToggleState([this.elements.btnTilt, this.elements.btnTiltPause], {
+      label: t(isOn ? 'app.nav.button.tiltOn' : 'app.nav.button.tiltOff'),
+      ariaLabel: t('app.nav.button.tiltAria'),
+      tooltip: t(isOn ? 'app.nav.button.tiltOnAria' : 'app.nav.button.tiltOffAria'),
+      pressed: isOn
+    });
+  }
+
   updateMotionButton() {
     const isReduced = this.storageManager.getReducedMotion();
     this.applyToggleState([this.elements.btnMotion, this.elements.btnMotionPause], {
@@ -1811,7 +1939,7 @@ export class UIManager {
       );
 
       if (this.elements.starProgress) {
-        const thresholds = lvl?.starThresholds || this.gameConfig.scoring.starThresholds;
+        const thresholds = engine.getStarThresholds();
         const maxStars = this.gameConfig.scoring.maxStars;
         const currentStars = engine.computeStars(engine.score);
         const starsStr = this.formatStars(currentStars, maxStars);

@@ -37,7 +37,17 @@
         "contrastAria": "Contraste élevé",
         "motionAria": "Mouvements réduits",
         "languageAria": "Langue : FR (français). Changer de langue",
-        "languageCaption": "Langue"
+        "languageCaption": "Langue",
+        "patternsOn": "▦",
+        "patternsOff": "▢",
+        "patternsOnAria": "Motifs de couleur : Activés",
+        "patternsOffAria": "Motifs de couleur : Désactivés",
+        "patternsAria": "Motifs de couleur",
+        "tiltOn": "📱",
+        "tiltOff": "📱",
+        "tiltOnAria": "Contrôle par inclinaison : Activé",
+        "tiltOffAria": "Contrôle par inclinaison : Désactivé",
+        "tiltAria": "Contrôle par inclinaison"
       }
     },
     "drawer": {
