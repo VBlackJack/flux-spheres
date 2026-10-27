@@ -81,6 +81,7 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 │   │   ├── I18n.js           # Service de traduction et traducteur d'attributs DOM
 │   │   ├── SeededRandom.js   # Générateur pseudo-aléatoire déterministe (Mulberry32) du Défi du jour et du Mode Flux
 │   │   ├── StorageManager.js # Persistance localStorage en cache, avec repli en mémoire
+│   │   ├── WorldGeometry.js  # Lanceur, ligne de danger et décalage du contenu calculés depuis la taille du monde
 │   │   └── AudioManager.js   # Synthétiseur procédural Web Audio API
 │   ├── entities/
 │   │   ├── Ball.js           # Sphère magnétique (liens, polarité, blindage, modificateurs)
@@ -124,11 +125,12 @@ npm test
 npm run test:browser
 ```
 
-Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, et trois gardes du dépôt :
+Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, et quatre gardes du dépôt :
 
 - `typography.test.js` refuse, dans tous les fichiers texte, les variantes typographiques des caractères ASCII (tirets longs, guillemets courbes, points de suspension, espaces spéciales, ligatures).
 - `pwa.test.js` vérifie que chaque fichier de `src/`, `configs/`, `locales/` et `icons/` est mis en cache par `sw.js`, et que la version du cache du Service Worker correspond à `package.json`.
 - `onboarding.test.js` vérifie que chaque mécanique a un indice dans les deux langues, qu'un niveau dont le tutoriel enseigne une mécanique l'affiche toujours, et que le niveau 1 ne montre que les bases.
+- `world.test.js` vérifie que chaque niveau, chaque étape Flux (1 à 60) et la grille de Survie tiennent entre les murs, et qu'un monde de la largeur de conception construit chaque niveau à ses positions d'origine.
 
 `tests/browser/smoke.test.js` ouvre la vraie page dans Chromium sans interface, aux quatre mises en page prises en charge (ordinateur, tablette en portrait, téléphone en paysage et en portrait). Il échoue sur toute erreur de console, tout défilement horizontal ou tout libellé de bouton coupé, vérifie la mise en page au niveau 1 (sans sphère spéciale) et au niveau 2 (avec), vérifie que les fenêtres Réglages, Niveaux, Atelier et Pause mettent la partie en pause puis la reprennent, parcourt la victoire, la défaite et la reprise après rechargement, et vérifie qu'un tremblement de souris garde une visée affinée au clavier. La CI le lance dans une tâche séparée.
 
