@@ -175,8 +175,13 @@ export class StorageManager {
     this.safeSetItem(this.storageConfig.keys.highContrast, Boolean(enabled));
   }
 
-  getTilt() {
-    return this.safeGetItem(this.storageConfig.keys.tilt) === 'true';
+  /**
+   * @param {boolean} [defaultEnabled] - Answer for a player who never chose.
+   * @returns {boolean} Whether tilt control is on.
+   */
+  getTilt(defaultEnabled = false) {
+    const stored = this.safeGetItem(this.storageConfig.keys.tilt);
+    return stored === null ? defaultEnabled : stored === 'true';
   }
 
   setTilt(enabled) {

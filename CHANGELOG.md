@@ -13,6 +13,7 @@ All notable changes to **FluxSpheres** are documented in this file.
 - **Browser Smoke Tests**: `npm run test:browser` opens the game in headless Chromium at the four supported layouts and fails on console errors, sideways scrolling, clipped control labels, dialogs that do not pause or close, and broken victory, game over or reload-resume paths. CI runs it as a separate job.
 
 ### Changed
+- **Tilt Control On by Default**: On phones and tablets that report their orientation, tilt control is on unless the player turned it off (`tilt.enabledByDefault`). Where the browser asks permission (iOS), the first tap on the board asks it, and a refusal is kept as the player's choice.
 - **Level 1**: Three colors, no special ball and no modifier, so the first level teaches matching and avalanches alone. Its star thresholds move to 6400 and 10400, keeping their ratio to the median winning score of simulated play (30 games, median 17130 before, 26070 after).
 - **Level Tutorials**: A tutorial no longer comes back each time a level is restarted; the Pause and Game Over tips still show it.
 - **Teaching Levels**: The eight levels whose tutorial teaches a modifier show an exact number of it instead of a minimum topped up at random (level 13 went from 2 to 20 locks, now 3). Star thresholds of levels 13, 22 and 24 follow the median score of simulated play: 6400/10200, 12900/20400 and 14200/22500.

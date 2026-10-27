@@ -108,6 +108,7 @@
     }
   },
   "tilt": {
+    "enabledByDefault": true,
     "fullTiltDegrees": 35,
     "deadZoneDegrees": 4,
     "maxGravityShare": 0.4,
