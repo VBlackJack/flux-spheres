@@ -19,7 +19,7 @@
   - Real-time blast/effect radius preview for Special Balls (Bomb, Lightning, Prism, Anvil, Cryo).
   - Live **Magnetic Avalanche** prediction highlighting unanchored spheres that will drop when upper bonds are severed.
 - **Game Modes**:
-  - **Campaign**: 16 handcrafted levels introducing pendulums, inertia rotors, repulsors, oscillating barriers, quantum locks, linked portals, and Boss Cores.
+  - **Campaign**: 20 handcrafted levels introducing pendulums, inertia rotors, repulsors, oscillating barriers, quantum locks, linked portals, Boss Cores, neutral anchors no match can break, chained spheres, bubbles, and freeze, lightning and paint cores.
   - **Survival (Endless)**: Infinite wave defense with Gold Rush waves and Boss anomalies.
   - **Daily Challenge**: Deterministic daily seed with rotating physics mutators (*Hyper Gravity*, *Turbo Rotors*, *Super Magnetism*, *Volatile Cluster*) and a daily coin reward.
   - **Flux Mode**: An endless chain of procedurally generated shapes sharing one shot reserve. Each stage draws a parametric rotor or pendulum, a hanging silhouette (heart, crown, hourglass...) or a pair of small shapes, never the same family twice in a row. A difficulty budget adds bumpers, portals, repulsors and singularities as the run goes on, every fifth stage hides a Boss Core, and clearing a shape refills shots. Runs are seeded, so a reload resumes on the same shape.
