@@ -529,8 +529,7 @@
         "armored": 0.16,
         "dormantBomb": 0.12,
         "chameleon": 0.12,
-        "coinCore": 0.18,
-        "bossCore": 0.12
+        "coinCore": 0.18
       },
       "minModifierCounts": {
         "bossCore": 1
@@ -598,7 +597,7 @@
       "nameKey": "levels.items.lvl13.name",
       "descriptionKey": "levels.items.lvl13.description",
       "tutorialKey": "gameplay.tutorial.laserLock",
-      "starThresholds": [0, 7400, 11800],
+      "starThresholds": [0, 6400, 10200],
       "maxShots": 40,
       "paletteCount": 5,
       "specialInventory": {
@@ -609,12 +608,11 @@
         "freeze": 1
       },
       "modifierWeights": {
-        "laserLock": 0.16,
         "coinCore": 0.16,
         "armored": 0.1
       },
       "minModifierCounts": {
-        "laserLock": 2
+        "laserLock": 3
       },
       "layout": {
         "type": "pendulum",
@@ -897,7 +895,6 @@
         "freeze": 1
       },
       "modifierWeights": {
-        "chained": 0.16,
         "coinCore": 0.14,
         "dormantBomb": 0.08
       },
@@ -950,7 +947,6 @@
         "freeze": 1
       },
       "modifierWeights": {
-        "bubble": 0.22,
         "coinCore": 0.12
       },
       "minModifierCounts": {
@@ -999,9 +995,6 @@
         "freeze": 1
       },
       "modifierWeights": {
-        "freezeCore": 0.07,
-        "lightningCore": 0.07,
-        "paintCore": 0.07,
         "bubble": 0.06,
         "coinCore": 0.12
       },
@@ -1089,7 +1082,7 @@
       "nameKey": "levels.items.lvl22.name",
       "descriptionKey": "levels.items.lvl22.description",
       "tutorialKey": "gameplay.tutorial.thruster",
-      "starThresholds": [0, 10700, 16900],
+      "starThresholds": [0, 12900, 20400],
       "maxShots": 46,
       "paletteCount": 5,
       "specialInventory": {
@@ -1101,7 +1094,6 @@
         "rocket": 1
       },
       "modifierWeights": {
-        "thruster": 0.1,
         "coinCore": 0.1,
         "chained": 0.05
       },
@@ -1152,7 +1144,6 @@
         "rocket": 1
       },
       "modifierWeights": {
-        "tether": 0.1,
         "coinCore": 0.12,
         "bubble": 0.06
       },
@@ -1191,7 +1182,7 @@
       "nameKey": "levels.items.lvl24.name",
       "descriptionKey": "levels.items.lvl24.description",
       "tutorialKey": "gameplay.tutorial.rust",
-      "starThresholds": [0, 10500, 16600],
+      "starThresholds": [0, 14200, 22500],
       "maxShots": 44,
       "paletteCount": 5,
       "specialInventory": {
@@ -1203,7 +1194,6 @@
         "rocket": 2
       },
       "modifierWeights": {
-        "rust": 0.12,
         "paintCore": 0.05,
         "coinCore": 0.1
       },

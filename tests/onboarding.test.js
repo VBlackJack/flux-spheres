@@ -138,6 +138,21 @@ test('A level tutorial teaches a known mechanic, and the level guarantees it', (
   }
 });
 
+test('A level teaching a modifier sets its exact count: a minimum and no random weight', () => {
+  const modifierIds = new Set(Object.values(CLUSTER_MODIFIERS));
+  for (const level of levels.filter((lvl) => lvl.tutorialKey)) {
+    // Mechanics the layout or the obstacles provide on their own need no count.
+    const fromLayout = listLevelMechanics({ ...level, modifierWeights: {}, minModifierCounts: {} });
+    const taught = Object.keys(onboarding.mechanics).filter(
+      (id) => onboarding.mechanics[id].hintKey === level.tutorialKey && modifierIds.has(id) && !fromLayout.has(id)
+    );
+    for (const id of taught) {
+      assert.ok((level.minModifierCounts?.[id] || 0) > 0, `level ${level.id} sets a count of ${id}`);
+      assert.ok(!(level.modifierWeights?.[id] > 0), `level ${level.id} does not roll extra ${id}`);
+    }
+  }
+});
+
 test('Level 1 shows only the basics: no obstacle, modifier or special ball, few colors', () => {
   const first = levels[0];
   assert.deepEqual([...listLevelMechanics(first)], [BOARD_MECHANICS.BASICS]);
