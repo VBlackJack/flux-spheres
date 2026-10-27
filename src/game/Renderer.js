@@ -331,6 +331,7 @@ export class Renderer {
     for (const ball of engineState.physicsWorld.balls) {
       this.drawBall(ctx, ball, now, alpha);
     }
+    this.drawChainLinkOverlays(ctx, engineState.physicsWorld, alpha);
     if (introOffset > 0) {
       ctx.restore();
     }
@@ -920,6 +921,39 @@ export class Renderer {
       this.drawBubbleShell(ctx, r);
     }
 
+    ctx.restore();
+  }
+
+  /**
+   * Chain links sit where touching spheres hide their bonds, so each chain link also gets a
+   * small metal link drawn on top, at the contact point between the two spheres.
+   */
+  drawChainLinkOverlays(ctx, physicsWorld, alpha) {
+    const chainSpec = this.ballsConfig.clusterModifiers.chained;
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const a of physicsWorld.balls) {
+      for (const neighborId of a.bonds) {
+        const b = physicsWorld.ballMap.get(neighborId);
+        if (!b || neighborId < a.id || !isChainLink(a, b)) {
+          continue;
+        }
+        const ax = this.interpolate(a.prevX, a.x, alpha);
+        const ay = this.interpolate(a.prevY, a.y, alpha);
+        const bx = this.interpolate(b.prevX, b.x, alpha);
+        const by = this.interpolate(b.prevY, b.y, alpha);
+        const angle = Math.atan2(by - ay, bx - ax);
+        const mx = (ax + bx) * MATH_CONSTANTS.HALF;
+        const my = (ay + by) * MATH_CONSTANTS.HALF;
+        for (const [color, width] of [[chainSpec.overlayShadowColor, chainSpec.overlayShadowWidth], [chainSpec.linkColor, chainSpec.overlayLineWidth]]) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.ellipse(mx, my, chainSpec.overlayLinkLength * MATH_CONSTANTS.HALF, chainSpec.overlayLinkWidth * MATH_CONSTANTS.HALF, angle, 0, MATH_CONSTANTS.TWO_PI);
+          ctx.stroke();
+        }
+      }
+    }
     ctx.restore();
   }
 

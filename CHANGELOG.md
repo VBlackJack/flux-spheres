@@ -5,6 +5,8 @@ All notable changes to **FluxSpheres** are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **New Modifiers in Survival and Daily Challenge**: Waves now roll chained spheres, bubbles and freeze, lightning and paint cores (`endless.modifierWeights` in `configs/game.json`).
+- **Visible Chains**: Each chain link is drawn as a small metal link over the touching spheres, so chains show even when nothing is stretched.
 - **Nine New Flux Shapes**: Pine, mushroom, bell, cat, fish, key, umbrella, lighthouse and ship anchor silhouettes; six of them hang partly from neutral anchors.
 - **New Modifiers in Flux Mode**: From stage 8, Flux shapes roll chained spheres and bubbles; from stage 11, freeze, lightning and paint cores too (`modifiers` in `configs/flux.json`).
 - **Neutral Anchors**: Gray anchors that no match can break. Bombs, lightning and the anvil remove them, and they crumble on their own once no sphere hangs from them.

@@ -193,7 +193,12 @@
       "armored": 0.045,
       "dormantBomb": 0.045,
       "chameleon": 0.045,
-      "coinCore": 0.045
+      "coinCore": 0.045,
+      "bubble": 0.03,
+      "chained": 0.025,
+      "freezeCore": 0.015,
+      "lightningCore": 0.015,
+      "paintCore": 0.015
     },
     "goldRushWaveInterval": 3,
     "goldRushCoinCoreCount": 3,
