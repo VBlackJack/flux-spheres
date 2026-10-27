@@ -38,6 +38,42 @@
   --text-soft: #e2e8f0;
   --text-gold-soft: #fde68a;
   --text-bright: #ffffff;
+  /* Component shades and translucent tints; the contrast themes below override them. */
+  --bg-glow: #131c33;
+  --text-gold: #fbbf24;
+  --text-info-soft: #bae6fd;
+  --text-danger-soft: #fecaca;
+  --text-purple-soft: #d8b4fe;
+  --accent-pink: #ec4899;
+  --text-info-bright: #e0f2fe;
+  --surface-locked: #151d2e;
+  --text-on-accent: #090d16;
+  --accent-amber-alpha-16: rgba(245, 158, 11, 0.16);
+  --accent-amber-alpha-20: rgba(245, 158, 11, 0.2);
+  --accent-amber-alpha-45: rgba(245, 158, 11, 0.45);
+  --accent-blue-alpha-14: rgba(56, 189, 248, 0.14);
+  --accent-blue-alpha-18: rgba(56, 189, 248, 0.18);
+  --accent-blue-alpha-22: rgba(56, 189, 248, 0.22);
+  --accent-blue-alpha-34: rgba(56, 189, 248, 0.34);
+  --accent-blue-alpha-35: rgba(56, 189, 248, 0.35);
+  --accent-blue-alpha-45: rgba(56, 189, 248, 0.45);
+  --accent-blue-alpha-55: rgba(56, 189, 248, 0.55);
+  --accent-danger-alpha-22: rgba(239, 68, 68, 0.22);
+  --accent-purple-alpha-20: rgba(168, 85, 247, 0.2);
+  --accent-purple-alpha-38: rgba(168, 85, 247, 0.38);
+  --accent-purple-alpha-45: rgba(168, 85, 247, 0.45);
+  --bg-dark-alpha-62: rgba(7, 11, 20, 0.62);
+  --bg-dark-alpha-78: rgba(7, 11, 20, 0.78);
+  --bg-panel-alpha-85: rgba(17, 24, 39, 0.85);
+  --bg-panel-alpha-90: rgba(17, 24, 39, 0.9);
+  --border-subtle-alpha-70: rgba(51, 65, 85, 0.7);
+  --danger-deep-alpha-92: rgba(127, 29, 29, 0.92);
+  --highlight-alpha-40: rgba(255, 255, 255, 0.4);
+  --shadow-alpha-45: rgba(0, 0, 0, 0.45);
+  --shadow-alpha-60: rgba(0, 0, 0, 0.6);
+  --shadow-alpha-75: rgba(0, 0, 0, 0.75);
+  --surface-sunken-alpha-86: rgba(15, 23, 42, 0.86);
+  --surface-sunken-alpha-94: rgba(15, 23, 42, 0.94);
   --touch-target: 44px;
   --shell-pad-y: 12px;
   --shell-pad-x: 16px;
@@ -88,7 +124,7 @@ button,
 
 body {
   background-color: var(--bg-dark);
-  background-image: radial-gradient(circle at top, #131c33 0%, var(--bg-dark) 100%);
+  background-image: radial-gradient(circle at top, var(--bg-glow) 0%, var(--bg-dark) 100%);
   color: var(--text-main);
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   height: 100vh;
@@ -138,7 +174,7 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  background: rgba(17, 24, 39, 0.85);
+  background: var(--bg-panel-alpha-85);
   border: 1px solid var(--bg-panel-border);
   border-radius: 12px;
   padding: 10px 16px;
@@ -154,7 +190,7 @@ body {
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: 0.08em;
-  background: linear-gradient(90deg, #38bdf8, #a855f7);
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -213,48 +249,48 @@ body {
 }
 
 .nav-btn.active-mode {
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 10px var(--accent-blue-alpha-35);
   border-width: 1px;
 }
 
 .nav-btn.primary {
-  background: rgba(56, 189, 248, 0.18);
+  background: var(--accent-blue-alpha-18);
   border-color: var(--accent-blue);
 }
 
 .nav-btn.primary.active-mode {
-  background: rgba(56, 189, 248, 0.34);
+  background: var(--accent-blue-alpha-34);
 }
 
 .nav-btn.accent {
-  background: rgba(168, 85, 247, 0.2);
+  background: var(--accent-purple-alpha-20);
   border-color: var(--accent-purple);
 }
 
 .nav-btn.accent.active-mode {
-  background: rgba(168, 85, 247, 0.38);
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.45);
+  background: var(--accent-purple-alpha-38);
+  box-shadow: 0 0 10px var(--accent-purple-alpha-45);
 }
 
 .nav-btn.gold {
-  background: rgba(245, 158, 11, 0.2);
+  background: var(--accent-amber-alpha-20);
   border-color: var(--accent-amber);
   color: var(--text-gold-soft);
 }
 
 .nav-btn.gold.has-affordable {
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.45);
+  box-shadow: 0 0 12px var(--accent-amber-alpha-45);
 }
 
 .gold-text {
-  color: #fbbf24 !important;
+  color: var(--text-gold) !important;
 }
 
 .hud-bar {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr 1fr 1fr;
   gap: 8px;
-  background: rgba(17, 24, 39, 0.85);
+  background: var(--bg-panel-alpha-85);
   border: 1px solid var(--bg-panel-border);
   border-radius: 12px;
   padding: 8px 14px;
@@ -389,14 +425,14 @@ body {
 }
 
 .hud-badge.combo {
-  background: rgba(245, 158, 11, 0.2);
+  background: var(--accent-amber-alpha-20);
   color: var(--text-gold-soft);
   border: 1px solid var(--accent-amber);
 }
 
 .hud-badge.frozen {
-  background: rgba(56, 189, 248, 0.22);
-  color: #bae6fd;
+  background: var(--accent-blue-alpha-22);
+  color: var(--text-info-soft);
   border: 1px solid var(--accent-blue);
 }
 
@@ -434,7 +470,7 @@ body {
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 12px 35px var(--shadow-alpha-60);
   border: 1px solid var(--border-subtle);
   display: flex;
 }
@@ -464,7 +500,7 @@ body {
 .swap-floating-btn,
 .polarity-floating-btn {
   flex: 1;
-  background: rgba(17, 24, 39, 0.9);
+  background: var(--bg-panel-alpha-90);
   color: var(--text-secondary);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
@@ -484,9 +520,9 @@ body {
 }
 
 .polarity-floating-btn.active {
-  background: rgba(239, 68, 68, 0.22);
+  background: var(--accent-danger-alpha-22);
   border-color: var(--accent-danger);
-  color: #fecaca;
+  color: var(--text-danger-soft);
 }
 
 /*
@@ -501,9 +537,9 @@ body {
   left: 14px;
   right: 14px;
   pointer-events: none;
-  background: rgba(15, 23, 42, 0.86);
+  background: var(--surface-sunken-alpha-86);
   color: var(--text-soft);
-  border: 1px solid rgba(56, 189, 248, 0.55);
+  border: 1px solid var(--accent-blue-alpha-55);
   border-radius: 10px;
   padding: 7px 10px 7px 12px;
   font-size: 0.76rem;
@@ -512,11 +548,11 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 14px var(--shadow-alpha-45);
 }
 
 .tutorial-dismiss-btn {
-  background: rgba(51, 65, 85, 0.7);
+  background: var(--border-subtle-alpha-70);
   color: var(--text-secondary);
   border: 1px solid var(--border-strong);
   border-radius: 6px;
@@ -551,7 +587,7 @@ body {
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.94);
+  background: var(--surface-sunken-alpha-94);
   color: var(--text-gold-soft);
   border: 1px solid var(--accent-amber);
   border-radius: 999px;
@@ -563,7 +599,7 @@ body {
   max-width: 94%;
   overflow: hidden;
   text-overflow: ellipsis;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 12px var(--shadow-alpha-45);
 }
 
 .cancel-aim-banner {
@@ -571,8 +607,8 @@ body {
   bottom: 44px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(127, 29, 29, 0.92);
-  color: #fecaca;
+  background: var(--danger-deep-alpha-92);
+  color: var(--text-danger-soft);
   border: 1px solid var(--accent-danger);
   border-radius: 999px;
   padding: 5px 14px;
@@ -587,7 +623,7 @@ body {
   flex-shrink: 0;
   max-height: 100%;
   overflow-y: auto;
-  background: rgba(17, 24, 39, 0.85);
+  background: var(--bg-panel-alpha-85);
   border: 1px solid var(--bg-panel-border);
   border-radius: 14px;
   padding: 12px 10px;
@@ -612,7 +648,7 @@ body {
   gap: 4px;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #d8b4fe;
+  color: var(--text-purple-soft);
   text-transform: uppercase;
 }
 
@@ -627,7 +663,7 @@ body {
 .overcharge-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #38bdf8, #a855f7, #ec4899);
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple), var(--accent-pink));
   transition: width 0.2s ease;
 }
 
@@ -667,8 +703,8 @@ body {
 
 .powerup-btn.equipped {
   border-color: var(--accent-amber);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.45);
-  background: rgba(245, 158, 11, 0.16);
+  box-shadow: 0 0 12px var(--accent-amber-alpha-45);
+  background: var(--accent-amber-alpha-16);
 }
 
 .powerup-btn:disabled {
@@ -686,7 +722,7 @@ body {
   font-size: 0.9rem;
   font-weight: 800;
   color: var(--text-bright);
-  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 2px 4px var(--highlight-alpha-40);
 }
 
 .powerup-name {
@@ -708,7 +744,7 @@ body {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(7, 11, 20, 0.78);
+  background: var(--bg-dark-alpha-78);
   backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
@@ -741,7 +777,7 @@ body {
   max-height: calc(100dvh - var(--modal-pad-top) - var(--modal-pad-bottom));
   overflow-y: auto;
   margin: auto;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 20px 50px var(--shadow-alpha-75);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -826,9 +862,9 @@ body {
 }
 
 .pause-level-tip {
-  background: rgba(56, 189, 248, 0.14);
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  color: #e0f2fe;
+  background: var(--accent-blue-alpha-14);
+  border: 1px solid var(--accent-blue-alpha-45);
+  color: var(--text-info-bright);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 0.84rem;
@@ -857,7 +893,7 @@ body {
 }
 
 .modal-tab.active {
-  background: rgba(245, 158, 11, 0.2);
+  background: var(--accent-amber-alpha-20);
   color: var(--text-gold-soft);
   border-color: var(--accent-amber);
 }
@@ -1020,7 +1056,7 @@ body {
 
 /* Locked cards are dimmed by color, not opacity, so text keeps >= 4.5:1. */
 .level-card.locked {
-  background: #151d2e;
+  background: var(--surface-locked);
   border-style: dashed;
 }
 
@@ -1100,7 +1136,7 @@ body {
 
 .modal-btn.primary {
   background: var(--accent-blue);
-  color: #090d16;
+  color: var(--text-on-accent);
   border-color: var(--accent-blue);
 }
 
@@ -1350,7 +1386,7 @@ body {
     position: fixed;
     inset: 0;
     z-index: 39;
-    background: rgba(7, 11, 20, 0.62);
+    background: var(--bg-dark-alpha-62);
     opacity: 0;
     pointer-events: none;
     transition: opacity var(--drawer-transition);
@@ -1744,6 +1780,155 @@ body {
     flex: 0 0 auto;
     min-height: var(--touch-target);
     font-size: 0.85rem;
+  }
+}
+
+/*
+ * Touch screens of any size (tablets included, not only the compact phone layouts):
+ * every control keeps the 44px minimum. A mouse layout keeps its denser sizes.
+ */
+@media (pointer: coarse) {
+  .nav-btn,
+  .nav-btn.icon-btn,
+  .hud-menu-btn,
+  .powerup-btn {
+    min-height: var(--touch-target);
+    min-width: var(--touch-target);
+  }
+  .modal-tab,
+  .ammo-buy-btn,
+  .polarity-floating-btn,
+  .swap-floating-btn {
+    min-height: var(--touch-target);
+  }
+}
+
+/*
+ * High contrast theme: the in-app setting (root class mirrored by the UI) and the
+ * system preference raise the same tokens. Text shades move toward white, borders
+ * and accents get brighter, translucent panels become nearly opaque.
+ */
+:root.high-contrast {
+  --bg-dark: #000000;
+  --bg-glow: #000000;
+  --bg-panel: #05070c;
+  --bg-panel-border: #94a3b8;
+  --text-main: #ffffff;
+  --text-muted: #e2e8f0;
+  --text-secondary: #f1f5f9;
+  --text-soft: #ffffff;
+  --text-gold: #fde68a;
+  --text-gold-soft: #fef3c7;
+  --text-info-soft: #e0f2fe;
+  --text-info-bright: #ffffff;
+  --text-danger-soft: #fee2e2;
+  --text-purple-soft: #f3e8ff;
+  --text-on-accent: #000000;
+  --accent-blue: #7dd3fc;
+  --accent-purple: #d8b4fe;
+  --accent-amber: #fcd34d;
+  --accent-danger: #fca5a5;
+  --accent-emerald: #6ee7b7;
+  --accent-purple-solid: #7e22ce;
+  --accent-danger-solid: #b91c1c;
+  --focus-ring: #facc15;
+  --surface-raised: #0b1120;
+  --surface-sunken: #000000;
+  --surface-locked: #05070c;
+  --border-subtle: #94a3b8;
+  --border-strong: #cbd5e1;
+  --bg-panel-alpha-85: rgba(5, 7, 12, 0.96);
+  --bg-panel-alpha-90: rgba(5, 7, 12, 0.97);
+  --surface-sunken-alpha-86: rgba(0, 0, 0, 0.94);
+  --surface-sunken-alpha-94: rgba(0, 0, 0, 0.97);
+  --border-subtle-alpha-70: rgba(51, 65, 85, 0.95);
+  --bg-dark-alpha-62: rgba(0, 0, 0, 0.85);
+  --bg-dark-alpha-78: rgba(0, 0, 0, 0.9);
+  --accent-blue-alpha-45: rgba(125, 211, 252, 0.85);
+  --accent-blue-alpha-55: rgba(125, 211, 252, 0.9);
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --bg-dark: #000000;
+    --bg-glow: #000000;
+    --bg-panel: #05070c;
+    --bg-panel-border: #94a3b8;
+    --text-main: #ffffff;
+    --text-muted: #e2e8f0;
+    --text-secondary: #f1f5f9;
+    --text-soft: #ffffff;
+    --text-gold: #fde68a;
+    --text-gold-soft: #fef3c7;
+    --text-info-soft: #e0f2fe;
+    --text-info-bright: #ffffff;
+    --text-danger-soft: #fee2e2;
+    --text-purple-soft: #f3e8ff;
+    --text-on-accent: #000000;
+    --accent-blue: #7dd3fc;
+    --accent-purple: #d8b4fe;
+    --accent-amber: #fcd34d;
+    --accent-danger: #fca5a5;
+    --accent-emerald: #6ee7b7;
+    --accent-purple-solid: #7e22ce;
+    --accent-danger-solid: #b91c1c;
+    --focus-ring: #facc15;
+    --surface-raised: #0b1120;
+    --surface-sunken: #000000;
+    --surface-locked: #05070c;
+    --border-subtle: #94a3b8;
+    --border-strong: #cbd5e1;
+    --bg-panel-alpha-85: rgba(5, 7, 12, 0.96);
+    --bg-panel-alpha-90: rgba(5, 7, 12, 0.97);
+    --surface-sunken-alpha-86: rgba(0, 0, 0, 0.94);
+    --surface-sunken-alpha-94: rgba(0, 0, 0, 0.97);
+    --border-subtle-alpha-70: rgba(51, 65, 85, 0.95);
+    --bg-dark-alpha-62: rgba(0, 0, 0, 0.85);
+    --bg-dark-alpha-78: rgba(0, 0, 0, 0.9);
+    --accent-blue-alpha-45: rgba(125, 211, 252, 0.85);
+    --accent-blue-alpha-55: rgba(125, 211, 252, 0.9);
+  }
+}
+
+/*
+ * Forced colors (Windows contrast themes): backgrounds and glows are dropped by the
+ * browser, so controls get an explicit system-colored border, the selected state a
+ * highlight outline, and gradient text falls back to plain text.
+ */
+@media (forced-colors: active) {
+  .nav-btn,
+  .modal-btn,
+  .modal-tab,
+  .powerup-btn,
+  .polarity-floating-btn,
+  .swap-floating-btn,
+  .hud-menu-btn,
+  .drawer-close-btn,
+  .tutorial-dismiss-btn,
+  .level-card.unlocked {
+    border: 1px solid ButtonText;
+  }
+  .nav-btn.active-mode,
+  .modal-tab.active,
+  .powerup-btn.equipped,
+  .polarity-floating-btn.active {
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
+  button:disabled {
+    color: GrayText;
+    border-color: GrayText;
+  }
+  :focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+  .brand-title {
+    background: none;
+    -webkit-text-fill-color: CanvasText;
+  }
+  .overcharge-fill {
+    background: Highlight;
   }
 }
 

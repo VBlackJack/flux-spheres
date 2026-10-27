@@ -60,32 +60,48 @@ export function resolveInitialLocale(stored, supported, fallback, preferred = re
   return fallback;
 }
 
-class I18nService {
+export class I18nService {
   constructor() {
     this.dictionaries = new Map();
     this.currentLocale = 'fr';
+    this.fallbackLocale = null;
     this.listeners = new Set();
     this.numberFormatters = new Map();
   }
 
-  async init(initialLocale) {
+  /**
+   * Loads every locale; one that fails to load does not prevent the others. When the
+   * requested locale is missing, the game starts in the fallback, else in any loaded one.
+   *
+   * @param {string} initialLocale Locale to start with.
+   * @param {string} [fallbackLocale] Configured default, looked up when a key is missing.
+   */
+  async init(initialLocale, fallbackLocale = initialLocale) {
     const entries = Object.entries(LOCALE_PATHS);
     await Promise.all(
       entries.map(async ([locale, path]) => {
-        const response = await fetch(path, DATA_FETCH_OPTIONS);
-        if (response.ok) {
-          const json = await response.json();
-          this.dictionaries.set(locale, json);
+        try {
+          const response = await fetch(path, DATA_FETCH_OPTIONS);
+          if (response.ok) {
+            const json = await response.json();
+            this.dictionaries.set(locale, json);
+          }
+        } catch {
+          // An unreachable or malformed locale leaves the others usable.
         }
       })
     );
-    if (this.dictionaries.has(initialLocale)) {
-      this.currentLocale = initialLocale;
+    this.fallbackLocale = fallbackLocale;
+    const startLocale = [initialLocale, fallbackLocale, ...this.dictionaries.keys()].find((locale) =>
+      this.dictionaries.has(locale)
+    );
+    if (startLocale) {
+      this.currentLocale = startLocale;
     }
     if (typeof document !== 'undefined' && document.documentElement) {
       document.documentElement.lang = this.currentLocale;
+      this.translateDOM();
     }
-    this.translateDOM();
   }
 
   setLocale(locale) {
@@ -127,21 +143,47 @@ class I18nService {
     return formatter.format(numeric);
   }
 
-  t(key, params = {}) {
-    const dict = this.dictionaries.get(this.currentLocale);
-    if (!dict) {
-      return key;
-    }
-    const segments = key.split('.');
+  /** Text of a key in one dictionary, or null when the key is missing or not a string. */
+  lookup(dict, key) {
     let current = dict;
-    for (const seg of segments) {
+    for (const seg of key.split('.')) {
       if (current && Object.prototype.hasOwnProperty.call(current, seg)) {
         current = current[seg];
       } else {
-        return key;
+        return null;
       }
     }
-    if (typeof current !== 'string') {
+    return typeof current === 'string' ? current : null;
+  }
+
+  /**
+   * Resolves a key in the current locale, then in the configured fallback, then in any
+   * other loaded locale, so a missing dictionary or key never shows a raw key while
+   * another language has the text.
+   */
+  resolve(key) {
+    const currentDict = this.dictionaries.get(this.currentLocale);
+    const direct = currentDict ? this.lookup(currentDict, key) : null;
+    if (direct !== null) {
+      return direct;
+    }
+    const order = new Set([this.fallbackLocale, ...this.dictionaries.keys()]);
+    order.delete(this.currentLocale);
+    for (const locale of order) {
+      const dict = this.dictionaries.get(locale);
+      if (dict) {
+        const text = this.lookup(dict, key);
+        if (text !== null) {
+          return text;
+        }
+      }
+    }
+    return null;
+  }
+
+  t(key, params = {}) {
+    const current = this.resolve(key);
+    if (current === null) {
       return key;
     }
     return current.replace(/\{\{(\w+)\}\}/g, (_, token) =>

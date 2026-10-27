@@ -146,7 +146,10 @@
     },
     "canvas": {
       "aria": {
-        "label": "Plateau de jeu. Visez à la souris, au doigt ou avec les flèches gauche/droite, tirez avec Entrée, échangez avec Espace."
+        "label": {
+          "pointer": "Plateau de jeu. Visez à la souris ou avec les flèches gauche/droite, tirez d'un clic ou avec Entrée, échangez avec Espace.",
+          "touch": "Plateau de jeu. Glissez sur le plateau pour viser, relâchez pour tirer, touchez le lanceur pour échanger."
+        }
       }
     },
     "announcer": {
