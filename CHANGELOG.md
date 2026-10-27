@@ -4,6 +4,9 @@ All notable changes to **FluxSpheres** are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Browser Smoke Tests**: `npm run test:browser` opens the game in headless Chromium at the four supported layouts and fails on console errors, sideways scrolling, clipped control labels, dialogs that do not pause or close, and broken victory, game over or reload-resume paths. CI runs it as a separate job.
+
 ## [1.5.0] - 2026-10-27
 
 ### Changed
