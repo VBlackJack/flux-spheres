@@ -24,8 +24,9 @@
   - **Défi du jour** : graine quotidienne déterministe, mutateurs physiques tournants (*Hyper Gravité*, *Rotors Turbo*, *Super Magnétisme*, *Amas Volatil*) et récompense quotidienne en pièces.
   - **Mode Flux** : un enchaînement sans fin de formes générées, avec une réserve de tirs commune. Chaque forme est un rotor ou un pendule paramétré, une silhouette suspendue (coeur, couronne, cloche, phare, ancre marine...), parfois tenue par des ancres neutres, ou une paire de petites formes, jamais deux fois de suite la même famille. Un budget de difficulté ajoute bumpers, portails, répulseurs et singularités au fil de la partie, une forme sur cinq cache un Noyau Boss, les formes avancées ajoutent chaînes, bulles et coeurs de givre, de foudre et de peinture, et vider une forme rend des tirs. Chaque partie a sa graine : un rechargement reprend sur la même forme.
 - **Prise en main** :
-  - Un indice de première rencontre explique chaque mécanique la première fois qu'elle arrive sur le plateau, dans tous les modes : le tutoriel du niveau quand il existe, sinon son entrée du Codex. Chaque indice ne s'affiche qu'une fois ; laissé ouvert, il cède la place au suivant après trois tours, et les **Réglages** permettent de tous les revoir.
-  - Le niveau 1 s'en tient aux groupes et aux avalanches : trois couleurs, aucune sphère spéciale, aucun modificateur.
+  - Un indice de première rencontre explique chaque mécanique la première fois qu'elle arrive sur le plateau, dans tous les modes : le tutoriel du niveau quand il existe, sinon son entrée du Codex. Chaque indice ne s'affiche qu'une fois ; laissé ouvert, il cède la place au suivant après trois tours, et les **Réglages** permettent de tous les revoir. En campagne, ce autour de quoi le niveau est construit est expliqué en premier.
+  - Le niveau 1 s'en tient aux groupes et aux avalanches : trois couleurs, aucune sphère spéciale, aucun modificateur ; les emplacements des sphères spéciales apparaissent dès qu'il y en a une à utiliser.
+  - Un niveau qui enseigne un modificateur en montre toujours le même nombre, fixé dans sa définition.
 - **Sensations de jeu** :
   - Ralenti quand un tir passe près de l'une des trois dernières sphères d'un niveau ou d'une forme Flux.
   - À la victoire, le score défile et les étoiles gagnées apparaissent une par une ; les deux respectent le mode mouvements réduits.
@@ -39,7 +40,7 @@
   - Option **réduction des animations** (respecte `prefers-reduced-motion`) et pause automatique au changement d'onglet.
   - Option **contrôle par inclinaison** sur téléphone et tablette : incliner l'appareil penche la gravité sur le côté.
   - Prise en charge des lecteurs d'écran : boutons bascules étiquetés avec `aria-pressed`, sphères spéciales et étoiles des niveaux nommées, annonces discrètes des succès et des fins de manche.
-  - Contrôles complets à la souris, au tactile (décalage vertical du doigt et annulation du tir en glissant vers le bas) et au clavier ; une touche d'action maintenue ne se répète pas.
+  - Contrôles complets à la souris, au tactile (décalage vertical du doigt et annulation du tir en glissant vers le bas) et au clavier ; une touche d'action maintenue ne se répète pas. Les flèches affinent une visée à la souris : après une flèche, les petits mouvements de souris laissent la visée en place et un clic tire dans cette direction.
   - Mise en page sans défilement sur ordinateur, téléphone et téléphone en paysage, avec des zones tactiles de 44 px. Sur téléphone en portrait, le plateau occupe toute la largeur ; navigation et statistiques se trouvent dans le menu coulissant (☰), qui met la partie en pause, et une ligne sous le score garde en vue la manche, les pièces et le record. Sur un écran d'ordinateur en paysage, le plateau occupe toute la hauteur de la fenêtre, centré entre deux colonnes de même largeur : navigation et statistiques de la manche à gauche, surcharge, billes spéciales, Polarité et Échanger à droite.
   - La partie en cours survit à un rechargement ou à un onglet fermé par le système, et reprend en pause.
 - **Installable et hors ligne** :
@@ -52,7 +53,7 @@
 
 | Action | Souris / tactile | Clavier |
 | :--- | :--- | :--- |
-| **Viser** | Déplacer le pointeur / glisser le doigt | `Gauche` / `Droite` (`+ Maj` pour viser vite) |
+| **Viser** | Déplacer le pointeur / glisser le doigt | `Gauche` / `Droite` par petits pas (`+ Maj` pour de plus grands) |
 | **Tirer** | Relâcher le pointeur / le doigt | `Entrée` |
 | **Annuler la visée** | Glisser sous l'anneau du lanceur | - |
 | **Échanger la sphère** | Cliquer la sphère secondaire ou le bouton **Échanger** | `Espace` |
@@ -128,7 +129,7 @@ Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rend
 - `pwa.test.js` vérifie que chaque fichier de `src/`, `configs/`, `locales/` et `icons/` est mis en cache par `sw.js`, et que la version du cache du Service Worker correspond à `package.json`.
 - `onboarding.test.js` vérifie que chaque mécanique a un indice dans les deux langues, qu'un niveau dont le tutoriel enseigne une mécanique l'affiche toujours, et que le niveau 1 ne montre que les bases.
 
-`tests/browser/smoke.test.js` ouvre la vraie page dans Chromium sans interface, aux quatre mises en page prises en charge (ordinateur, tablette en portrait, téléphone en paysage et en portrait). Il échoue sur toute erreur de console, tout défilement horizontal ou tout libellé de bouton coupé, vérifie que les fenêtres Réglages, Niveaux, Atelier et Pause mettent la partie en pause puis la reprennent, et parcourt la victoire, la défaite et la reprise après rechargement. La CI le lance dans une tâche séparée.
+`tests/browser/smoke.test.js` ouvre la vraie page dans Chromium sans interface, aux quatre mises en page prises en charge (ordinateur, tablette en portrait, téléphone en paysage et en portrait). Il échoue sur toute erreur de console, tout défilement horizontal ou tout libellé de bouton coupé, vérifie la mise en page au niveau 1 (sans sphère spéciale) et au niveau 2 (avec), vérifie que les fenêtres Réglages, Niveaux, Atelier et Pause mettent la partie en pause puis la reprennent, parcourt la victoire, la défaite et la reprise après rechargement, et vérifie qu'un tremblement de souris garde une visée affinée au clavier. La CI le lance dans une tâche séparée.
 
 Tout nouveau fichier chargé à l'exécution doit être ajouté à `PRECACHE_ASSETS` dans `sw.js`. À chaque version, `APP_VERSION` dans `sw.js` s'incrémente avec `package.json`.
 

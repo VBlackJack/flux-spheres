@@ -24,8 +24,9 @@
   - **Daily Challenge**: Deterministic daily seed with rotating physics mutators (*Hyper Gravity*, *Turbo Rotors*, *Super Magnetism*, *Volatile Cluster*) and a daily coin reward.
   - **Flux Mode**: An endless chain of procedurally generated shapes sharing one shot reserve. Each stage draws a parametric rotor or pendulum, a hanging silhouette (heart, crown, bell, lighthouse, ship anchor...), some held by neutral anchors, or a pair of small shapes, never the same family twice in a row. A difficulty budget adds bumpers, portals, repulsors and singularities as the run goes on, every fifth stage hides a Boss Core, later stages add chains, bubbles and freeze, lightning and paint cores, and clearing a shape refills shots. Runs are seeded, so a reload resumes on the same shape.
 - **Learning the Game**:
-  - A first-encounter hint explains each mechanic the first time it reaches the board, in every mode: the level tutorial when there is one, else its Codex entry. Each hint shows once; one left open gives way to the next after three turns, and **Settings** can show them all again.
-  - Level 1 keeps to matching and avalanches: three colors, no special ball, no modifier.
+  - A first-encounter hint explains each mechanic the first time it reaches the board, in every mode: the level tutorial when there is one, else its Codex entry. Each hint shows once; one left open gives way to the next after three turns, and **Settings** can show them all again. In the campaign, what the level is built around is explained first.
+  - Level 1 keeps to matching and avalanches: three colors, no special ball, no modifier; the special ball slots appear once there is one to use.
+  - A level that teaches a modifier always shows the same number of it, set in its definition.
 - **Game Feel**:
   - Slow motion when a shot flies close to one of the last three spheres of a level or Flux shape.
   - The victory score rolls up and the earned stars pop in one after another; both respect reduced motion.
@@ -39,7 +40,7 @@
   - **Reduced Motion** toggle (`prefers-reduced-motion` aware) and automatic pause on tab switch.
   - Optional **Tilt Control** on phones and tablets: tilting the device leans gravity sideways.
   - Screen reader support: labelled toggles with `aria-pressed`, named power-ups and level stars, and polite announcements for achievements and round results.
-  - Full mouse, touch (with vertical finger offset and pull-down shot cancellation), and keyboard controls; held action keys do not auto-repeat.
+  - Full mouse, touch (with vertical finger offset and pull-down shot cancellation), and keyboard controls; held action keys do not auto-repeat. The arrows fine-tune a mouse aim: after an arrow, small mouse movements leave the aim alone and a click shoots along it.
   - Zero-scroll layout on desktop, phones and landscape phones, with 44 px touch targets. On portrait phones the board spans the full width; navigation and stats live in the slide-in menu (☰), which pauses the run, and a line under the score keeps the round, coins and best score in view. On landscape desktops the board uses the full window height, centered between two columns of the same width: navigation and round stats on the left, overcharge, special balls, Polarity and Swap on the right.
   - The run in progress survives a reload or a discarded tab and resumes paused.
 - **Installable & Offline**:
@@ -52,7 +53,7 @@
 
 | Action | Mouse / Touch | Keyboard |
 | :--- | :--- | :--- |
-| **Aim** | Move pointer / Drag finger | `Left` / `Right` (`+ Shift` for fast aim) |
+| **Aim** | Move pointer / Drag finger | `Left` / `Right` for fine steps (`+ Shift` for bigger ones) |
 | **Shoot** | Release pointer / finger | `Enter` |
 | **Cancel Aim** | Drag below the launcher ring | - |
 | **Swap Ball** | Click secondary ball or **Swap** button | `Space` |
@@ -128,7 +129,7 @@ The suites in `tests/` cover the game engine, physics, rendering loop, UI helper
 - `pwa.test.js` checks that every file under `src/`, `configs/`, `locales/` and `icons/` is precached by `sw.js`, and that the Service Worker cache version matches `package.json`.
 - `onboarding.test.js` checks that every mechanic has a hint in both languages, that a level whose tutorial teaches a mechanic always shows it, and that level 1 shows only the basics.
 
-`tests/browser/smoke.test.js` opens the real page in headless Chromium at the four supported layouts (desktop, portrait tablet, landscape and portrait phones). It fails on any console error, sideways scrolling or clipped control label, checks that the Settings, Levels, Workshop and Pause dialogs pause and resume the run, and walks through the victory, game over and reload-resume paths. CI runs it as a separate job.
+`tests/browser/smoke.test.js` opens the real page in headless Chromium at the four supported layouts (desktop, portrait tablet, landscape and portrait phones). It fails on any console error, sideways scrolling or clipped control label, checks the layout on level 1 (no special ball) and level 2 (special balls), checks that the Settings, Levels, Workshop and Pause dialogs pause and resume the run, walks through the victory, game over and reload-resume paths, and checks that a mouse tremor keeps a keyboard-tuned aim. CI runs it as a separate job.
 
 When adding a runtime file, list it in `PRECACHE_ASSETS` in `sw.js`. When releasing, bump `APP_VERSION` in `sw.js` together with `package.json`.
 

@@ -305,6 +305,7 @@ export class UIManager {
       comboBadge: document.getElementById('hud-combo-badge'),
       frozenBadge: document.getElementById('hud-frozen-badge'),
       powerupsContainer: document.getElementById('powerups-bar'),
+      powerupsHeader: document.getElementById('powerups-header'),
       btnLevels: document.getElementById('btn-levels'),
       btnEndless: document.getElementById('btn-endless'),
       btnDaily: document.getElementById('btn-daily'),
@@ -1093,8 +1094,8 @@ export class UIManager {
       } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
         e.preventDefault();
         const step = e.shiftKey
-          ? this.gameConfig.canvas.keyboardAimFastStepRad
-          : this.gameConfig.canvas.keyboardAimStepRad;
+          ? this.gameConfig.canvas.keyboardAimStepRad
+          : this.gameConfig.canvas.keyboardAimFineStepRad;
         const dir = e.code === 'ArrowLeft' ? -1 : 1;
         this.engine.adjustAimByDelta(dir * step);
         this.updateAimState(this.engine);
@@ -2201,6 +2202,11 @@ export class UIManager {
     }
 
     this.updateAimState(engine);
+
+    // A level that hands out no special ball shows no empty slots to a new player.
+    const offersSpecialBalls = engine.offersSpecialBalls();
+    this.elements.powerupsContainer.classList.toggle('hidden', !offersSpecialBalls);
+    this.elements.powerupsHeader?.classList.toggle('hidden', !offersSpecialBalls);
 
     const buttons = this.elements.powerupsContainer.querySelectorAll('.powerup-btn');
     const canBuyAmmo = this.isRunActive();

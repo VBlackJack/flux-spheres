@@ -179,7 +179,7 @@
     "canvas": {
       "aria": {
         "label": {
-          "pointer": "Game board. Aim with the mouse or the Left/Right arrows, shoot with a click or Enter, swap with Space.",
+          "pointer": "Game board. Aim with the mouse, then fine-tune with the Left/Right arrows (Shift for bigger steps), shoot with a click or Enter, swap with Space.",
           "touch": "Game board. Drag on the board to aim, release to shoot, tap the launcher to swap."
         }
       }
@@ -569,7 +569,7 @@
           "pointer": "Cancel a shot: release the click below the launcher",
           "touch": "Cancel a shot: drag back below the launcher before releasing"
         },
-        "keyboard": "Keyboard: Left/Right to Aim, Enter to Shoot, F to Flip Polarity, 1-6 for Special Balls",
+        "keyboard": "Keyboard: Left/Right to Fine-Tune Aim (Shift: Faster), Enter to Shoot, F to Flip Polarity, 1-6 for Special Balls",
         "physics": "Tip: Sever anchor links or unbalance rotors to trigger chain reactions!"
       },
       "button": {

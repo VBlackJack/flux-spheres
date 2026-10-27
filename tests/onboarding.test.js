@@ -138,6 +138,21 @@ test('A level tutorial teaches a known mechanic, and the level guarantees it', (
   }
 });
 
+test('A level teaching a modifier sets its exact count: a minimum and no random weight', () => {
+  const modifierIds = new Set(Object.values(CLUSTER_MODIFIERS));
+  for (const level of levels.filter((lvl) => lvl.tutorialKey)) {
+    // Mechanics the layout or the obstacles provide on their own need no count.
+    const fromLayout = listLevelMechanics({ ...level, modifierWeights: {}, minModifierCounts: {} });
+    const taught = Object.keys(onboarding.mechanics).filter(
+      (id) => onboarding.mechanics[id].hintKey === level.tutorialKey && modifierIds.has(id) && !fromLayout.has(id)
+    );
+    for (const id of taught) {
+      assert.ok((level.minModifierCounts?.[id] || 0) > 0, `level ${level.id} sets a count of ${id}`);
+      assert.ok(!(level.modifierWeights?.[id] > 0), `level ${level.id} does not roll extra ${id}`);
+    }
+  }
+});
+
 test('Level 1 shows only the basics: no obstacle, modifier or special ball, few colors', () => {
   const first = levels[0];
   assert.deepEqual([...listLevelMechanics(first)], [BOARD_MECHANICS.BASICS]);
@@ -145,6 +160,24 @@ test('Level 1 shows only the basics: no obstacle, modifier or special ball, few 
   for (const [type, count] of Object.entries(first.specialInventory)) {
     assert.equal(count, 0, `no ${type} ball on level 1`);
   }
+});
+
+test('Special ball slots show only once the run has a special ball to use', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  assert.equal(engine.offersSpecialBalls(), false, 'level 1 hands out none');
+
+  engine.storageManager.setCoins(gameConfig.specialShopCosts.bomb);
+  assert.equal(engine.buySpecialAmmo('bomb'), true);
+  assert.equal(engine.offersSpecialBalls(), true, 'a bought ball brings the slots back');
+
+  engine.startCampaignLevel(2);
+  engine.specialInventory = {};
+  assert.equal(engine.offersSpecialBalls(), true, 'a level that hands some out keeps its slots when empty');
+
+  engine.startEndlessMode();
+  engine.specialInventory = {};
+  assert.equal(engine.offersSpecialBalls(), true, 'other modes keep their slots');
 });
 
 test('A board lists the basics, its modifiers, its obstacles and its rail anchors', () => {
@@ -200,6 +233,23 @@ test('A mechanic met before its campaign level is explained where it appears', (
   const present = listBoardMechanics(engine.physicsWorld.balls, engine.physicsWorld.obstacles);
   const expected = onboarding.order.find((id) => present.has(id) && id !== BOARD_MECHANICS.BASICS) || null;
   assert.equal(engine.activeDiscoveryId, expected);
+});
+
+test('A player who opens a level directly first learns what that level guarantees', () => {
+  for (const level of levels) {
+    const engine = createTestEngine();
+    engine.storageManager.markDiscovered([BOARD_MECHANICS.BASICS]);
+    engine.startCampaignLevel(level.id);
+    const guaranteed = listLevelMechanics(level, { guaranteedOnly: true });
+    guaranteed.delete(BOARD_MECHANICS.BASICS);
+    if (guaranteed.size > 0) {
+      assert.ok(guaranteed.has(engine.activeDiscoveryId), `level ${level.id} opens on ${engine.activeDiscoveryId}`);
+    }
+  }
+  const engine = createTestEngine();
+  engine.storageManager.markDiscovered([BOARD_MECHANICS.BASICS]);
+  engine.startCampaignLevel(3);
+  assert.equal(engine.activeDiscoveryId, OBSTACLE_TYPES.BUMPER, 'level 3 explains its bumpers first');
 });
 
 test('Survival boards trigger discovery hints too', () => {
