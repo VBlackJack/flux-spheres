@@ -206,7 +206,8 @@ test('ParticleSystem object pooling recycles particles on clear and update', () 
 
 test('Special ball equip and unequip restores original regular ball and inventory count', () => {
   const engine = createTestEngine();
-  engine.startCampaignLevel(1);
+  // Level 1 has no special ball; level 2 is the first to hand out a bomb.
+  engine.startCampaignLevel(2);
   const originalColor = engine.currentBall.colorId;
   const initialBombCount = engine.specialInventory[SPECIAL_TYPES.BOMB];
   assert.ok(initialBombCount >= 1);
