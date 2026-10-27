@@ -128,6 +128,14 @@
     "bombShake": 11.0,
     "anvilShake": 7.5,
     "avalancheShake": 6.0,
+    "snapShake": 1.6,
+    "impactWave": {
+      "amplitude": 0.16,
+      "hopFalloff": 0.72,
+      "hopDelayFrames": 3,
+      "durationFrames": 12,
+      "maxHops": 6
+    },
     "trailSpawnInterval": 1,
     "matchBurstCount": 14,
     "matchBurstSpeed": 5.2,

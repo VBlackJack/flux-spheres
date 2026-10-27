@@ -594,3 +594,57 @@ test('A new run starts with the aim unlocked', () => {
   engine.startCampaignLevel(1);
   assert.equal(engine.isAimLocked, false);
 });
+
+/** Lands a sphere next to a bonded neighbor of the level and returns both. */
+const landBondedSphere = (engine) => {
+  const neighbor = engine.physicsWorld.balls.find((b) => !b.isAnchor && b.bonds.size > 0);
+  const landed = engine.physicsWorld.balls.find((b) => neighbor.bonds.has(b.id));
+  engine.handleProjectileSnapped(landed, neighbor);
+  return { landed, neighbor };
+};
+
+test('A landing sphere sends a drawing-only wave through its cluster, weaker one hop away', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  const waveCfg = gameConfig.juice.impactWave;
+  const before = engine.physicsWorld.balls.map((b) => ({ x: b.x, y: b.y }));
+
+  const neighbor = engine.physicsWorld.balls.find((b) => !b.isAnchor && b.bonds.size > 0);
+  const landed = engine.physicsWorld.balls.find((b) => neighbor.bonds.has(b.id));
+  engine.startImpactWave(landed);
+  assert.equal(engine.impactWave.hops.get(landed.id), 0);
+  assert.equal(engine.impactWave.hops.get(neighbor.id), 1);
+
+  let peakLanded = 1;
+  let peakNeighbor = 1;
+  const lastFrame = waveCfg.maxHops * waveCfg.hopDelayFrames + waveCfg.durationFrames + 1;
+  for (let frame = 0; frame < lastFrame; frame++) {
+    engine.updateImpactWave();
+    peakLanded = Math.max(peakLanded, landed.impactScale);
+    peakNeighbor = Math.max(peakNeighbor, neighbor.impactScale);
+  }
+  assert.ok(peakLanded > 1 && peakLanded <= 1 + waveCfg.amplitude, 'the landed sphere swells');
+  assert.ok(peakNeighbor > 1 && peakNeighbor < peakLanded, 'its neighbor swells less');
+  assert.equal(engine.impactWave, null, 'the wave ends');
+  assert.ok(engine.physicsWorld.balls.every((b) => b.impactScale === 1), 'every sphere is back to scale');
+  engine.physicsWorld.balls.forEach((b, i) => {
+    assert.equal(b.x, before[i].x);
+    assert.equal(b.y, before[i].y);
+  });
+});
+
+test('Every landing shakes the screen a little and starts a wave, unless motion is reduced', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  engine.particleSystem.shakeIntensity = 0;
+  landBondedSphere(engine);
+  assert.ok(engine.particleSystem.shakeIntensity >= gameConfig.juice.snapShake, 'a landing shakes the screen');
+  assert.notEqual(engine.impactWave, null);
+
+  const calm = createTestEngine();
+  calm.setReducedMotion(true);
+  calm.startCampaignLevel(1);
+  landBondedSphere(calm);
+  assert.equal(calm.impactWave, null, 'reduced motion keeps the cluster still');
+  assert.equal(calm.particleSystem.shakeIntensity, 0);
+});

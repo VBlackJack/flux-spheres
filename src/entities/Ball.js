@@ -43,6 +43,8 @@ export class Ball {
     this.vx = 0;
     this.vy = 0;
     this.radius = radius;
+    // Drawing scale of the impact wave; never read by the physics.
+    this.impactScale = 1;
     this.colorId = colorId;
     this.specialType = specialType;
     this.clusterModifier = clusterModifier;
