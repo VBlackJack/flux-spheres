@@ -138,7 +138,8 @@ test('Every campaign level initializes, steps physics, and computes trajectories
 test('Polarity flip inverts magnetic projectile curve pull and updates trajectory', () => {
   const engine = createTestEngine();
   engine.startCampaignLevel(4);
-  engine.updateAim(220, 300);
+  // A point authored for the 540-wide design board, shifted like the level content.
+  engine.updateAim(220 + gameConfig.canvas.contentOffsetX, 300);
   const normalLandingX = engine.aimPoints.landingX;
   engine.togglePolarityFlip();
   assert.equal(engine.isPolarityFlipped, true);

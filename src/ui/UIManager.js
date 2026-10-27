@@ -500,9 +500,15 @@ export class UIManager {
     });
   }
 
-  /** Exposes canvas geometry to CSS: overlays are placed relative to the danger line. */
+  /**
+   * Exposes canvas geometry to CSS: the board takes the world's shape, and overlays are
+   * placed relative to the danger line.
+   */
   applyCanvasLayoutVariables() {
-    const { logicalHeight, dangerLineY } = this.gameConfig.canvas;
+    const { logicalWidth, logicalHeight, dangerLineY } = this.gameConfig.canvas;
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.style.setProperty('--canvas-aspect', `${logicalWidth} / ${logicalHeight}`);
+    }
     if (this.elements.canvasWrapper) {
       const belowDangerPct = ((logicalHeight - dangerLineY) / logicalHeight) * 100;
       this.elements.canvasWrapper.style.setProperty('--tutorial-bottom', `${belowDangerPct}%`);
