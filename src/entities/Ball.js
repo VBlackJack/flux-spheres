@@ -31,7 +31,9 @@ export class Ball {
     isProjectile = false,
     pivotRef = null,
     pivotRadius = 0,
-    pivotAngle = 0
+    pivotAngle = 0,
+    railMinX = null,
+    railMaxX = null
   }) {
     this.id = nextBallId++;
     this.x = x;
@@ -52,6 +54,12 @@ export class Ball {
     this.isDropping = false;
     this.isFrozen = false;
     this.bonds = new Set();
+    // Long-range tether links, a subset of bonds with their own rest length.
+    this.tethers = new Set();
+    // A rail anchor slides between railMinX and railMaxX; null for a fixed anchor.
+    this.railMinX = railMinX;
+    this.railMaxX = railMaxX;
+    this.railVelocity = 0;
     this.pivotRef = pivotRef;
     this.pivotRadius = pivotRadius;
     this.pivotAngle = pivotAngle;

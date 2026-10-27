@@ -24,6 +24,11 @@ export function isChainLink(a, b) {
   return a.clusterModifier === CLUSTER_MODIFIERS.CHAINED || b.clusterModifier === CLUSTER_MODIFIERS.CHAINED;
 }
 
+/** A tether is a long-range bond made by a tether ball; it keeps its own rest length. */
+export function isTetherLink(a, b) {
+  return a.tethers.has(b.id);
+}
+
 /**
  * Core 2D physics simulation world managing magnetic clusters, anchor/rotor constraints,
  * projectile trajectories, portals, and avalanche detachment.
@@ -203,9 +208,11 @@ export class PhysicsWorld {
       const neighbor = this.ballMap.get(neighborId);
       if (neighbor) {
         neighbor.bonds.delete(ball.id);
+        neighbor.tethers.delete(ball.id);
       }
     }
     ball.bonds.clear();
+    ball.tethers.clear();
     this.ballMap.delete(ball.id);
     this.pendingChainCandidateIds.delete(ball.id);
   }
@@ -232,6 +239,31 @@ export class PhysicsWorld {
         if (dx * dx + dy * dy <= maxDistSq) {
           this.createBond(a, b, false);
         }
+      }
+    }
+    this.createTetherLinks();
+  }
+
+  /**
+   * Each tether ball reaches past its neighbors: it binds to the nearest balls it is not
+   * bonded to yet, within its range, up to its link count. These long bonds hold weight
+   * like any bond but never snap, and never carry a color group.
+   */
+  createTetherLinks() {
+    const tetherSpec = this.ballsConfig.clusterModifiers.tether;
+    const r = this.physicsConfig.ball.radius;
+    const range = r * tetherSpec.rangeFactor;
+    for (const a of this.balls) {
+      if (a.clusterModifier !== CLUSTER_MODIFIERS.TETHER) {
+        continue;
+      }
+      const candidates = this.balls
+        .filter((b) => b.id !== a.id && !a.bonds.has(b.id) && Math.hypot(b.x - a.x, b.y - a.y) <= range)
+        .sort((b1, b2) => Math.hypot(b1.x - a.x, b1.y - a.y) - Math.hypot(b2.x - a.x, b2.y - a.y));
+      for (const b of candidates.slice(0, Math.max(0, tetherSpec.maxLinks - a.tethers.size))) {
+        this.createBond(a, b, false);
+        a.tethers.add(b.id);
+        b.tethers.add(a.id);
       }
     }
   }
@@ -498,6 +530,8 @@ export class PhysicsWorld {
     const maxWallX = this.gameConfig.canvas.logicalWidth - this.gameConfig.canvas.wallMargin - ballRadius;
     const minWallY = this.gameConfig.canvas.wallMargin + ballRadius;
     const balls = this.balls;
+    this.slideRailAnchors(dt);
+    const thrusterLift = sim.clusterGravity * this.ballsConfig.clusterModifiers.thruster.liftFactor;
 
     for (const ball of balls) {
       if (ball.pivotRef) {
@@ -513,6 +547,9 @@ export class PhysicsWorld {
         ball.vy += dy * sim.anchorStiffness * dt;
       } else {
         ball.vy += sim.clusterGravity * this.gravityMultiplier * dt;
+        if (ball.clusterModifier === CLUSTER_MODIFIERS.THRUSTER) {
+          ball.vy -= thrusterLift * dt;
+        }
       }
     }
 
@@ -584,6 +621,7 @@ export class PhysicsWorld {
     }
 
     const restDist = ballRadius * sim.bondRestDistanceFactor;
+    const tetherRestDist = ballRadius * this.ballsConfig.clusterModifiers.tether.restFactor;
     const breakDist = ballRadius * sim.bondBreakDistanceFactor;
     const minDist = ballRadius * sim.collisionDistanceFactor;
     const minDistSq = minDist * minDist;
@@ -602,14 +640,15 @@ export class PhysicsWorld {
           const dy = b.y - a.y;
           const dist = Math.hypot(dx, dy) || MATH_CONSTANTS.EPSILON;
 
-          if (this.allowTensionBreak && dist > breakDist && !a.isAnchor && !b.isAnchor && !isChainLink(a, b)) {
+          const isTether = isTetherLink(a, b);
+          if (this.allowTensionBreak && dist > breakDist && !a.isAnchor && !b.isAnchor && !isChainLink(a, b) && !isTether) {
             a.bonds.delete(b.id);
             b.bonds.delete(a.id);
             this.hasBrokenBondThisStep = true;
             continue;
           }
 
-          const diff = (dist - restDist) / dist;
+          const diff = (dist - (isTether ? tetherRestDist : restDist)) / dist;
           const correctionX = dx * diff * sim.bondStiffness * dt;
           const correctionY = dy * diff * sim.bondStiffness * dt;
 
@@ -670,6 +709,37 @@ export class PhysicsWorld {
           ball.x += (ball.anchorX - ball.x) * sim.anchorStiffness;
           ball.y += (ball.anchorY - ball.y) * sim.anchorStiffness;
         }
+      }
+    }
+  }
+
+  /**
+   * A rail anchor slides along its rail: the horizontal pull of its stretched bonds moves
+   * it, so clearing one side of the cluster lets the weight of the other side drag it.
+   */
+  slideRailAnchors(dt) {
+    const sim = this.physicsConfig.simulation;
+    const restDist = this.physicsConfig.ball.radius * sim.bondRestDistanceFactor;
+    const damping = Math.pow(sim.railDamping, dt);
+    for (const ball of this.balls) {
+      if (ball.railMinX === null || ball.railMaxX === null) {
+        continue;
+      }
+      let pullX = 0;
+      for (const neighborId of ball.bonds) {
+        const neighbor = this.ballMap.get(neighborId);
+        if (!neighbor) {
+          continue;
+        }
+        const dx = neighbor.x - ball.x;
+        const dist = Math.hypot(dx, neighbor.y - ball.y) || MATH_CONSTANTS.EPSILON;
+        pullX += (dx / dist) * Math.max(0, dist - restDist);
+      }
+      ball.railVelocity = (ball.railVelocity + pullX * sim.railStiffness * dt) * damping;
+      const nextX = ball.anchorX + ball.railVelocity * dt;
+      ball.anchorX = Math.min(ball.railMaxX, Math.max(ball.railMinX, nextX));
+      if (ball.anchorX !== nextX) {
+        ball.railVelocity = 0;
       }
     }
   }
@@ -1099,7 +1169,12 @@ export class PhysicsWorld {
           continue;
         }
         const neighbor = this.ballMap.get(neighborId);
-        if (neighbor && neighbor.colorId === targetColor && neighbor.clusterModifier !== CLUSTER_MODIFIERS.BUBBLE) {
+        if (
+          neighbor &&
+          neighbor.colorId === targetColor &&
+          neighbor.clusterModifier !== CLUSTER_MODIFIERS.BUBBLE &&
+          !current.tethers.has(neighborId)
+        ) {
           visited.add(neighborId);
           queue.push(neighbor);
         }

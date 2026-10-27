@@ -1033,6 +1033,206 @@
           "y": 390
         }
       ]
+    },
+    {
+      "id": 21,
+      "nameKey": "levels.items.lvl21.name",
+      "descriptionKey": "levels.items.lvl21.description",
+      "tutorialKey": "gameplay.tutorial.rail",
+      "starThresholds": [0, 8300, 13100],
+      "maxShots": 40,
+      "paletteCount": 5,
+      "specialInventory": {
+        "bomb": 2,
+        "lightning": 1,
+        "rainbow": 1,
+        "anvil": 1,
+        "freeze": 1,
+        "rocket": 1
+      },
+      "modifierWeights": {
+        "coinCore": 0.12,
+        "armored": 0.06
+      },
+      "layout": {
+        "type": "pendulum",
+        "anchors": [
+          { "x": 190, "y": 85, "rail": 70 },
+          { "x": 350, "y": 85, "rail": 70 }
+        ],
+        "rows": 5,
+        "cols": 8,
+        "startX": 130,
+        "startY": 120,
+        "spacingX": 40,
+        "spacingY": 36
+      },
+      "obstacles": [
+        {
+          "type": "bumper",
+          "x": 95,
+          "y": 390
+        },
+        {
+          "type": "bumper",
+          "x": 445,
+          "y": 390
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "nameKey": "levels.items.lvl22.name",
+      "descriptionKey": "levels.items.lvl22.description",
+      "tutorialKey": "gameplay.tutorial.thruster",
+      "starThresholds": [0, 10700, 16900],
+      "maxShots": 46,
+      "paletteCount": 5,
+      "specialInventory": {
+        "bomb": 2,
+        "lightning": 1,
+        "rainbow": 1,
+        "anvil": 1,
+        "freeze": 1,
+        "rocket": 1
+      },
+      "modifierWeights": {
+        "thruster": 0.1,
+        "coinCore": 0.1,
+        "chained": 0.05
+      },
+      "minModifierCounts": {
+        "thruster": 4
+      },
+      "layout": {
+        "type": "pendulum",
+        "anchors": [
+          { "x": 155, "y": 80 },
+          { "x": 270, "y": 80 },
+          { "x": 385, "y": 80 }
+        ],
+        "rows": 6,
+        "cols": 9,
+        "startX": 110,
+        "startY": 116,
+        "spacingX": 40,
+        "spacingY": 36
+      },
+      "obstacles": [
+        {
+          "type": "bumper",
+          "x": 95,
+          "y": 390
+        },
+        {
+          "type": "bumper",
+          "x": 445,
+          "y": 390
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "nameKey": "levels.items.lvl23.name",
+      "descriptionKey": "levels.items.lvl23.description",
+      "tutorialKey": "gameplay.tutorial.tether",
+      "starThresholds": [0, 10200, 16200],
+      "maxShots": 46,
+      "paletteCount": 5,
+      "specialInventory": {
+        "bomb": 2,
+        "lightning": 1,
+        "rainbow": 2,
+        "anvil": 1,
+        "freeze": 1,
+        "rocket": 1
+      },
+      "modifierWeights": {
+        "tether": 0.1,
+        "coinCore": 0.12,
+        "bubble": 0.06
+      },
+      "minModifierCounts": {
+        "tether": 4
+      },
+      "layout": {
+        "type": "pendulum",
+        "anchors": [
+          { "x": 155, "y": 80 },
+          { "x": 290, "y": 80, "neutral": true },
+          { "x": 385, "y": 80 }
+        ],
+        "rows": 6,
+        "cols": 9,
+        "startX": 110,
+        "startY": 116,
+        "spacingX": 40,
+        "spacingY": 36
+      },
+      "obstacles": [
+        {
+          "type": "bumper",
+          "x": 95,
+          "y": 390
+        },
+        {
+          "type": "bumper",
+          "x": 445,
+          "y": 390
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "nameKey": "levels.items.lvl24.name",
+      "descriptionKey": "levels.items.lvl24.description",
+      "tutorialKey": "gameplay.tutorial.rust",
+      "starThresholds": [0, 10500, 16600],
+      "maxShots": 44,
+      "paletteCount": 5,
+      "specialInventory": {
+        "bomb": 2,
+        "lightning": 1,
+        "rainbow": 1,
+        "anvil": 1,
+        "freeze": 1,
+        "rocket": 2
+      },
+      "modifierWeights": {
+        "rust": 0.12,
+        "paintCore": 0.05,
+        "coinCore": 0.1
+      },
+      "minModifierCounts": {
+        "rust": 6,
+        "paintCore": 2
+      },
+      "layout": {
+        "type": "pendulum",
+        "anchors": [
+          { "x": 155, "y": 80 },
+          { "x": 270, "y": 80 },
+          { "x": 385, "y": 80 }
+        ],
+        "rows": 6,
+        "cols": 9,
+        "startX": 110,
+        "startY": 116,
+        "spacingX": 40,
+        "spacingY": 36
+      },
+      "obstacles": [
+        {
+          "type": "bumper",
+          "x": 95,
+          "y": 390
+        },
+        {
+          "type": "bumper",
+          "x": 445,
+          "y": 390
+        }
+      ]
     }
   ]
 }

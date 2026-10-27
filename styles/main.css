@@ -1503,11 +1503,12 @@ body {
 
   /*
    * Board, overcharge line and control row share one grid: the wrappers around the
-   * launcher buttons and special balls step aside so all seven buttons sit in one row.
+   * launcher buttons and special balls step aside so all eight buttons (Swap, Polarity and
+   * the six special balls) sit in one row.
    */
   .stage-container {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(8, minmax(0, 1fr));
     grid-template-rows: minmax(0, 1fr) auto auto;
     gap: var(--stage-column-gap) 4px;
     align-items: stretch;

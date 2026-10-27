@@ -15,7 +15,7 @@
  */
 
 import { OBSTACLE_TYPES, SPECIAL_TYPES, CLUSTER_MODIFIERS, MATH_CONSTANTS } from '../core/Constants.js';
-import { isChainLink } from '../physics/PhysicsWorld.js';
+import { isChainLink, isTetherLink } from '../physics/PhysicsWorld.js';
 
 const BOND_STYLE = Object.freeze({
   STRESSED: 0,
@@ -326,7 +326,9 @@ export class Renderer {
       ctx.translate(0, -introOffset);
     }
     this.drawObstacles(ctx, engineState.physicsWorld.obstacles, now, alpha);
+    this.drawRails(ctx, engineState.physicsWorld);
     this.drawMagneticBonds(ctx, engineState.physicsWorld, theme, now, alpha);
+    this.drawTethers(ctx, engineState.physicsWorld, alpha);
 
     for (const ball of engineState.physicsWorld.balls) {
       this.drawBall(ctx, ball, now, alpha);
@@ -774,7 +776,7 @@ export class Renderer {
       return this.ballsConfig.specialTypes[ball.specialType];
     }
     if (!ball.colorId) {
-      return this.ballsConfig.neutralPalette;
+      return ball.clusterModifier === CLUSTER_MODIFIERS.RUST ? this.ballsConfig.rustPalette : this.ballsConfig.neutralPalette;
     }
     return this.colorMap.get(ball.colorId) || this.ballsConfig.standardColors[0];
   }
@@ -921,6 +923,63 @@ export class Renderer {
       this.drawBubbleShell(ctx, r);
     }
 
+    ctx.restore();
+  }
+
+  /** The rail each sliding anchor runs on, with a stop at both ends. */
+  drawRails(ctx, physicsWorld) {
+    const renderCfg = this.ballsConfig.render;
+    ctx.save();
+    ctx.strokeStyle = renderCfg.railColor;
+    ctx.fillStyle = renderCfg.railColor;
+    ctx.lineWidth = renderCfg.railLineWidth;
+    for (const ball of physicsWorld.balls) {
+      if (ball.railMinX === null || ball.railMaxX === null) {
+        continue;
+      }
+      ctx.beginPath();
+      ctx.moveTo(ball.railMinX, ball.anchorY);
+      ctx.lineTo(ball.railMaxX, ball.anchorY);
+      ctx.stroke();
+      for (const stopX of [ball.railMinX, ball.railMaxX]) {
+        ctx.beginPath();
+        ctx.arc(stopX, ball.anchorY, renderCfg.railStopRadius, 0, MATH_CONSTANTS.TWO_PI);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  /** Tether links, drawn as a fixed zigzag arc so they read apart from short bonds. */
+  drawTethers(ctx, physicsWorld, alpha) {
+    const tetherSpec = this.ballsConfig.clusterModifiers.tether;
+    ctx.save();
+    ctx.strokeStyle = tetherSpec.arcColor;
+    ctx.lineWidth = tetherSpec.arcWidth;
+    ctx.beginPath();
+    for (const a of physicsWorld.balls) {
+      for (const neighborId of a.tethers) {
+        const b = physicsWorld.ballMap.get(neighborId);
+        if (!b || neighborId < a.id || !isTetherLink(a, b)) {
+          continue;
+        }
+        const ax = this.interpolate(a.prevX, a.x, alpha);
+        const ay = this.interpolate(a.prevY, a.y, alpha);
+        const bx = this.interpolate(b.prevX, b.x, alpha);
+        const by = this.interpolate(b.prevY, b.y, alpha);
+        const length = Math.hypot(bx - ax, by - ay) || MATH_CONSTANTS.EPSILON;
+        const nx = -(by - ay) / length;
+        const ny = (bx - ax) / length;
+        ctx.moveTo(ax, ay);
+        for (let i = 1; i < tetherSpec.arcSegments; i++) {
+          const t = i / tetherSpec.arcSegments;
+          const side = i % 2 === 0 ? 1 : -1;
+          ctx.lineTo(ax + (bx - ax) * t + nx * side * tetherSpec.arcAmplitude, ay + (by - ay) * t + ny * side * tetherSpec.arcAmplitude);
+        }
+        ctx.lineTo(bx, by);
+      }
+    }
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -1353,6 +1412,19 @@ export class Renderer {
       ctx.lineWidth = pCfg.shockwaveLineWidth;
       ctx.beginPath();
       ctx.arc(sw.x, sw.y, sw.radius, 0, MATH_CONSTANTS.TWO_PI);
+      ctx.stroke();
+    }
+
+    for (const streak of particleSystem.streaks) {
+      // The trail bows sideways, like a rocket that turned toward its target.
+      const midX = (streak.x1 + streak.x2) * MATH_CONSTANTS.HALF - (streak.y2 - streak.y1) * pCfg.streakCurveFactor;
+      const midY = (streak.y1 + streak.y2) * MATH_CONSTANTS.HALF + (streak.x2 - streak.x1) * pCfg.streakCurveFactor;
+      ctx.strokeStyle = streak.color;
+      ctx.globalAlpha = Math.max(0, streak.alpha);
+      ctx.lineWidth = pCfg.streakLineWidth;
+      ctx.beginPath();
+      ctx.moveTo(streak.x1, streak.y1);
+      ctx.quadraticCurveTo(midX, midY, streak.x2, streak.y2);
       ctx.stroke();
     }
 

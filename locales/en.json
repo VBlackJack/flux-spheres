@@ -140,6 +140,10 @@
         "name": "Cryo",
         "tooltip": "Freezes descent and stabilizes magnetic oscillation"
       },
+      "rocket": {
+        "name": "Rocket",
+        "tooltip": "Fires three homing rockets at the hardest spheres on the board"
+      },
       "button": {
         "aria": "{{name}}: {{count}} in stock"
       }
@@ -207,7 +211,8 @@
         "lightning": "ELECTRIC SURGE!",
         "rainbow": "PRISMATIC MATCH!",
         "anvil": "HEAVY CRUSH!",
-        "freeze": "CRYO FIELD!"
+        "freeze": "CRYO FIELD!",
+        "rocket": "ROCKET SALVO!"
       },
       "wave": {
         "incoming": "New magnetic wave incoming!",
@@ -271,7 +276,11 @@
       "neutralAnchor": "Gray anchors (⚓) never break in a match: cut the spheres around them, and they crumble once nothing hangs from them!",
       "chained": "Chained spheres (⛓) never snap loose when stretched: blast them with a bomb, or destroy the spheres they hold!",
       "bubble": "Bubbled spheres (◌) cannot join a group: hit them, or clear a group next to them, to pop the bubble!",
-      "cores": "Colored cores go off when their group is destroyed: ❄ freezes, ⚡ strikes the row, 🎨 repaints the neighbors!"
+      "cores": "Colored cores go off when their group is destroyed: ❄ freezes, ⚡ strikes the row, 🎨 repaints the neighbors!",
+      "rail": "Rail anchors slide along their track: clear one side and the weight of the other drags the anchor!",
+      "thruster": "Thrusters (⏫) push their cluster up: destroy them and the cluster sags toward the danger line!",
+      "tether": "Tether spheres (∿) hold distant spheres with long links that never snap: cut the tether sphere to drop them!",
+      "rust": "Rust (⚙) blocks every group: blast it, drop it, or paint it. Rockets (🚀) seek out the hardest targets!"
     }
   },
   "modals": {
@@ -361,6 +370,18 @@
           "paintCore": {
             "name": "Paint Core",
             "description": "Repaints nearby spheres in its color when destroyed, setting up new groups."
+          },
+          "thruster": {
+            "name": "Thruster Sphere",
+            "description": "Pushes upward against gravity, lifting the spheres bonded to it away from the danger line."
+          },
+          "tether": {
+            "name": "Tether Sphere",
+            "description": "Binds to spheres farther away with long links that never snap. Long links hold weight but never join a color group."
+          },
+          "rust": {
+            "name": "Rusted Sphere",
+            "description": "Colorless and inert: it never joins a group. Explosions, rockets, the anvil and avalanches remove it, and a Paint Core scrubs it back to a color."
           }
         },
         "obstacles": {
@@ -510,7 +531,7 @@
           "pointer": "Cancel a shot: release the click below the launcher",
           "touch": "Cancel a shot: drag back below the launcher before releasing"
         },
-        "keyboard": "Keyboard: Left/Right to Aim, Enter to Shoot, F to Flip Polarity, 1-5 for Special Balls",
+        "keyboard": "Keyboard: Left/Right to Aim, Enter to Shoot, F to Flip Polarity, 1-6 for Special Balls",
         "physics": "Tip: Sever anchor links or unbalance rotors to trigger chain reactions!"
       },
       "button": {
@@ -610,6 +631,22 @@
       "lvl20": {
         "name": "Core Reactor",
         "description": "Freeze, lightning and paint cores turn one match into a chain reaction."
+      },
+      "lvl21": {
+        "name": "Sliding Rails",
+        "description": "Two anchors ride rails: unbalance the cluster to drag them aside."
+      },
+      "lvl22": {
+        "name": "Lift Off",
+        "description": "Thrusters hold the cluster high. Shoot them down to bring it within reach."
+      },
+      "lvl23": {
+        "name": "Long Tethers",
+        "description": "Long links reach across the gaps. Find the sphere that holds them all."
+      },
+      "lvl24": {
+        "name": "Rust Belt",
+        "description": "Rust chokes every group. Bring rockets, bombs and paint."
       }
     }
   }

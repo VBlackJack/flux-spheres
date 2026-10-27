@@ -23,8 +23,9 @@ import { LAYOUT_TYPES, MATH_CONSTANTS } from '../../core/Constants.js';
  *
  *   { balls: [BallSpec], bonds: [[indexA, indexB]] }
  *
- * BallSpec: { x, y, isAnchor, isNeutral, allowModifier, pivotSlot, pivotRadius, pivotAngle }
+ * BallSpec: { x, y, isAnchor, isNeutral, railHalfWidth, allowModifier, pivotSlot, pivotRadius, pivotAngle }
  * - isNeutral: a colorless anchor that matches cannot break (see the neutralAnchor modifier).
+ * - railHalfWidth: an anchor that slides that far left and right of its x on a rail; 0 is fixed.
  * - pivotSlot: index into the board's pivot obstacles (in obstacle order), or NO_PIVOT_SLOT.
  * - allowModifier: whether the engine may roll a cluster modifier (armored, coin core...).
  * - bonds: explicit structural bonds created on top of the distance-based initial bonds.
@@ -51,6 +52,7 @@ const freeBall = (x, y) => ({
   y,
   isAnchor: false,
   isNeutral: false,
+  railHalfWidth: 0,
   allowModifier: true,
   pivotSlot: NO_PIVOT_SLOT,
   pivotRadius: 0,
@@ -82,7 +84,7 @@ const ringAnchor = (x, y, radius, angle, pivotSlot) => ({
 const orbitingFreeBall = (x, y, angle) => ({ ...freeBall(x, y), pivotAngle: angle });
 
 function generatePendulum(layout) {
-  const balls = layout.anchors.map((a) => fixedAnchor(a.x, a.y, Boolean(a.neutral)));
+  const balls = layout.anchors.map((a) => ({ ...fixedAnchor(a.x, a.y, Boolean(a.neutral)), railHalfWidth: a.rail || 0 }));
   for (let row = 0; row < layout.rows; row++) {
     const offset = (row % 2) * (layout.spacingX * MATH_CONSTANTS.HALF);
     for (let col = 0; col < layout.cols; col++) {

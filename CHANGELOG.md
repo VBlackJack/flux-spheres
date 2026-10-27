@@ -5,6 +5,12 @@ All notable changes to **FluxSpheres** are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Rail Anchors**: An anchor can slide along a horizontal rail; the pull of the spheres it holds drags it, so clearing one side of a cluster lets the other side swing it over.
+- **Thrusters**: A thruster sphere pushes upward against gravity and lifts what it is bonded to.
+- **Tethers**: A tether sphere binds to spheres farther away with long links that hold weight, never snap and never carry a color group.
+- **Rust**: A colorless, inert sphere that blocks every group. Explosions, rockets, the anvil and avalanches remove it, and a Paint Core turns it back into a colored sphere.
+- **Rocket Shot**: A sixth special ball (key 6, 40 coins in the shop) fires three homing rockets at the hardest targets: spheres with a modifier first, then anchors. Rockets hit like a blast, so a Boss Core only loses a shield.
+- **Levels 21 to 24**: One level per new mechanic, with tutorials and simulated-play star thresholds; Flux Mode rolls thrusters, tethers and rust from stage 14, and Survival waves roll them at low weights.
 - **New Modifiers in Survival and Daily Challenge**: Waves now roll chained spheres, bubbles and freeze, lightning and paint cores (`endless.modifierWeights` in `configs/game.json`).
 - **Visible Chains**: Each chain link is drawn as a small metal link over the touching spheres, so chains show even when nothing is stretched.
 - **Nine New Flux Shapes**: Pine, mushroom, bell, cat, fish, key, umbrella, lighthouse and ship anchor silhouettes; six of them hang partly from neutral anchors.

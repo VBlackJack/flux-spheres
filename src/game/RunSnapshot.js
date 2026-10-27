@@ -62,7 +62,9 @@ const BALL_SCALAR_FIELDS = [
   'anchorY',
   'isFrozen',
   'pivotRadius',
-  'pivotAngle'
+  'pivotAngle',
+  'railMinX',
+  'railMaxX'
 ];
 
 /** Obstacle fields that change during play; the rest is rebuilt from the level definition. */
@@ -178,6 +180,7 @@ export function captureRunSnapshot(engine, version) {
       id: ball.id,
       ...pickFields(ball, BALL_SCALAR_FIELDS),
       bonds: Array.from(ball.bonds),
+      tethers: Array.from(ball.tethers),
       pivotIndex: ball.pivotRef && obstacleIndex.has(ball.pivotRef) ? obstacleIndex.get(ball.pivotRef) : NO_PIVOT_INDEX
     }))
   };
@@ -266,6 +269,13 @@ export function applyRunSnapshot(engine, snapshot) {
       const neighborId = newIdBySavedId.get(savedNeighborId);
       if (neighborId !== undefined) {
         restored[idx].bonds.add(neighborId);
+      }
+    }
+    // Runs saved before tethers existed have none to restore.
+    for (const savedNeighborId of saved.tethers || []) {
+      const neighborId = newIdBySavedId.get(savedNeighborId);
+      if (neighborId !== undefined && restored[idx].bonds.has(neighborId)) {
+        restored[idx].tethers.add(neighborId);
       }
     }
   });

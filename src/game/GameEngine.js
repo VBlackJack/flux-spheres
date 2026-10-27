@@ -373,7 +373,8 @@ export class GameEngine {
   createClusterBall(options) {
     const mod = options.clusterModifier || null;
     const initialArmor = this.getInitialArmor(mod);
-    const isColorless = Boolean(options.specialType) || mod === CLUSTER_MODIFIERS.NEUTRAL_ANCHOR;
+    const isColorless =
+      Boolean(options.specialType) || mod === CLUSTER_MODIFIERS.NEUTRAL_ANCHOR || mod === CLUSTER_MODIFIERS.RUST;
     const safeColorId = isColorless
       ? null
       : this.pickSpawnColorForPosition(options.x, options.y, options.colorId);
@@ -831,7 +832,9 @@ export class GameEngine {
         isAnchor: ballSpec.isAnchor,
         pivotRef: ballSpec.pivotSlot === NO_PIVOT_SLOT ? null : pivots[ballSpec.pivotSlot] || null,
         pivotRadius: ballSpec.pivotRadius,
-        pivotAngle: ballSpec.pivotAngle
+        pivotAngle: ballSpec.pivotAngle,
+        railMinX: ballSpec.railHalfWidth > 0 ? ballSpec.x - ballSpec.railHalfWidth : null,
+        railMaxX: ballSpec.railHalfWidth > 0 ? ballSpec.x + ballSpec.railHalfWidth : null
       });
       this.physicsWorld.addBall(ball);
       return ball;
@@ -1753,8 +1756,9 @@ export class GameEngine {
       (ball) =>
         ball.clusterModifier === CLUSTER_MODIFIERS.NEUTRAL_ANCHOR &&
         ![...ball.bonds].some((id) => {
+          // Rust holds nothing up for this rule: a neutral anchor holding only rust lets it fall.
           const neighbor = world.ballMap.get(id);
-          return neighbor && !neighbor.isAnchor;
+          return neighbor && !neighbor.isAnchor && neighbor.clusterModifier !== CLUSTER_MODIFIERS.RUST;
         })
     );
     for (const ball of loose) {
