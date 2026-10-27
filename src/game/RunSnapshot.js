@@ -34,7 +34,6 @@ const ENGINE_SCALAR_FIELDS = [
   'chainCooldown',
   'outOfShotsGraceFrames',
   'hasFiredInRound',
-  'shotsFiredInLevel',
   'bossesDestroyedInRun',
   'activeTutorialKey',
   'isPolarityFlipped',
@@ -89,6 +88,40 @@ const copyFields = (target, source, fields) => {
     if (source[field] !== undefined) {
       target[field] = source[field];
     }
+  }
+};
+
+/** Primitive types a field may take when the live object currently holds null. */
+const NULLABLE_FIELD_TYPES = new Set(['string', 'number', 'boolean']);
+
+/**
+ * True when a saved value can replace the live one: same primitive type (a finite number
+ * for numbers), or any primitive or null where the live field is currently empty.
+ */
+const isCompatibleValue = (current, saved) => {
+  if (typeof saved === 'number' && !Number.isFinite(saved)) {
+    return false;
+  }
+  if (current === null || current === undefined) {
+    return saved === null || NULLABLE_FIELD_TYPES.has(typeof saved);
+  }
+  return typeof saved === typeof current;
+};
+
+/**
+ * Copies saved fields onto a live object and throws on a value of the wrong type, so a
+ * snapshot that still parses but holds, say, a text score is discarded instead of being
+ * concatenated into the run.
+ */
+const restoreFields = (target, source, fields) => {
+  for (const field of fields) {
+    if (source[field] === undefined) {
+      continue;
+    }
+    if (!isCompatibleValue(target[field], source[field])) {
+      throw new TypeError(`Saved run field ${field} has an unexpected value`);
+    }
+    target[field] = source[field];
   }
 };
 
@@ -210,7 +243,7 @@ export function applyRunSnapshot(engine, snapshot) {
   }
 
   snapshot.obstacles.forEach((saved, idx) => {
-    copyFields(world.obstacles[idx], saved, OBSTACLE_MOTION_FIELDS);
+    restoreFields(world.obstacles[idx], saved, OBSTACLE_MOTION_FIELDS);
   });
 
   for (const ball of [...world.balls]) {
@@ -221,7 +254,7 @@ export function applyRunSnapshot(engine, snapshot) {
   const newIdBySavedId = new Map();
   const restored = snapshot.balls.map((saved) => {
     const ball = new Ball({ x: saved.x, y: saved.y, radius: saved.radius, colorId: saved.colorId });
-    copyFields(ball, saved, BALL_SCALAR_FIELDS);
+    restoreFields(ball, saved, BALL_SCALAR_FIELDS);
     ball.pivotRef = saved.pivotIndex === NO_PIVOT_INDEX ? null : world.obstacles[saved.pivotIndex] || null;
     newIdBySavedId.set(saved.id, ball.id);
     world.addBall(ball);
@@ -245,7 +278,7 @@ export function applyRunSnapshot(engine, snapshot) {
   }
   world.allowTensionBreak = Boolean(snapshot.allowTensionBreak);
 
-  copyFields(engine, snapshot.engine, ENGINE_SCALAR_FIELDS);
+  restoreFields(engine, snapshot.engine, ENGINE_SCALAR_FIELDS);
   engine.specialInventory = { ...snapshot.specialInventory };
   if (engine.seededRng && Number.isFinite(snapshot.rngState)) {
     engine.seededRng.state = snapshot.rngState;

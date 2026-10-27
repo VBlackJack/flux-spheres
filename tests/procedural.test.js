@@ -347,3 +347,22 @@ test('Flux records keep the best score and the furthest stage independently', ()
   assert.equal(storage.getFluxHighScore(), 1000);
   assert.equal(storage.getFluxBestStage(), 7);
 });
+
+test('A Flux seed gives the same launcher and random stream whatever run came before', () => {
+  const seed = 'same-seed';
+  const fresh = createFluxEngine();
+  fresh.startFluxRun(seed);
+
+  const afterCampaign = createFluxEngine();
+  afterCampaign.startCampaignLevel(16);
+  // A color outside the first shape's palette forced a recolor that drew from the new seed.
+  const lastColor = ballsConfig.standardColors.at(-1).id;
+  afterCampaign.currentBall.colorId = lastColor;
+  afterCampaign.nextBall.colorId = lastColor;
+  afterCampaign.startFluxRun(seed);
+  assert.ok(!afterCampaign.activePalette.includes(lastColor), 'the first shape must not use the last color');
+
+  assert.equal(afterCampaign.currentBall.colorId, fresh.currentBall.colorId);
+  assert.equal(afterCampaign.nextBall.colorId, fresh.nextBall.colorId);
+  assert.equal(afterCampaign.seededRng.state, fresh.seededRng.state);
+});
