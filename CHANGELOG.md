@@ -4,6 +4,8 @@ All notable changes to **FluxSpheres** are documented in this file.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-27
+
 ### Added
 - **Launcher Preview**: The two colors after the next ball are shown beside the launcher, smaller and in loading order (`canvas.launcherPreviewCount`). The queue is drawn when a run starts, so Daily Challenge players get the same one, and saved runs keep it.
 - **Color Patterns**: A new setting draws a pattern unique to each color inside the spheres (stripes, dots, grid, rings), for players who cannot tell the colors apart.
