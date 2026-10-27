@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-const APP_VERSION = '1.2.5';
+const APP_VERSION = '1.3.0';
 const CACHE_NAME = `flux-spheres-cache-v${APP_VERSION}`;
 
 // The service worker cannot read configs/*.json before it has a cache, so its

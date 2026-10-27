@@ -57,6 +57,12 @@ export const GAME_STATES = Object.freeze({
   GAME_OVER: 'game_over'
 });
 
+/** Why a run ended in defeat; also the suffix of its `modals.gameOver.reason.*` text. */
+export const GAME_OVER_REASONS = Object.freeze({
+  OUT_OF_SHOTS: 'outOfShots',
+  LINE_CROSSED: 'lineCrossed'
+});
+
 /** How the player is currently driving the game; selects touch or mouse/keyboard hints. */
 export const INPUT_MODES = Object.freeze({
   POINTER: 'pointer',

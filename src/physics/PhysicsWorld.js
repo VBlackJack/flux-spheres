@@ -65,6 +65,7 @@ export class PhysicsWorld {
     this.aimPointPool = [];
     this.aimSignature = [];
     this.aimSignatureScratch = [];
+    this.anvilCandidates = [];
     this.aimCacheValid = false;
     this.aimTrajectoryComputeCount = 0;
     this.aimGhostCache = new WeakMap();
@@ -952,8 +953,13 @@ export class PhysicsWorld {
       const pierceRadius = p.radius * pierceFactor;
       const massRatio = ballCfg.anvilMass / ballCfg.mass;
       // A crush can remove other balls too (a dormant bomb's blast, a boss reward), so walk
-      // a copy and skip any ball that is gone by the time the anvil reaches it.
-      const candidates = [...this.balls];
+      // a copy and skip any ball that is gone by the time the anvil reaches it. The copy
+      // reuses one array instead of allocating a new one on every substep.
+      const candidates = this.anvilCandidates;
+      candidates.length = 0;
+      for (const ball of this.balls) {
+        candidates.push(ball);
+      }
       for (let i = candidates.length - 1; i >= 0; i--) {
         const target = candidates[i];
         if (p.crushedBallIds.has(target.id) || !this.ballMap.has(target.id)) {

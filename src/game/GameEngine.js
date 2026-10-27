@@ -21,6 +21,7 @@ import {
   SPECIAL_TYPES,
   CLUSTER_MODIFIERS,
   DAILY_MUTATORS,
+  GAME_OVER_REASONS,
   MATH_CONSTANTS
 } from '../core/Constants.js';
 import { t } from '../core/I18n.js';
@@ -86,7 +87,6 @@ export class GameEngine {
     this.hitStopFrames = 0;
     this.trailFrameCounter = 0;
     this.hasFiredInRound = false;
-    this.shotsFiredInLevel = 0;
     this.bossesDestroyedInRun = 0;
     this.activeTutorialKey = null;
     this.levelTutorialKey = null;
@@ -112,6 +112,8 @@ export class GameEngine {
     this.aimAngle = -Math.PI * MATH_CONSTANTS.HALF;
     this.aimPoints = [];
     this.isAimPreviewStale = false;
+    this.laserBonuses = { distanceBonus: 0, bouncesBonus: 0 };
+    this.stepCallbacks = null;
   }
 
   random() {
@@ -290,7 +292,6 @@ export class GameEngine {
     this.victorySummary = null;
     this.hitStopFrames = 0;
     this.hasFiredInRound = false;
-    this.shotsFiredInLevel = 0;
     this.bossesDestroyedInRun = 0;
     this.activeTutorialKey = null;
     this.levelTutorialKey = null;
@@ -338,13 +339,16 @@ export class GameEngine {
     return 1 + lvl * spec.rateMultiplierPerLevel;
   }
 
+  /**
+   * Laser Sight reach bonuses. The returned object is reused across calls (the aim preview
+   * asks every frame): read it right away, do not keep it.
+   */
   getLaserBonuses() {
     const lvl = this.storageManager.getUpgradeLevel('laserSight');
     const spec = this.gameConfig.upgrades.laserSight;
-    return {
-      distanceBonus: lvl * spec.distanceBonusPerLevel,
-      bouncesBonus: lvl * spec.bouncesBonusPerLevel
-    };
+    this.laserBonuses.distanceBonus = lvl * spec.distanceBonusPerLevel;
+    this.laserBonuses.bouncesBonus = lvl * spec.bouncesBonusPerLevel;
+    return this.laserBonuses;
   }
 
   getStartingShotsBonus() {
@@ -538,6 +542,11 @@ export class GameEngine {
     this.fluxPreviousFamily = null;
     this.shotsRemaining = this.fluxConfig.shots.starting + this.getStartingShotsBonus();
     this.specialInventory = { ...this.fluxConfig.initialSpecialCounts };
+    // The previous run's launcher balls would be recolored by the first stage build and
+    // draw from the new seed: a seed must give the same run whatever was played before.
+    this.currentBall = null;
+    this.nextBall = null;
+    this.stashedRegularColorId = null;
     this.audioManager.stopAll();
     this.particleSystem.clear();
   }
@@ -1011,106 +1020,16 @@ export class GameEngine {
   }
 
   /**
-   * Recomputes the aim preview if the board moved since it was last traced. Called once
-   * per rendered frame, however many fixed steps the frame ran.
+   * Physics callbacks of the fixed step, built once: creating these closures on every
+   * update allocated eight functions per step for the garbage collector.
    */
-  refreshAimPreview() {
-    if (!this.isAimPreviewStale) {
-      return;
+  getStepCallbacks() {
+    if (this.stepCallbacks) {
+      return this.stepCallbacks;
     }
-    this.isAimPreviewStale = false;
-    if (this.state === GAME_STATES.PLAYING && !this.physicsWorld.projectile && !this.isAimCancelled) {
-      this.updateAimFromAngle(this.aimAngle);
-    }
-  }
-
-  shoot() {
-    if (this.state !== GAME_STATES.PLAYING || this.physicsWorld.projectile || !this.currentBall) {
-      return;
-    }
-    if (this.isAimCancelled) {
-      this.isAimCancelled = false;
-      return;
-    }
-    if (this.isStageChanging() || (this.usesShotBudget() && this.shotsRemaining <= 0)) {
-      return;
-    }
-    const ballCfg = this.physicsConfig.ball;
-    const projectile = this.currentBall;
-    projectile.isProjectile = true;
-    projectile.isPolarityFlipped = this.isPolarityFlipped;
-    projectile.x = this.gameConfig.canvas.launcherX;
-    projectile.y = this.gameConfig.canvas.launcherY;
-    projectile.savePreviousPosition();
-
-    const speed = projectile.specialType === SPECIAL_TYPES.ANVIL
-      ? ballCfg.anvilSpeed
-      : ballCfg.projectileSpeed;
-
-    projectile.vx = Math.cos(this.aimAngle) * speed;
-    projectile.vy = Math.sin(this.aimAngle) * speed;
-
-    this.physicsWorld.projectile = projectile;
-    this.anvilCrushCount = 0;
-    this.stashedRegularColorId = null;
-    this.currentBall = this.nextBall;
-    this.nextBall = this.createRandomLauncherBall();
-
-    if (this.usesShotBudget()) {
-      this.shotsRemaining = Math.max(0, this.shotsRemaining - 1);
-    }
-
-    this.hasFiredInRound = true;
-    this.physicsWorld.allowTensionBreak = true;
-    this.shotsFiredInLevel++;
-    this.audioManager.playEffect('shoot');
-    this.updateAimFromAngle(this.aimAngle);
-    this.notifyUI();
-  }
-
-  update() {
-    if (this.isVictoryCelebrating()) {
-      this.updateVictoryCelebration();
-      return;
-    }
-    if (this.state !== GAME_STATES.PLAYING) {
-      return;
-    }
-    if (this.stageTransitionFrames > 0) {
-      this.updateStageTransition();
-      return;
-    }
-    if (this.stageIntroFrames > 0) {
-      this.stageIntroFrames--;
-    }
-
     const theme = this.gameConfig.theme;
     const juice = this.gameConfig.juice;
-
-    if (this.hitStopFrames > 0) {
-      this.hitStopFrames--;
-      this.particleSystem.update(juice.shakeDecay);
-      return;
-    }
-
-    if (this.physicsWorld.projectile) {
-      this.trailFrameCounter++;
-      if (this.trailFrameCounter >= juice.trailSpawnInterval) {
-        this.trailFrameCounter = 0;
-        const p = this.physicsWorld.projectile;
-        const palette = p.specialType
-          ? this.ballsConfig.specialTypes[p.specialType]
-          : this.ballsConfig.standardColors.find((c) => c.id === p.colorId);
-        this.particleSystem.spawnTrail(
-          p.x,
-          p.y,
-          p.radius,
-          palette ? palette.highlight : theme.defaultTrailColor
-        );
-      }
-    }
-
-    this.physicsWorld.step({
+    this.stepCallbacks = {
       onBounce: (x, y) => {
         this.audioManager.playEffect('bounce');
         this.particleSystem.spawnBurst(
@@ -1204,7 +1123,110 @@ export class GameEngine {
         );
         this.notifyUI();
       }
-    });
+    };
+    return this.stepCallbacks;
+  }
+
+  /**
+   * Recomputes the aim preview if the board moved since it was last traced. Called once
+   * per rendered frame, however many fixed steps the frame ran.
+   */
+  refreshAimPreview() {
+    if (!this.isAimPreviewStale) {
+      return;
+    }
+    this.isAimPreviewStale = false;
+    if (this.state === GAME_STATES.PLAYING && !this.physicsWorld.projectile && !this.isAimCancelled) {
+      this.updateAimFromAngle(this.aimAngle);
+    }
+  }
+
+  shoot() {
+    if (this.state !== GAME_STATES.PLAYING || this.physicsWorld.projectile || !this.currentBall) {
+      return;
+    }
+    if (this.isAimCancelled) {
+      this.isAimCancelled = false;
+      return;
+    }
+    if (this.isStageChanging() || (this.usesShotBudget() && this.shotsRemaining <= 0)) {
+      return;
+    }
+    const ballCfg = this.physicsConfig.ball;
+    const projectile = this.currentBall;
+    projectile.isProjectile = true;
+    projectile.isPolarityFlipped = this.isPolarityFlipped;
+    projectile.x = this.gameConfig.canvas.launcherX;
+    projectile.y = this.gameConfig.canvas.launcherY;
+    projectile.savePreviousPosition();
+
+    const speed = projectile.specialType === SPECIAL_TYPES.ANVIL
+      ? ballCfg.anvilSpeed
+      : ballCfg.projectileSpeed;
+
+    projectile.vx = Math.cos(this.aimAngle) * speed;
+    projectile.vy = Math.sin(this.aimAngle) * speed;
+
+    this.physicsWorld.projectile = projectile;
+    this.anvilCrushCount = 0;
+    this.stashedRegularColorId = null;
+    this.currentBall = this.nextBall;
+    this.nextBall = this.createRandomLauncherBall();
+
+    if (this.usesShotBudget()) {
+      this.shotsRemaining = Math.max(0, this.shotsRemaining - 1);
+    }
+
+    this.hasFiredInRound = true;
+    this.physicsWorld.allowTensionBreak = true;
+    this.audioManager.playEffect('shoot');
+    this.updateAimFromAngle(this.aimAngle);
+    this.notifyUI();
+  }
+
+  update() {
+    if (this.isVictoryCelebrating()) {
+      this.updateVictoryCelebration();
+      return;
+    }
+    if (this.state !== GAME_STATES.PLAYING) {
+      return;
+    }
+    if (this.stageTransitionFrames > 0) {
+      this.updateStageTransition();
+      return;
+    }
+    if (this.stageIntroFrames > 0) {
+      this.stageIntroFrames--;
+    }
+
+    const theme = this.gameConfig.theme;
+    const juice = this.gameConfig.juice;
+
+    if (this.hitStopFrames > 0) {
+      this.hitStopFrames--;
+      this.particleSystem.update(juice.shakeDecay);
+      return;
+    }
+
+    if (this.physicsWorld.projectile) {
+      this.trailFrameCounter++;
+      if (this.trailFrameCounter >= juice.trailSpawnInterval) {
+        this.trailFrameCounter = 0;
+        const p = this.physicsWorld.projectile;
+        const palette = p.specialType
+          ? this.ballsConfig.specialTypes[p.specialType]
+          : this.ballsConfig.standardColors.find((c) => c.id === p.colorId);
+        this.particleSystem.spawnTrail(
+          p.x,
+          p.y,
+          p.radius,
+          palette ? palette.highlight : theme.defaultTrailColor
+        );
+      }
+    }
+
+    this.physicsWorld.step(this.getStepCallbacks());
 
     if (this.physicsWorld.hasBrokenBondThisStep) {
       this.physicsWorld.hasBrokenBondThisStep = false;
@@ -1238,7 +1260,7 @@ export class GameEngine {
           this.outOfShotsGraceFrames = 0;
           this.evaluateRoundEnd();
         } else if (this.outOfShotsGraceFrames === 0) {
-          this.triggerGameOver('outOfShots');
+          this.triggerGameOver(GAME_OVER_REASONS.OUT_OF_SHOTS);
         }
       }
     }
@@ -1425,20 +1447,7 @@ export class GameEngine {
     this.physicsWorld.removeBall(ball);
 
     if (ball.clusterModifier === CLUSTER_MODIFIERS.BOSS_CORE) {
-      const bossSpec = this.ballsConfig.clusterModifiers.bossCore;
-      this.awardRunCoins(bossSpec.coinReward);
-      this.addScore(bossSpec.pointsBonus);
-      this.particleSystem.spawnShockwave(ball.x, ball.y, bossSpec.ringColor, bossSpec.shockwaveRadius);
-      this.particleSystem.spawnFloatingText(
-        ball.x,
-        ball.y + canvasCfg.floatingTextOffsetY,
-        t('gameplay.feedback.boss.destroyed', { coins: bossSpec.coinReward }),
-        this.gameConfig.theme.bossPopupColor
-      );
-      this.bossesDestroyedInRun++;
-      if (this.bossesDestroyedInRun >= this.gameConfig.achievements.bossSlayer.threshold) {
-        this.checkAndUnlockAchievement('bossSlayer');
-      }
+      this.rewardBossCore(ball);
     } else if (ball.clusterModifier === CLUSTER_MODIFIERS.COIN_CORE) {
       const reward = this.ballsConfig.clusterModifiers.coinCore.coinReward;
       this.awardRunCoins(reward);
@@ -1473,6 +1482,28 @@ export class GameEngine {
     }
 
     return true;
+  }
+
+  /**
+   * Pays a Boss Core that left the board, destroyed or fallen in an avalanche: coins,
+   * points and progress toward the bossSlayer achievement.
+   * @param {Ball} ball - The Boss Core, at the position where it was lost.
+   */
+  rewardBossCore(ball) {
+    const bossSpec = this.ballsConfig.clusterModifiers.bossCore;
+    this.awardRunCoins(bossSpec.coinReward);
+    this.addScore(bossSpec.pointsBonus);
+    this.particleSystem.spawnShockwave(ball.x, ball.y, bossSpec.ringColor, bossSpec.shockwaveRadius);
+    this.particleSystem.spawnFloatingText(
+      ball.x,
+      ball.y + this.gameConfig.canvas.floatingTextOffsetY,
+      t('gameplay.feedback.boss.destroyed', { coins: bossSpec.coinReward }),
+      this.gameConfig.theme.bossPopupColor
+    );
+    this.bossesDestroyedInRun++;
+    if (this.bossesDestroyedInRun >= this.gameConfig.achievements.bossSlayer.threshold) {
+      this.checkAndUnlockAchievement('bossSlayer');
+    }
   }
 
   /**
@@ -1560,6 +1591,11 @@ export class GameEngine {
         }
       }
       this.awardRunCoins(bonusCoins);
+      for (const d of detached) {
+        if (d.clusterModifier === CLUSTER_MODIFIERS.BOSS_CORE) {
+          this.rewardBossCore(d);
+        }
+      }
       if (detached.some((d) => d.clusterModifier === CLUSTER_MODIFIERS.LASER_LOCK)) {
         this.releaseBarriersWhenLocksCleared();
       }
@@ -1804,7 +1840,7 @@ export class GameEngine {
           this.notifyUI();
           return;
         }
-        this.triggerGameOver('lineCrossed');
+        this.triggerGameOver(GAME_OVER_REASONS.LINE_CROSSED);
         return;
       }
     }

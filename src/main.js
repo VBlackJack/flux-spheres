@@ -46,7 +46,7 @@ class Application {
         gameConfig.defaults.supportedLanguages,
         gameConfig.defaults.language
       );
-      await i18n.init(initialLang);
+      await i18n.init(initialLang, gameConfig.defaults.language);
 
       const audioManager = new AudioManager();
       audioManager.init(storageManager.getMuted(), storageManager.getReducedMotion());

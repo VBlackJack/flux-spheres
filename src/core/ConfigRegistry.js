@@ -16,6 +16,31 @@
 
 import { CONFIG_PATHS, DATA_FETCH_OPTIONS } from './Constants.js';
 
+/**
+ * Settings that must be strictly positive numbers: zero or a negative value would loop
+ * forever (overcharge payout, fixed-step accumulator) or freeze the simulation.
+ */
+const POSITIVE_SETTINGS = Object.freeze([
+  ['game', 'scoring.overchargeMax'],
+  ['game', 'juice.slowMotion.timeScale'],
+  ['physics', 'simulation.fixedStepMs'],
+  ['physics', 'simulation.maxAccumulatedMs']
+]);
+
+/**
+ * Throws when a setting listed in POSITIVE_SETTINGS is missing or not a positive number,
+ * so a broken config stops at startup with the loading error instead of hanging the game.
+ * @param {Map<string, object>} configs - Loaded configs by namespace.
+ */
+export function validateConfigs(configs) {
+  for (const [namespace, path] of POSITIVE_SETTINGS) {
+    const value = path.split('.').reduce((node, key) => node?.[key], configs.get(namespace));
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error(`Invalid config ${namespace}.${path}: expected a positive number, got ${value}`);
+    }
+  }
+}
+
 class ConfigRegistry {
   constructor() {
     this.configs = new Map();
@@ -38,6 +63,7 @@ class ConfigRegistry {
     for (const [key, data] of results) {
       this.configs.set(key, data);
     }
+    validateConfigs(this.configs);
     this.loaded = true;
   }
 

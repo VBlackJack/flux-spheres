@@ -27,7 +27,6 @@
     "touchMinAimAnchorOffsetY": -135,
     "survivalWaveWarningThreshold": 2,
     "dangerWarningMarginY": 72,
-    "tutorialDisplayShots": 2,
     "maxDevicePixelRatio": 3,
     "aimPreviewCacheCellPx": 1,
     "idleRenderIntervalMs": 250,

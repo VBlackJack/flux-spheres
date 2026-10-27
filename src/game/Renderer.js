@@ -29,6 +29,11 @@ const INTRO_EASE_POWER = 3;
 /** Fixed render clock under reduced motion: pulses and field waves hold their resting frame. */
 const REDUCED_MOTION_CLOCK_MS = 0;
 
+/** Media query matching exactly the given device pixel ratio. */
+export function buildResolutionQuery(dpr) {
+  return `(resolution: ${dpr}dppx)`;
+}
+
 /**
  * Canvas 2D renderer supporting high-DPI scaling, state interpolation,
  * high-contrast mode, and predictive trajectory/AOE/avalanche overlays.
@@ -113,6 +118,31 @@ export class Renderer {
       this.resizeObserver = new ResizeObserver(invalidate);
       this.resizeObserver.observe(this.canvas);
     }
+    this.watchDevicePixelRatio(invalidate);
+  }
+
+  /**
+   * Moving the window to a screen with another pixel density, or zooming the page,
+   * changes devicePixelRatio without always resizing the canvas. A resolution query
+   * only matches the ratio it was built for, so each change re-arms a new one.
+   */
+  watchDevicePixelRatio(onChange) {
+    if (typeof window.matchMedia !== 'function') {
+      return;
+    }
+    const dpr = window.devicePixelRatio || 1;
+    const query = window.matchMedia(buildResolutionQuery(dpr));
+    if (typeof query.addEventListener !== 'function') {
+      return;
+    }
+    query.addEventListener(
+      'change',
+      () => {
+        onChange();
+        this.watchDevicePixelRatio(onChange);
+      },
+      { once: true }
+    );
   }
 
   /**

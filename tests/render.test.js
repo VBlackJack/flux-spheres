@@ -22,7 +22,7 @@ import { configRegistry } from '../src/core/ConfigRegistry.js';
 import { StorageManager } from '../src/core/StorageManager.js';
 import { AudioManager } from '../src/core/AudioManager.js';
 import { GameEngine } from '../src/game/GameEngine.js';
-import { Renderer } from '../src/game/Renderer.js';
+import { Renderer, buildResolutionQuery } from '../src/game/Renderer.js';
 import { createGameLoop } from '../src/game/GameLoop.js';
 import { GAME_STATES } from '../src/core/Constants.js';
 
@@ -454,4 +454,36 @@ test('A rotor board traces the aim preview once per rendered frame, not once per
   const before = world.aimTrajectoryComputeCount;
   loop.frame(FIXED_STEP_MS * stepsPerFrame);
   assert.equal(world.aimTrajectoryComputeCount - before, 1);
+});
+
+test('A device pixel ratio change invalidates the backing store and re-arms the watch', () => {
+  const queries = [];
+  globalThis.window = {
+    devicePixelRatio: 1,
+    addEventListener() {},
+    matchMedia(query) {
+      const entry = { query, listeners: [] };
+      queries.push(entry);
+      return {
+        addEventListener: (type, listener, options) => {
+          assert.equal(type, 'change');
+          assert.equal(options?.once, true, 'each query fires once, then a new one is armed');
+          entry.listeners.push(listener);
+        }
+      };
+    }
+  };
+  try {
+    const renderer = createRenderer();
+    assert.deepEqual(queries.map((q) => q.query), [buildResolutionQuery(1)]);
+    renderer.updateCanvasResolution();
+    assert.equal(renderer.resolutionDirty, false);
+
+    globalThis.window.devicePixelRatio = 2;
+    queries[0].listeners[0]();
+    assert.equal(renderer.resolutionDirty, true, 'the next frame resizes the backing store');
+    assert.deepEqual(queries.map((q) => q.query), [buildResolutionQuery(1), buildResolutionQuery(2)]);
+  } finally {
+    delete globalThis.window;
+  }
 });

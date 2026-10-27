@@ -23,6 +23,10 @@ const SHIFT_15 = 15;
 const SHIFT_13 = 13;
 const SHIFT_7 = 7;
 const SHIFT_14 = 14;
+const SHIFT_16 = 16;
+const UINT32_BITS = 32;
+const MULBERRY_OR_A = 1;
+const MULBERRY_OR_B = 61;
 const UINT32_MAX_PLUS_ONE = 4294967296;
 
 export class SeededRandom {
@@ -34,11 +38,11 @@ export class SeededRandom {
     let h = HASH_PRIME_A ^ str.length;
     for (let i = 0; i < str.length; i++) {
       h = Math.imul(h ^ str.charCodeAt(i), HASH_MULT_A);
-      h = (h << SHIFT_13) | (h >>> (32 - SHIFT_13));
+      h = (h << SHIFT_13) | (h >>> (UINT32_BITS - SHIFT_13));
     }
-    h = Math.imul(h ^ (h >>> 16), HASH_PRIME_B);
+    h = Math.imul(h ^ (h >>> SHIFT_16), HASH_PRIME_B);
     h = Math.imul(h ^ (h >>> SHIFT_13), HASH_MULT_B);
-    return (h ^= h >>> 16) >>> 0;
+    return (h ^= h >>> SHIFT_16) >>> 0;
   }
 
   static getTodayDateKey() {
@@ -50,9 +54,12 @@ export class SeededRandom {
   }
 
   next() {
-    let t = (this.state += MULBERRY_ADD);
-    t = Math.imul(t ^ (t >>> SHIFT_15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> SHIFT_7), t | 61);
+    // Kept as an unsigned 32-bit value: the stream is the same, but the stored state no
+    // longer grows into a float that loses precision after a few million draws.
+    this.state = (this.state + MULBERRY_ADD) >>> 0;
+    let t = this.state;
+    t = Math.imul(t ^ (t >>> SHIFT_15), t | MULBERRY_OR_A);
+    t ^= t + Math.imul(t ^ (t >>> SHIFT_7), t | MULBERRY_OR_B);
     return ((t ^ (t >>> SHIFT_14)) >>> 0) / UINT32_MAX_PLUS_ONE;
   }
 }

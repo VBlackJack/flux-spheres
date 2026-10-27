@@ -16,6 +16,7 @@
 
 import {
   GAME_MODES,
+  GAME_OVER_REASONS,
   GAME_STATES,
   INPUT_MODES,
   SPECIAL_TYPES,
@@ -35,6 +36,9 @@ const NON_INTERACTIVE_ANCESTOR_SELECTOR = '.hidden, [hidden], [inert]';
 /** Root class mirroring the in-app reduced motion setting for CSS. */
 export const REDUCED_MOTION_CLASS = 'reduced-motion';
 
+/** Root class mirroring the in-app high contrast setting, so CSS raises the HUD and menus too. */
+export const HIGH_CONTRAST_CLASS = 'high-contrast';
+
 /** Cubic ease-out of the victory score roll-up: fast at first, settling on the total. */
 const COUNT_UP_EASE_POWER = 3;
 
@@ -53,6 +57,9 @@ const PAUSE_INPUT_HINTS = Object.freeze([
   { elementId: 'pause-instruction-swap', key: 'modals.pause.instructions.swap' },
   { elementId: 'pause-instruction-cancel', key: 'modals.pause.instructions.cancel' }
 ]);
+
+/** Accessible names that have one wording per input mode (the board's text alternative). */
+export const INPUT_ARIA_HINTS = Object.freeze([{ elementId: 'game-canvas', key: 'hud.canvas.aria.label' }]);
 
 /**
  * Maps a pointer event type to an input mode; mouse and unknown types keep the
@@ -102,6 +109,77 @@ export function shouldIgnoreRepeatedKey(code, isRepeat) {
  */
 export function isBrowserShortcut(event) {
   return Boolean(event.ctrlKey || event.metaKey || event.altKey);
+}
+
+/**
+ * The slide-in menu opens only in the drawer layout, over nothing else: not over a
+ * dialog, and not during the victory celebration, whose dialog would open behind it.
+ */
+export function canOpenDrawer({ isOpen, isDrawerLayout, isModalOpen, isVictoryCelebrating }) {
+  return !isOpen && isDrawerLayout && !isModalOpen && !isVictoryCelebrating;
+}
+
+/** i18n key of the defeat explanation; an unknown reason reads as a crossed line. */
+export function gameOverReasonKey(reason) {
+  const known = Object.values(GAME_OVER_REASONS).includes(reason) ? reason : GAME_OVER_REASONS.LINE_CROSSED;
+  return `modals.gameOver.reason.${known}`;
+}
+
+/**
+ * Where focus goes when the dialog on top changed under it (a stacked Confirm closed
+ * over Pause or Levels): nowhere when focus is already inside the top dialog, else the
+ * element that opened the closed dialog when it belongs to the top one, else the top
+ * dialog's first reachable element.
+ */
+export function resolveModalFocusTarget(topModal, activeElement, preferred, focusables) {
+  if (!topModal || (activeElement && topModal.contains(activeElement))) {
+    return null;
+  }
+  if (preferred && topModal.contains(preferred) && filterFocusTrapCandidates([preferred]).length > 0) {
+    return preferred;
+  }
+  return filterFocusTrapCandidates(focusables)[0] || null;
+}
+
+/** Latest text waiting to be written into a live region revealed this frame. */
+const pendingLiveRegionTexts = new WeakMap();
+
+/**
+ * Shows a polite live region and writes its text. A region revealed from display:none
+ * is shown empty first and filled on the next frame: screen readers ignore text that
+ * was already there when the region appeared.
+ *
+ * @param {{region: Element, textElement: Element, text: string, schedule: (cb: Function) => void}} options
+ */
+export function revealLiveRegion({ region, textElement, text, schedule }) {
+  if (pendingLiveRegionTexts.has(textElement)) {
+    region.classList.remove('hidden');
+    pendingLiveRegionTexts.set(textElement, text);
+    return;
+  }
+  if (!region.classList.contains('hidden')) {
+    setTextIfChanged(textElement, text);
+    return;
+  }
+  textElement.textContent = '';
+  region.classList.remove('hidden');
+  pendingLiveRegionTexts.set(textElement, text);
+  schedule(() => {
+    const latest = pendingLiveRegionTexts.get(textElement);
+    pendingLiveRegionTexts.delete(textElement);
+    if (!region.classList.contains('hidden')) {
+      setTextIfChanged(textElement, latest);
+    }
+  });
+}
+
+/** Runs a callback on the next frame, or at once where frames are not available. */
+function scheduleNextFrame(callback) {
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(callback);
+  } else {
+    callback();
+  }
 }
 
 /** Writes text only when it differs, so live regions are not re-announced needlessly. */
@@ -228,6 +306,7 @@ export class UIManager {
     this.activeShopTab = 'upgrades';
     this.autoPausedByOverlay = false;
     this.lastFocusedElement = null;
+    this.stackedModalOpener = null;
     this.prevEngineState = null;
     this.isVictoryModalRevealed = false;
     this.isVictoryPresented = false;
@@ -296,6 +375,9 @@ export class UIManager {
     );
     for (const { elementId, key } of PAUSE_INPUT_HINTS) {
       setTextIfChanged(document.getElementById(elementId), t(`${key}.${this.inputMode}`));
+    }
+    for (const { elementId, key } of INPUT_ARIA_HINTS) {
+      setAttributeIfChanged(document.getElementById(elementId), 'aria-label', t(`${key}.${this.inputMode}`));
     }
   }
 
@@ -416,7 +498,13 @@ export class UIManager {
    * level select, and everything behind the menu is taken out of reach.
    */
   openDrawer() {
-    if (this.isDrawerOpen || !this.isDrawerLayout() || this.isAnyModalOpen()) {
+    const isAllowed = canOpenDrawer({
+      isOpen: this.isDrawerOpen,
+      isDrawerLayout: this.isDrawerLayout(),
+      isModalOpen: this.isAnyModalOpen(),
+      isVictoryCelebrating: this.engine.isVictoryCelebrating()
+    });
+    if (!isAllowed) {
       return;
     }
     this.isDrawerOpen = true;
@@ -902,6 +990,8 @@ export class UIManager {
     }
 
     this.pendingConfirmCallback = actionCallback;
+    // Over another dialog, its opener is where focus returns when the Confirm closes.
+    this.stackedModalOpener = this.isAnyModalOpen() ? document.activeElement : null;
     this.saveLastFocusedElement();
     this.elements.modalConfirm.classList.remove('hidden');
     this.syncModalInertState();
@@ -995,6 +1085,28 @@ export class UIManager {
     if (!anyOpen && this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
       const target = this.lastFocusedElement;
       this.lastFocusedElement = null;
+      target.focus();
+    }
+    if (anyOpen) {
+      this.keepFocusInTopModal(topModal);
+    } else {
+      this.stackedModalOpener = null;
+    }
+  }
+
+  /** Brings focus back into the top dialog when the one that held it just closed. */
+  keepFocusInTopModal(topModal) {
+    if (topModal === this.elements.modalConfirm) {
+      return;
+    }
+    const target = resolveModalFocusTarget(
+      topModal,
+      document.activeElement,
+      this.stackedModalOpener,
+      topModal.querySelectorAll(MODAL_FOCUSABLE_SELECTOR)
+    );
+    this.stackedModalOpener = null;
+    if (target) {
       target.focus();
     }
   }
@@ -1190,6 +1302,9 @@ export class UIManager {
       tooltip: t(isHigh ? 'app.nav.button.contrastOnAria' : 'app.nav.button.contrastOffAria'),
       pressed: isHigh
     });
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.classList.toggle(HIGH_CONTRAST_CLASS, isHigh);
+    }
   }
 
   updateMotionButton() {
@@ -1781,8 +1896,12 @@ export class UIManager {
     // engine event would make screen readers repeat them.
     if (this.elements.tutorialBanner) {
       if (engine.activeTutorialKey && engine.state === GAME_STATES.PLAYING) {
-        setTextIfChanged(this.elements.tutorialBannerText, t(engine.activeTutorialKey));
-        this.elements.tutorialBanner.classList.remove('hidden');
+        revealLiveRegion({
+          region: this.elements.tutorialBanner,
+          textElement: this.elements.tutorialBannerText,
+          text: t(engine.activeTutorialKey),
+          schedule: scheduleNextFrame
+        });
       } else {
         this.elements.tutorialBanner.classList.add('hidden');
       }
@@ -1882,6 +2001,8 @@ export class UIManager {
     }
 
     if (canRevealVictory) {
+      // The run is over: the menu goes away without resuming anything.
+      this.closeDrawer({ resume: false });
       const summary = engine.victorySummary || extra;
       const stars = summary.stars || engine.computeStars(engine.score);
       const maxStars = this.gameConfig.scoring.maxStars;
@@ -1916,9 +2037,8 @@ export class UIManager {
     }
 
     if (engine.state === GAME_STATES.GAME_OVER) {
-      const reasonKey = extra.gameOverReason === 'outOfShots'
-        ? 'modals.gameOver.reason.outOfShots'
-        : 'modals.gameOver.reason.lineCrossed';
+      this.closeDrawer({ resume: false });
+      const reasonKey = gameOverReasonKey(extra.gameOverReason);
       const scoreText = formatNumber(engine.score);
       setTextIfChanged(this.elements.gameOverReason, t(reasonKey));
       setTextIfChanged(this.elements.gameOverScore, t('modals.gameOver.stats.score', { score: scoreText }));

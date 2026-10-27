@@ -491,3 +491,57 @@ test('A write from another tab replaces the cached value instead of being overwr
   storage.handleExternalStorageChange({ key: null, newValue: null });
   assert.equal(storage.memoryFallback.size, 0, 'a storage clear in another tab drops the cache');
 });
+
+test('A Boss Core lost in an avalanche pays like a destroyed one', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  const world = engine.physicsWorld;
+  const bossSpec = ballsConfig.clusterModifiers.bossCore;
+  world.balls.length = 0;
+  world.ballMap.clear();
+  world.addBall(makeBoardBall(OTHER_POSITION, FAR_POSITION, { isAnchor: true }));
+  world.addBall(makeBoardBall(FAR_POSITION, FAR_POSITION, { clusterModifier: CLUSTER_MODIFIERS.BOSS_CORE, armorHits: 1 }));
+  const coinsBefore = engine.storageManager.getCoins();
+
+  engine.detachAndRewardAvalanche();
+
+  assert.equal(engine.bossesDestroyedInRun, 1);
+  assert.ok(engine.score >= bossSpec.pointsBonus);
+  assert.ok(engine.storageManager.getCoins() >= coinsBefore + bossSpec.coinReward);
+});
+
+test('A zero or missing tuning value that would hang the game is rejected at load', async () => {
+  const { validateConfigs } = await import('../src/core/ConfigRegistry.js');
+  const configs = new Map([
+    ['game', structuredClone(gameConfig)],
+    ['physics', structuredClone(physicsConfig)]
+  ]);
+  assert.doesNotThrow(() => validateConfigs(configs));
+  configs.get('game').scoring.overchargeMax = 0;
+  assert.throws(() => validateConfigs(configs), /overchargeMax/);
+  configs.get('game').scoring.overchargeMax = gameConfig.scoring.overchargeMax;
+  delete configs.get('physics').simulation.fixedStepMs;
+  assert.throws(() => validateConfigs(configs), /fixedStepMs/);
+});
+
+test('A saved run whose values have the wrong type is discarded instead of restored', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  engine.hasFiredInRound = true;
+  engine.saveRunSnapshot();
+  const snapshot = engine.storageManager.loadRunSnapshot();
+  snapshot.engine.score = '1200';
+  engine.storageManager.saveRunSnapshot(snapshot);
+
+  const resumed = createTestEngine();
+  resumed.storageManager = engine.storageManager;
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(resumed.restoreSavedRun(), false);
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(engine.storageManager.loadRunSnapshot(), null);
+  assert.notEqual(resumed.score, '01200');
+});

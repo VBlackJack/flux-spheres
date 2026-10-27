@@ -125,7 +125,7 @@ function generateHexagon(layout) {
         continue;
       }
       const x = centerX + spacing * (q + s * MATH_CONSTANTS.HALF);
-      const y = centerY + spacing * (Math.sqrt(3) * MATH_CONSTANTS.HALF * s);
+      const y = centerY + spacing * (HEX_ROW_HEIGHT_FACTOR * s);
       const isInner = Math.abs(q) <= 1 && Math.abs(s) <= 1 && Math.abs(q + s) <= 1;
       const angle = Math.atan2(y - centerY, x - centerX);
       balls.push(isInner ? pivotAnchor(x, y, centerX, centerY, 0) : orbitingFreeBall(x, y, angle));

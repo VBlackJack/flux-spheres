@@ -6,6 +6,7 @@ name: CI
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
     branches: [master]
 
@@ -30,6 +31,18 @@ jobs:
             const sw = fs.readFileSync('./sw.js', 'utf8');
             if (!sw.includes(\`APP_VERSION = '\${pkg.version}'\`)) {
               console.error('SW APP_VERSION does not match package.json version ' + pkg.version);
+              process.exit(1);
+            }
+          "
+
+      - name: Verify the release tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            const tag = process.env.GITHUB_REF_NAME;
+            if (tag !== 'v' + pkg.version) {
+              console.error('Tag ' + tag + ' does not match package.json version ' + pkg.version);
               process.exit(1);
             }
           "
