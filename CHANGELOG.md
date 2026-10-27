@@ -4,6 +4,8 @@ All notable changes to **FluxSpheres** are documented in this file.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-27
+
 ### Changed
 - **Navigation**: The menu now holds two groups: the game modes, then the round actions (a highlighted Pause, Restart, Workshop and Settings). The six setting toggles moved into a Settings dialog, and only the mode being played is highlighted (`aria-current`).
 - **Level Select**: The grid uses the dialog's full height, the level being played (or the furthest unlocked) is highlighted and scrolled into view, and the main button resumes or plays that level instead of starting Survival.
