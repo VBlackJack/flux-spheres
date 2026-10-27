@@ -111,14 +111,19 @@ Nécessite Node.js 22 ou plus récent (la CI utilise Node.js 24).
 # Lancer le serveur statique local sur le port 4200
 npm start
 
-# Lancer toutes les suites de tests automatisés
+# Lancer les suites du moteur, des utilitaires d'interface et des gardes du dépôt
 npm test
+
+# Lancer les tests de fumée dans le navigateur (la première fois : npm install, puis npx playwright install chromium)
+npm run test:browser
 ```
 
 Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, et deux gardes du dépôt :
 
 - `typography.test.js` refuse, dans tous les fichiers texte, les variantes typographiques des caractères ASCII (tirets longs, guillemets courbes, points de suspension, espaces spéciales, ligatures).
 - `pwa.test.js` vérifie que chaque fichier de `src/`, `configs/`, `locales/` et `icons/` est mis en cache par `sw.js`, et que la version du cache du Service Worker correspond à `package.json`.
+
+`tests/browser/smoke.test.js` ouvre la vraie page dans Chromium sans interface, aux quatre mises en page prises en charge (ordinateur, tablette en portrait, téléphone en paysage et en portrait). Il échoue sur toute erreur de console, tout défilement horizontal ou tout libellé de bouton coupé, vérifie que les fenêtres Réglages, Niveaux, Atelier et Pause mettent la partie en pause puis la reprennent, et parcourt la victoire, la défaite et la reprise après rechargement. La CI le lance dans une tâche séparée.
 
 Tout nouveau fichier chargé à l'exécution doit être ajouté à `PRECACHE_ASSETS` dans `sw.js`. À chaque version, `APP_VERSION` dans `sw.js` s'incrémente avec `package.json`.
 

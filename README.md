@@ -111,14 +111,19 @@ Requires Node.js 22 or later (CI runs Node.js 24).
 # Run local static server on port 4200
 npm start
 
-# Run every automated test suite
+# Run the engine, UI helper and repository guard suites
 npm test
+
+# Run the browser smoke tests (first time: npm install, then npx playwright install chromium)
+npm run test:browser
 ```
 
 The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, and two repository guards:
 
 - `typography.test.js` rejects typographic look-alikes of ASCII characters (long dashes, curly quotes, ellipsis, special spaces, ligatures) in every text file.
 - `pwa.test.js` checks that every file under `src/`, `configs/`, `locales/` and `icons/` is precached by `sw.js`, and that the Service Worker cache version matches `package.json`.
+
+`tests/browser/smoke.test.js` opens the real page in headless Chromium at the four supported layouts (desktop, portrait tablet, landscape and portrait phones). It fails on any console error, sideways scrolling or clipped control label, checks that the Settings, Levels, Workshop and Pause dialogs pause and resume the run, and walks through the victory, game over and reload-resume paths. CI runs it as a separate job.
 
 When adding a runtime file, list it in `PRECACHE_ASSETS` in `sw.js`. When releasing, bump `APP_VERSION` in `sw.js` together with `package.json`.
 
