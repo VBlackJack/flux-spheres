@@ -17,13 +17,45 @@
 import { LAYOUT_TYPES, OBSTACLE_TYPES, MATH_CONSTANTS } from '../../core/Constants.js';
 import { SeededRandom } from '../../core/SeededRandom.js';
 import { generateLayout, mergeLayoutSpecs } from './LayoutGenerators.js';
+import {
+  buildGeneratedRows,
+  encodeGeneratedShapeId,
+  listGeneratedShapeParams,
+  resolveGeneratedParams
+} from './ShapeGenerator.js';
 
 /** Shape families of the Flux mode; each stage draws one, never the previous stage's. */
 export const FLUX_FAMILIES = Object.freeze({
+  GENERATED: 'generated',
   PARAMETRIC: 'parametric',
   MASK: 'mask',
   COMPOSITE: 'composite'
 });
+
+/**
+ * Families a stage may draw twice in a row: two generated shapes in a row still differ,
+ * and excluding them would halve their share of the draw.
+ */
+const REPEATABLE_FAMILIES = Object.freeze(new Set([FLUX_FAMILIES.GENERATED]));
+
+/** Generated parameter sets that pass the quality filter, computed once per config. */
+const validGeneratedParamsCache = new WeakMap();
+
+/**
+ * Parameter sets of generated shapes that pass the quality filter, in a fixed order so a
+ * seed always draws the same shape.
+ * @param {object} generatedConfig - fluxConfig.generated.
+ * @returns {object[]} Parameter sets, rotation resolved.
+ */
+export function listValidGeneratedParams(generatedConfig) {
+  if (!validGeneratedParamsCache.has(generatedConfig)) {
+    const valid = listGeneratedShapeParams(generatedConfig)
+      .map(resolveGeneratedParams)
+      .filter((params) => buildGeneratedRows(params, generatedConfig.limits) !== null);
+    validGeneratedParamsCache.set(generatedConfig, valid);
+  }
+  return validGeneratedParamsCache.get(generatedConfig);
+}
 
 /** Separator between the seed and the stage number in a stage's RNG key. */
 const STAGE_SEED_SEPARATOR = ':';
@@ -79,7 +111,7 @@ export function generateFluxStage({ seed, stage, previousFamily, fluxConfig, obs
   });
 
   const family = pickFamily(fluxConfig, stage, previousFamily, rand);
-  const parts = buildFamilyParts(family, { fluxConfig, stage, pickInt, pickFloat, pickOne, pivotAt });
+  const parts = buildFamilyParts(family, { fluxConfig, stage, pickInt, pickFloat, pickOne, pivotAt, rand });
 
   const pivots = parts.flatMap((part) => part.pivots);
   let pivotSlotOffset = 0;
@@ -117,12 +149,13 @@ function eligibleMasks(fluxConfig, stage) {
 
 function pickFamily(fluxConfig, stage, previousFamily, rand) {
   const available = {
+    [FLUX_FAMILIES.GENERATED]: Boolean(fluxConfig.generated) && fluxConfig.generated.minStage <= stage,
     [FLUX_FAMILIES.PARAMETRIC]: eligibleParametricKeys(fluxConfig, stage).length > 0,
     [FLUX_FAMILIES.MASK]: eligibleMasks(fluxConfig, stage).length > 0,
     [FLUX_FAMILIES.COMPOSITE]: fluxConfig.composite.minStage <= stage && fluxConfig.composite.parts.length > 0
   };
   const usable = Object.entries(fluxConfig.familyWeights).filter(([family]) => available[family]);
-  const fresh = usable.filter(([family]) => family !== previousFamily);
+  const fresh = usable.filter(([family]) => family !== previousFamily || REPEATABLE_FAMILIES.has(family));
   const pool = fresh.length > 0 ? fresh : usable;
   const total = pool.reduce((sum, [, weight]) => sum + weight, 0);
   let roll = rand() * total;
@@ -164,6 +197,9 @@ export function makePart(id, layout, pivots) {
 
 function buildFamilyParts(family, ctx) {
   const { fluxConfig, stage, pickOne } = ctx;
+  if (family === FLUX_FAMILIES.GENERATED) {
+    return [buildGeneratedPart(ctx)];
+  }
   if (family === FLUX_FAMILIES.MASK) {
     const mask = pickOne(eligibleMasks(fluxConfig, stage));
     const { centerX, spacing, maskTopY } = fluxConfig.layout;
@@ -175,6 +211,22 @@ function buildFamilyParts(family, ctx) {
   }
   const key = pickOne(eligibleParametricKeys(fluxConfig, stage));
   return [buildParametricPart(key, ctx)];
+}
+
+/**
+ * A generated silhouette sized for the stage: the largest radius allowed grows with the
+ * difficulty, and some shapes hang from neutral anchors.
+ */
+function buildGeneratedPart({ fluxConfig, pickFloat, pickOne, rand }) {
+  const generated = fluxConfig.generated;
+  const radii = generated.radiusCells;
+  const maxRadius = pickFloat([radii[0], radii[radii.length - 1]]);
+  const valid = listValidGeneratedParams(generated);
+  const fitting = valid.filter((params) => params.radiusCells <= maxRadius);
+  const params = { ...pickOne(fitting.length > 0 ? fitting : valid), neutralAnchors: rand() < generated.neutralAnchorChance };
+  const rows = buildGeneratedRows(params, generated.limits);
+  const { centerX, spacing, maskTopY } = fluxConfig.layout;
+  return makePart(encodeGeneratedShapeId(params), { type: LAYOUT_TYPES.MASK, rows, centerX, topY: maskTopY, spacing }, []);
 }
 
 function buildCompositePart(part, centerX, { fluxConfig, pivotAt }) {

@@ -294,6 +294,32 @@
         "lighthouse": "Phare",
         "shipAnchor": "Ancre Marine",
         "pairFormat": "{{left}} et {{right}}"
+      },
+      "generated": {
+        "polygon": {
+          "solid": "Polygone à {{count}} côtés",
+          "hollow": "Polygone creux à {{count}} côtés"
+        },
+        "star": {
+          "solid": "Étoile à {{count}} branches",
+          "hollow": "Étoile creuse à {{count}} branches"
+        },
+        "flower": {
+          "solid": "Fleur à {{count}} pétales",
+          "hollow": "Fleur creuse à {{count}} pétales"
+        },
+        "gear": {
+          "solid": "Engrenage à {{count}} dents",
+          "hollow": "Engrenage creux à {{count}} dents"
+        },
+        "crescent": {
+          "solid": "Croissant",
+          "hollow": "Croissant creux"
+        },
+        "heart": {
+          "solid": "Coeur",
+          "hollow": "Coeur creux"
+        }
       }
     },
     "tutorial": {
