@@ -44,7 +44,7 @@ configRegistry.configs.set('audio', audioConfig);
 configRegistry.configs.set('flux', fluxConfig);
 
 /** Launcher and danger line of the 540 x 820 board before they were derived from its size. */
-const FORMER_FIXED_GEOMETRY = Object.freeze({ launcherX: 270, launcherY: 745, dangerLineY: 675 });
+const FORMER_FIXED_GEOMETRY = Object.freeze({ logicalHeight: 820, launcherX: 270, launcherY: 745, dangerLineY: 675 });
 /** Flux stages the fit guard walks through, with a few seeds each. */
 const FLUX_STAGES_CHECKED = 60;
 const FLUX_SEEDS = ['world-a', 'world-b', 'world-c'];
@@ -85,7 +85,33 @@ const horizontalReach = (world) => {
   return { minX, maxX };
 };
 
+/** Spheres a rotor carries: the ones on its pivot and everything bonded to them, fixed anchors aside. */
+const collectRotorBalls = (world, pivot) => {
+  const queue = world.balls.filter((b) => b.pivotRef === pivot);
+  const seen = new Set(queue.map((b) => b.id));
+  for (let head = 0; head < queue.length; head++) {
+    for (const neighborId of queue[head].bonds) {
+      const neighbor = world.ballMap.get(neighborId);
+      if (neighbor && !seen.has(neighborId) && !(neighbor.isAnchor && !neighbor.pivotRef)) {
+        seen.add(neighborId);
+        queue.push(neighbor);
+      }
+    }
+  }
+  return queue;
+};
+
 const assertFitsWorld = (world, label, canvas = gameConfig.canvas) => {
+  // A rotor sweeps a disc around its pivot as it turns: the whole disc must fit too.
+  for (const pivot of world.obstacles.filter((o) => o.type === OBSTACLE_TYPES.PIVOT)) {
+    const carried = collectRotorBalls(world, pivot);
+    if (carried.length === 0) {
+      continue;
+    }
+    const reach = Math.max(...carried.map((b) => Math.hypot(b.x - pivot.x, b.y - pivot.y) + b.radius));
+    assert.ok(pivot.x - reach >= canvas.wallMargin, `${label}: a rotor sweeps into the left wall`);
+    assert.ok(pivot.x + reach <= canvas.logicalWidth - canvas.wallMargin, `${label}: a rotor sweeps into the right wall`);
+  }
   const { minX, maxX } = horizontalReach(world);
   assert.ok(minX >= canvas.wallMargin, `${label} reaches x ${minX.toFixed(1)}, left of the wall margin`);
   assert.ok(
@@ -94,25 +120,37 @@ const assertFitsWorld = (world, label, canvas = gameConfig.canvas) => {
   );
 };
 
-test('The derived launcher and danger line match the former fixed positions', () => {
-  const canvas = gameConfig.canvas;
+test('A world of the design width keeps the former fixed launcher and danger line', () => {
+  const designWorld = structuredClone(loadJson('./configs/game.json'));
+  designWorld.canvas.logicalWidth = designWorld.canvas.designWidth;
+  designWorld.canvas.logicalHeight = FORMER_FIXED_GEOMETRY.logicalHeight;
+  const canvas = applyWorldGeometry(designWorld).canvas;
   assert.equal(canvas.launcherX, FORMER_FIXED_GEOMETRY.launcherX);
   assert.equal(canvas.launcherY, FORMER_FIXED_GEOMETRY.launcherY);
   assert.equal(canvas.dangerLineY, FORMER_FIXED_GEOMETRY.dangerLineY);
   assert.equal(canvas.contentOffsetX, 0, 'content authored for this width stays where it was');
 });
 
-test('Every campaign level is built at its authored positions in a world of the design width', () => {
+test('The shipped world centers the launcher and the content', () => {
+  const canvas = gameConfig.canvas;
+  assert.equal(canvas.launcherX, canvas.logicalWidth / 2);
+  assert.equal(canvas.launcherY, canvas.logicalHeight - canvas.launcherBottomOffset);
+  assert.equal(canvas.dangerLineY, canvas.logicalHeight - canvas.dangerLineBottomOffset);
+  assert.equal(canvas.contentOffsetX, (canvas.logicalWidth - canvas.designWidth) / 2);
+});
+
+test('Every campaign level is built at its authored positions, shifted to the world center', () => {
   const engine = createEngine();
-  const key = (p) => `${p.x.toFixed(6)},${p.y.toFixed(6)}`;
+  const offset = gameConfig.canvas.contentOffsetX;
+  const key = (x, y) => `${x.toFixed(6)},${y.toFixed(6)}`;
   for (const level of levelsConfig.levels) {
     engine.startCampaignLevel(level.id);
-    const built = engine.physicsWorld.balls.map(key).sort();
-    const authored = generateLayout(level.layout).balls.map(key).sort();
+    const built = engine.physicsWorld.balls.map((b) => key(b.x, b.y)).sort();
+    const authored = generateLayout(level.layout).balls.map((b) => key(b.x + offset, b.y)).sort();
     assert.deepEqual(built, authored, `level ${level.id} spheres`);
     assert.deepEqual(
       engine.physicsWorld.obstacles.map((o) => o.x),
-      level.obstacles.map((o) => o.x),
+      level.obstacles.map((o) => o.x + offset),
       `level ${level.id} obstacles`
     );
   }
