@@ -166,11 +166,12 @@ test('A Flux stage depends only on seed, stage and previous family', () => {
   }
 });
 
-test('A Flux stage never repeats the previous stage family', () => {
-  // From the composite family's minimum stage on, every family has an alternative.
+test('A Flux stage never repeats the previous stage family, generated shapes aside', () => {
+  // From the composite family's minimum stage on, every family has an alternative. Two
+  // generated shapes in a row are allowed: they still differ.
   const stage = fluxConfig.composite.minStage;
   for (let seed = 0; seed < SWEEP_SEED_COUNT; seed++) {
-    for (const previousFamily of Object.values(FLUX_FAMILIES)) {
+    for (const previousFamily of Object.values(FLUX_FAMILIES).filter((f) => f !== FLUX_FAMILIES.GENERATED)) {
       const stageDef = generateFluxStage({
         seed: `family-${seed}`,
         stage,

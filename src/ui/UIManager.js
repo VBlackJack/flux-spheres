@@ -27,6 +27,7 @@ import {
 import { i18n, t, formatNumber } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
 import { resolveHintText } from '../game/Discovery.js';
+import { decodeGeneratedShapeId, isGeneratedShapeId } from '../game/layouts/ShapeGenerator.js';
 
 /** Elements a modal focus trap may cycle through (inactive tabs use tabindex="-1"). */
 export const MODAL_FOCUSABLE_SELECTOR =
@@ -1404,7 +1405,13 @@ export class UIManager {
 
   /** Display name of a Flux shape; a two-part shape reads "left and right". */
   formatFluxShapeName(shapeIds) {
-    const names = shapeIds.map((id) => t(`gameplay.flux.shapes.${id}`));
+    const names = shapeIds.map((id) => {
+      if (isGeneratedShapeId(id)) {
+        const { type, fill, points } = decodeGeneratedShapeId(id);
+        return t(`gameplay.flux.generated.${type}.${fill}`, { count: points });
+      }
+      return t(`gameplay.flux.shapes.${id}`);
+    });
     if (names.length > 1) {
       return t('gameplay.flux.shapes.pairFormat', { left: names[0], right: names[1] });
     }

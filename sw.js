@@ -57,6 +57,7 @@ const PRECACHE_ASSETS = [
   './src/game/SpecialBallController.js',
   './src/game/layouts/FluxStageGenerator.js',
   './src/game/layouts/LayoutGenerators.js',
+  './src/game/layouts/ShapeGenerator.js',
   './src/physics/PhysicsWorld.js',
   './src/physics/SpatialHashGrid.js',
   './src/ui/UIManager.js',

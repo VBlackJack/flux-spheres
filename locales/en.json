@@ -294,6 +294,32 @@
         "lighthouse": "Lighthouse",
         "shipAnchor": "Ship Anchor",
         "pairFormat": "{{left}} and {{right}}"
+      },
+      "generated": {
+        "polygon": {
+          "solid": "{{count}}-Sided Polygon",
+          "hollow": "Hollow {{count}}-Sided Polygon"
+        },
+        "star": {
+          "solid": "{{count}}-Point Star",
+          "hollow": "Hollow {{count}}-Point Star"
+        },
+        "flower": {
+          "solid": "{{count}}-Petal Flower",
+          "hollow": "Hollow {{count}}-Petal Flower"
+        },
+        "gear": {
+          "solid": "{{count}}-Tooth Gear",
+          "hollow": "Hollow {{count}}-Tooth Gear"
+        },
+        "crescent": {
+          "solid": "Crescent",
+          "hollow": "Hollow Crescent"
+        },
+        "heart": {
+          "solid": "Heart",
+          "hollow": "Hollow Heart"
+        }
       }
     },
     "tutorial": {
