@@ -38,7 +38,9 @@
   "modifiers": [
     { "fromStage": 1, "weights": { "coinCore": 0.08 } },
     { "fromStage": 3, "weights": { "coinCore": 0.06, "armored": 0.06 } },
-    { "fromStage": 6, "weights": { "coinCore": 0.05, "armored": 0.07, "chameleon": 0.05, "dormantBomb": 0.05 } }
+    { "fromStage": 6, "weights": { "coinCore": 0.05, "armored": 0.07, "chameleon": 0.05, "dormantBomb": 0.05 } },
+    { "fromStage": 8, "weights": { "coinCore": 0.05, "armored": 0.06, "chameleon": 0.04, "dormantBomb": 0.05, "bubble": 0.06, "chained": 0.05 } },
+    { "fromStage": 11, "weights": { "coinCore": 0.05, "armored": 0.05, "chameleon": 0.04, "dormantBomb": 0.04, "bubble": 0.05, "chained": 0.05, "freezeCore": 0.03, "lightningCore": 0.03, "paintCore": 0.03 } }
   ],
   "rotor": {
     "baseAngularSpeed": 0.004,
@@ -259,6 +261,139 @@
         "..oooo..",
         ".ooooooo.",
         "oooooooo"
+      ]
+    },
+    {
+      "id": "pine",
+      "minStage": 1,
+      "rows": [
+        "...ANA...",
+        "...oo...",
+        "...ooo...",
+        "..oooo..",
+        "..ooooo..",
+        ".oooooo.",
+        ".ooooooo.",
+        "oooooooo",
+        "....o...."
+      ]
+    },
+    {
+      "id": "mushroom",
+      "minStage": 1,
+      "rows": [
+        "..A.N.A..",
+        ".oooooo.",
+        "ooooooooo",
+        "oooooooo",
+        ".ooooooo.",
+        "...oo...",
+        "...ooo...",
+        "...oo...",
+        "..ooooo.."
+      ]
+    },
+    {
+      "id": "bell",
+      "minStage": 2,
+      "rows": [
+        "...ANA...",
+        "..oooo..",
+        "..ooooo..",
+        "..oooo..",
+        ".ooooooo.",
+        ".oooooo.",
+        "ooooooooo",
+        "oooooooo",
+        "....o...."
+      ]
+    },
+    {
+      "id": "cat",
+      "minStage": 2,
+      "rows": [
+        ".A.....A.",
+        ".oo..oo.",
+        ".ooooooo.",
+        "oooooooo",
+        "oo.ooo.oo",
+        "oooooooo",
+        ".ooooooo.",
+        "..oooo.."
+      ]
+    },
+    {
+      "id": "fish",
+      "minStage": 2,
+      "rows": [
+        "..A...A..",
+        "..oooo..",
+        ".oooooo.o",
+        "oooooooo",
+        "oo.oooooo",
+        "oooooooo",
+        ".oooooo.o",
+        "..oooo.."
+      ]
+    },
+    {
+      "id": "key",
+      "minStage": 3,
+      "rows": [
+        "...ANA...",
+        "..oooo..",
+        "..o...o..",
+        "..oooo..",
+        "....o....",
+        "...o....",
+        "....oo...",
+        "...o....",
+        "....ooo.."
+      ]
+    },
+    {
+      "id": "umbrella",
+      "minStage": 3,
+      "rows": [
+        "...ANA...",
+        ".oooooo.",
+        "ooooooooo",
+        "o.oooo.o",
+        "....o....",
+        "...o....",
+        "....o....",
+        "...o.o..",
+        "....oo..."
+      ]
+    },
+    {
+      "id": "lighthouse",
+      "minStage": 3,
+      "rows": [
+        "...ANA...",
+        "...oo...",
+        "..ooooo..",
+        "...oo...",
+        "...ooo...",
+        "...oo...",
+        "..ooooo..",
+        "..oooo..",
+        ".ooooooo."
+      ]
+    },
+    {
+      "id": "shipAnchor",
+      "minStage": 4,
+      "rows": [
+        "...NAN...",
+        "...oo...",
+        "..ooooo..",
+        "...oo...",
+        "....o....",
+        "...oo...",
+        "o...o...o",
+        "o..oo..o",
+        ".ooooooo."
       ]
     }
   ],

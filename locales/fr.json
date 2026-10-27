@@ -248,6 +248,15 @@
         "miniHeart": "Petit Coeur",
         "miniDiamond": "Petit Losange",
         "miniRing": "Petit Rotor",
+        "pine": "Sapin",
+        "mushroom": "Champignon",
+        "bell": "Cloche",
+        "cat": "Chat",
+        "fish": "Poisson",
+        "key": "Clé",
+        "umbrella": "Parapluie",
+        "lighthouse": "Phare",
+        "shipAnchor": "Ancre Marine",
         "pairFormat": "{{left}} et {{right}}"
       }
     },

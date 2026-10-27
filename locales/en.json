@@ -248,6 +248,15 @@
         "miniHeart": "Small Heart",
         "miniDiamond": "Small Diamond",
         "miniRing": "Small Rotor",
+        "pine": "Pine",
+        "mushroom": "Mushroom",
+        "bell": "Bell",
+        "cat": "Cat",
+        "fish": "Fish",
+        "key": "Key",
+        "umbrella": "Umbrella",
+        "lighthouse": "Lighthouse",
+        "shipAnchor": "Ship Anchor",
         "pairFormat": "{{left}} and {{right}}"
       }
     },

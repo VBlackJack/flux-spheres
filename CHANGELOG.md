@@ -5,6 +5,8 @@ All notable changes to **FluxSpheres** are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Nine New Flux Shapes**: Pine, mushroom, bell, cat, fish, key, umbrella, lighthouse and ship anchor silhouettes; six of them hang partly from neutral anchors.
+- **New Modifiers in Flux Mode**: From stage 8, Flux shapes roll chained spheres and bubbles; from stage 11, freeze, lightning and paint cores too (`modifiers` in `configs/flux.json`).
 - **Neutral Anchors**: Gray anchors that no match can break. Bombs, lightning and the anvil remove them, and they crumble on their own once no sphere hangs from them.
 - **Chained Spheres**: Their links never snap when stretched by a rotor. An explosion breaks the chains of the spheres that survive it.
 - **Bubbles**: A sphere in a bubble cannot join a group until the bubble pops, when a shot lands on it or a group next to it is destroyed.
