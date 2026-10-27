@@ -534,6 +534,9 @@
         "coinCore": 0.18,
         "bossCore": 0.12
       },
+      "minModifierCounts": {
+        "bossCore": 1
+      },
       "layout": {
         "type": "dualRing",
         "clusters": [
@@ -611,6 +614,9 @@
         "laserLock": 0.16,
         "coinCore": 0.16,
         "armored": 0.1
+      },
+      "minModifierCounts": {
+        "laserLock": 2
       },
       "layout": {
         "type": "pendulum",
