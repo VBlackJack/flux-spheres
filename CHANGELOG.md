@@ -5,6 +5,7 @@ All notable changes to **FluxSpheres** are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Generated Flux Shapes**: Three Flux stages in four now draw a generated silhouette: a polar curve (star, flower, gear, polygon, crescent or heart; solid or hollow; several sizes and proportions) filled on the sphere grid, anchored on top, and kept only if it passes a quality filter (fits the board, hangs together, enough spheres, its points and notches visible on the grid). More than 1,200 distinct shapes pass, against 31 before. Each is named after its shape in both languages, and the stage seed still rebuilds the same one. Generated shapes may follow each other; the other families still never repeat. Tuning lives in `generated` in `configs/flux.json`.
 - **First-Encounter Hints**: Each mechanic is explained the first time it reaches the board, in every mode (Campaign, Survival, Daily Challenge, Flux): the level tutorial when one exists, else the mechanic's Codex entry. A hint shows once, and the mechanics sharing its text (the three cores) count as discovered with it; a hint left open gives way to the next one after three turns (`onboarding` in `configs/game.json`). Players who already played start with the mechanics of the levels they have passed marked as known.
 - **Show Hints Again**: A Settings button forgets every discovered mechanic.
 - **Onboarding Guard**: `tests/onboarding.test.js` fails when a mechanic has no hint text, when a level tutorial teaches a mechanic its level may not show or rolls extra copies of it, or when level 1 shows more than the basics.
@@ -24,6 +25,7 @@ All notable changes to **FluxSpheres** are documented in this file.
 - **Fast Keyboard Aim**: The 0.09 rad step (`keyboardAimFastStepRad`) is gone; Shift + arrows now use the former regular step.
 
 ### Fixed
+- **Tethers and Rotors**: A tether could tie a rotor to the shape next to it, or two rotors together, locking them or swinging the neighbor around the pivot. A tether now only links spheres carried by the same rotor, or by none.
 - **Levels 12 and 13**: The Boss Core tutorial level now always has a Boss Core, and the Quantum Lock level at least two locks; before, about one Level 12 board in twenty had no boss to destroy.
 - **Empty Special Ball Slots**: Level 1 no longer shows six empty special ball slots; they appear once the run has a special ball.
 

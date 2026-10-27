@@ -22,7 +22,7 @@
   - **Campagne** : 24 niveaux conçus à la main, qui introduisent pendules, rotors à inertie, répulseurs, barrières oscillantes, verrous quantiques, portails liés, Noyaux Boss, ancres neutres qu'aucun groupe ne brise, sphères enchaînées, bulles, coeurs de givre, de foudre et de peinture, ancres sur rail, propulseurs, longues amarres et rouille.
   - **Survie (sans fin)** : défense par vagues infinies, avec vagues de ruée vers l'or et anomalies Boss.
   - **Défi du jour** : graine quotidienne déterministe, mutateurs physiques tournants (*Hyper Gravité*, *Rotors Turbo*, *Super Magnétisme*, *Amas Volatil*) et récompense quotidienne en pièces.
-  - **Mode Flux** : un enchaînement sans fin de formes générées, avec une réserve de tirs commune. Chaque forme est un rotor ou un pendule paramétré, une silhouette suspendue (coeur, couronne, cloche, phare, ancre marine...), parfois tenue par des ancres neutres, ou une paire de petites formes, jamais deux fois de suite la même famille. Un budget de difficulté ajoute bumpers, portails, répulseurs et singularités au fil de la partie, une forme sur cinq cache un Noyau Boss, les formes avancées ajoutent chaînes, bulles et coeurs de givre, de foudre et de peinture, et vider une forme rend des tirs. Chaque partie a sa graine : un rechargement reprend sur la même forme.
+  - **Mode Flux** : un enchaînement sans fin de formes générées, avec une réserve de tirs commune. Trois formes sur quatre sont des silhouettes générées, parmi plus de 1 200 formes distinctes : étoiles, fleurs, engrenages, polygones, croissants et coeurs, pleins ou creux, de plusieurs tailles et proportions, nommés d'après leur forme ("Étoile à 7 branches", "Fleur creuse à 5 pétales"). Les autres sont un rotor ou un pendule paramétré, une silhouette dessinée (coeur, couronne, cloche, phare, ancre marine...), parfois tenue par des ancres neutres, ou une paire de petites formes, jamais deux fois de suite la même famille. Un budget de difficulté ajoute bumpers, portails, répulseurs et singularités au fil de la partie, une forme sur cinq cache un Noyau Boss, les formes avancées ajoutent chaînes, bulles et coeurs de givre, de foudre et de peinture, et vider une forme rend des tirs. Chaque partie a sa graine : un rechargement reprend sur la même forme.
 - **Prise en main** :
   - Un indice de première rencontre explique chaque mécanique la première fois qu'elle arrive sur le plateau, dans tous les modes : le tutoriel du niveau quand il existe, sinon son entrée du Codex. Chaque indice ne s'affiche qu'une fois ; laissé ouvert, il cède la place au suivant après trois tours, et les **Réglages** permettent de tous les revoir. En campagne, ce autour de quoi le niveau est construit est expliqué en premier.
   - Le niveau 1 s'en tient aux groupes et aux avalanches : trois couleurs, aucune sphère spéciale, aucun modificateur ; les emplacements des sphères spéciales apparaissent dès qu'il y en a une à utiliser.
@@ -98,6 +98,7 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 │   │   ├── Discovery.js      # Indices de première rencontre : mécaniques du plateau, prochaine inconnue, texte
 │   │   └── layouts/
 │   │       ├── LayoutGenerators.js   # Géométrie pure des formes : pendule, anneaux, hexagone, spirale, croix, masques
+│   │       ├── ShapeGenerator.js     # Silhouettes Flux générées : courbes polaires sur la grille, filtre de qualité
 │   │       └── FluxStageGenerator.js # Formes Flux à graine : famille, budget de difficulté, Noyau Boss
 │   └── ui/
 │       └── UIManager.js      # Mise à jour du HUD, fenêtres accessibles (piège de focus + inert) et Codex
@@ -125,11 +126,12 @@ npm test
 npm run test:browser
 ```
 
-Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, et quatre gardes du dépôt :
+Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, et cinq gardes du dépôt :
 
 - `typography.test.js` refuse, dans tous les fichiers texte, les variantes typographiques des caractères ASCII (tirets longs, guillemets courbes, points de suspension, espaces spéciales, ligatures).
 - `pwa.test.js` vérifie que chaque fichier de `src/`, `configs/`, `locales/` et `icons/` est mis en cache par `sw.js`, et que la version du cache du Service Worker correspond à `package.json`.
 - `onboarding.test.js` vérifie que chaque mécanique a un indice dans les deux langues, qu'un niveau dont le tutoriel enseigne une mécanique l'affiche toujours, et que le niveau 1 ne montre que les bases.
+- `fluxGenerator.test.js` vérifie que le générateur produit au moins 1 000 formes distinctes, chacune tenant entre les murs et suspendue à ses ancres, nommée dans les deux langues.
 - `world.test.js` vérifie que chaque niveau, chaque étape Flux (1 à 60) et la grille de Survie tiennent entre les murs, et qu'un monde de la largeur de conception construit chaque niveau à ses positions d'origine.
 
 `tests/browser/smoke.test.js` ouvre la vraie page dans Chromium sans interface, aux quatre mises en page prises en charge (ordinateur, tablette en portrait, téléphone en paysage et en portrait). Il échoue sur toute erreur de console, tout défilement horizontal ou tout libellé de bouton coupé, vérifie la mise en page au niveau 1 (sans sphère spéciale) et au niveau 2 (avec), vérifie que les fenêtres Réglages, Niveaux, Atelier et Pause mettent la partie en pause puis la reprennent, parcourt la victoire, la défaite et la reprise après rechargement, et vérifie qu'un tremblement de souris garde une visée affinée au clavier. La CI le lance dans une tâche séparée.
