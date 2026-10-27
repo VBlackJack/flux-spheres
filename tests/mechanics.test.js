@@ -22,6 +22,7 @@ import { configRegistry } from '../src/core/ConfigRegistry.js';
 import { StorageManager } from '../src/core/StorageManager.js';
 import { Ball } from '../src/entities/Ball.js';
 import { GameEngine } from '../src/game/GameEngine.js';
+import { Renderer } from '../src/game/Renderer.js';
 import { generateLayout, MASK_CELLS } from '../src/game/layouts/LayoutGenerators.js';
 import { CLUSTER_MODIFIERS, LAYOUT_TYPES } from '../src/core/Constants.js';
 
@@ -256,6 +257,38 @@ test('A saved run keeps neutral anchors, colorless, and every new modifier', () 
   const describe = (e) =>
     e.physicsWorld.balls.map((b) => `${b.clusterModifier}:${b.colorId}:${b.isAnchor}`).sort();
   assert.deepEqual(describe(resumed), describe(engine));
+});
+
+test('Survival waves roll chains, bubbles and the three new cores', () => {
+  const engine = createEngine();
+  const seen = new Set();
+  const waves = 40;
+  engine.startEndlessMode();
+  for (let wave = 0; wave < waves; wave++) {
+    engine.spawnEndlessWave();
+    for (const ball of engine.physicsWorld.balls) {
+      seen.add(ball.clusterModifier);
+    }
+  }
+  for (const mod of ['bubble', 'chained', 'freezeCore', 'lightningCore', 'paintCore']) {
+    assert.ok(seen.has(mod), `${mod} never rolled in Survival`);
+  }
+});
+
+test('Each chain link gets one metal link drawn over the touching spheres', () => {
+  const board = createEmptyBoard();
+  const { row } = addHangingRow(board, [COLOR_A, COLOR_B, COLOR_A]);
+  row[1].clusterModifier = CLUSTER_MODIFIERS.CHAINED;
+  let ellipses = 0;
+  const ctx = new Proxy({}, {
+    get: (target, prop) => (prop in target ? target[prop] : prop === 'ellipse' ? () => { ellipses++; } : () => {}),
+    set: (target, prop, value) => { target[prop] = value; return true; }
+  });
+  const renderer = Object.create(Renderer.prototype);
+  renderer.ballsConfig = ballsConfig;
+  renderer.drawChainLinkOverlays(ctx, board.physicsWorld, 1);
+  const strokesPerLink = 2;
+  assert.equal(ellipses, 2 * strokesPerLink, 'two chain links (one per neighbor), each drawn as a shadow then a metal ring');
 });
 
 test('A guaranteed armored ball gets its armor like a rolled one', () => {

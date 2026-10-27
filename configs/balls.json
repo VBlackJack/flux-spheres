@@ -191,6 +191,11 @@
       "linkColor": "#d4d4d8",
       "linkWidth": 4,
       "linkDash": [7, 4],
+      "overlayLinkLength": 11,
+      "overlayLinkWidth": 6,
+      "overlayLineWidth": 2.2,
+      "overlayShadowColor": "rgba(15, 23, 42, 0.85)",
+      "overlayShadowWidth": 4.2,
       "breakBurstCount": 8,
       "breakBurstSpeed": 3.5
     },
