@@ -24,10 +24,11 @@ import { Ball } from '../src/entities/Ball.js';
 import { GameEngine } from '../src/game/GameEngine.js';
 import { Renderer } from '../src/game/Renderer.js';
 import { computeTiltShare } from '../src/ui/UIManager.js';
+import { applyWorldGeometry } from '../src/core/WorldGeometry.js';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
-const gameConfig = loadJson('./configs/game.json');
+const gameConfig = applyWorldGeometry(loadJson('./configs/game.json'));
 const physicsConfig = loadJson('./configs/physics.json');
 const ballsConfig = loadJson('./configs/balls.json');
 const obstaclesConfig = loadJson('./configs/obstacles.json');

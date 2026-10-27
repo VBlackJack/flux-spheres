@@ -81,6 +81,7 @@ The codebase follows a modular, zero-dependency ES module architecture with stri
 │   │   ├── I18n.js           # Localization service and DOM attribute translator
 │   │   ├── SeededRandom.js   # Deterministic PRNG (Mulberry32) for Daily Challenges and Flux runs
 │   │   ├── StorageManager.js # Cached localStorage persistence with in-memory fallback
+│   │   ├── WorldGeometry.js  # Launcher, danger line and content offset derived from the world size
 │   │   └── AudioManager.js   # Procedural Web Audio API synthesizer
 │   ├── entities/
 │   │   ├── Ball.js           # Magnetic sphere entity (bonds, polarity, armor, modifiers)
@@ -124,11 +125,12 @@ npm test
 npm run test:browser
 ```
 
-The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, and three repository guards:
+The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, and four repository guards:
 
 - `typography.test.js` rejects typographic look-alikes of ASCII characters (long dashes, curly quotes, ellipsis, special spaces, ligatures) in every text file.
 - `pwa.test.js` checks that every file under `src/`, `configs/`, `locales/` and `icons/` is precached by `sw.js`, and that the Service Worker cache version matches `package.json`.
 - `onboarding.test.js` checks that every mechanic has a hint in both languages, that a level whose tutorial teaches a mechanic always shows it, and that level 1 shows only the basics.
+- `world.test.js` checks that every campaign level, Flux stage (1 to 60) and the Survival grid fit between the walls, and that a world of the design width builds every level at its authored positions.
 
 `tests/browser/smoke.test.js` opens the real page in headless Chromium at the four supported layouts (desktop, portrait tablet, landscape and portrait phones). It fails on any console error, sideways scrolling or clipped control label, checks the layout on level 1 (no special ball) and level 2 (special balls), checks that the Settings, Levels, Workshop and Pause dialogs pause and resume the run, walks through the victory, game over and reload-resume paths, and checks that a mouse tremor keeps a keyboard-tuned aim. CI runs it as a separate job.
 

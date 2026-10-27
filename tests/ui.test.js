@@ -33,9 +33,10 @@ import {
   revealLiveRegion,
   shouldIgnoreRepeatedKey
 } from '../src/ui/UIManager.js';
+import { applyWorldGeometry } from '../src/core/WorldGeometry.js';
 
 const loadJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
-const gameConfig = loadJson('./configs/game.json');
+const gameConfig = applyWorldGeometry(loadJson('./configs/game.json'));
 const SUPPORTED = gameConfig.defaults.supportedLanguages;
 const FALLBACK = gameConfig.defaults.language;
 

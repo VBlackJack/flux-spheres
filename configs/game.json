@@ -2,9 +2,9 @@
   "canvas": {
     "logicalWidth": 540,
     "logicalHeight": 820,
-    "dangerLineY": 675,
-    "launcherX": 270,
-    "launcherY": 745,
+    "designWidth": 540,
+    "launcherBottomOffset": 75,
+    "dangerLineBottomOffset": 145,
     "initialAimOffsetY": -200,
     "nextBallOffsetX": -68,
     "launcherPreviewCount": 2,

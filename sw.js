@@ -45,6 +45,7 @@ const PRECACHE_ASSETS = [
   './src/core/I18n.js',
   './src/core/SeededRandom.js',
   './src/core/StorageManager.js',
+  './src/core/WorldGeometry.js',
   './src/entities/Ball.js',
   './src/entities/Obstacle.js',
   './src/entities/ParticleSystem.js',
