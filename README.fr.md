@@ -29,6 +29,7 @@
   - Un niveau qui enseigne un modificateur en montre toujours le même nombre, fixé dans sa définition.
 - **Sensations de jeu** :
   - Ralenti quand un tir passe près de l'une des trois dernières sphères d'un niveau ou d'une forme Flux.
+  - Chaque sphère qui se pose envoie une onde qui fait gonfler l'amas, de lien en lien et plus faiblement à chaque pas, avec un léger tremblement d'écran. L'onde ne change que le dessin des sphères ; le mode mouvements réduits coupe les deux.
   - À la victoire, le score défile et les étoiles gagnées apparaissent une par une ; les deux respectent le mode mouvements réduits.
 - **Atelier et Codex** :
   - Améliorations permanentes (*Visée laser courbée*, *Amplificateur magnétique*, *Condensateur de surcharge*, *Réserve de projectiles*).
