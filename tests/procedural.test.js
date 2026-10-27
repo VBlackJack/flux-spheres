@@ -23,7 +23,8 @@ import { StorageManager } from '../src/core/StorageManager.js';
 import { Ball } from '../src/entities/Ball.js';
 import { GameEngine } from '../src/game/GameEngine.js';
 import { generateFluxStage, FLUX_FAMILIES } from '../src/game/layouts/FluxStageGenerator.js';
-import { GAME_MODES, GAME_STATES, OBSTACLE_TYPES, CLUSTER_MODIFIERS } from '../src/core/Constants.js';
+import { generateLayout } from '../src/game/layouts/LayoutGenerators.js';
+import { GAME_MODES, GAME_STATES, OBSTACLE_TYPES, CLUSTER_MODIFIERS, LAYOUT_TYPES } from '../src/core/Constants.js';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
@@ -369,4 +370,85 @@ test('A Flux seed gives the same launcher and random stream whatever run came be
   assert.equal(afterCampaign.currentBall.colorId, fresh.currentBall.colorId);
   assert.equal(afterCampaign.nextBall.colorId, fresh.nextBall.colorId);
   assert.equal(afterCampaign.seededRng.state, fresh.seededRng.state);
+});
+
+/** Replaces the board of a running Flux stage with one mask, with no obstacle around it. */
+const buildMaskBoard = (engine, rows) => {
+  clearBoard(engine);
+  engine.physicsWorld.obstacles.length = 0;
+  const { centerX, spacing, maskTopY } = fluxConfig.layout;
+  const spec = generateLayout({ type: LAYOUT_TYPES.MASK, rows, centerX, topY: maskTopY, spacing });
+  const balls = engine.materializeLayout(spec, {});
+  engine.physicsWorld.rebuildInitialBonds();
+  return balls;
+};
+
+const LATE_STAGE_SWEEP_FROM = 11;
+
+test('Every Flux mask builds one anchored shape inside the board', () => {
+  const engine = createFluxEngine();
+  engine.startFluxRun('mask-check');
+  const canvas = gameConfig.canvas;
+  const lowestAllowedY = canvas.dangerLineY - canvas.dangerWarningMarginY;
+  for (const mask of fluxConfig.masks) {
+    const balls = buildMaskBoard(engine, mask.rows);
+    const world = engine.physicsWorld;
+    assert.equal(world.getAnchoredBallIds().size, balls.length, `${mask.id}: loose ball`);
+    for (const ball of balls) {
+      assert.ok(ball.x - BALL_RADIUS >= canvas.wallMargin && ball.x + BALL_RADIUS <= canvas.logicalWidth - canvas.wallMargin, `${mask.id}: outside walls`);
+      assert.ok(ball.y + BALL_RADIUS < lowestAllowedY, `${mask.id}: too close to the danger line`);
+    }
+    for (const neutral of balls.filter((b) => b.clusterModifier === CLUSTER_MODIFIERS.NEUTRAL_ANCHOR)) {
+      assert.equal(neutral.colorId, null, `${mask.id}: a neutral anchor has no color`);
+      const holdsBall = [...neutral.bonds].some((id) => !world.ballMap.get(id)?.isAnchor);
+      assert.ok(holdsBall, `${mask.id}: a neutral anchor must hold a sphere`);
+    }
+  }
+});
+
+test('Every Flux shape has a name in both languages', () => {
+  const ids = [...fluxConfig.masks.map((m) => m.id), ...fluxConfig.composite.parts.map((p) => p.id), ...Object.keys(fluxConfig.parametric)];
+  for (const locale of ['en', 'fr']) {
+    const shapes = loadJson(`./locales/${locale}.json`).gameplay.flux.shapes;
+    for (const id of ids) {
+      assert.equal(typeof shapes[id], 'string', `${locale} name for ${id}`);
+    }
+  }
+});
+
+test('A Flux shape held by neutral anchors clears once its spheres are gone', () => {
+  const engine = createFluxEngine();
+  engine.startFluxRun('neutral-clear');
+  const stage = engine.fluxStage;
+  const keyMask = fluxConfig.masks.find((m) => m.rows.some((row) => row.includes('N')));
+  // Keep only the neutral anchors, as if every sphere and colored anchor had been destroyed.
+  for (const ball of buildMaskBoard(engine, keyMask.rows)) {
+    if (ball.clusterModifier !== CLUSTER_MODIFIERS.NEUTRAL_ANCHOR) {
+      engine.physicsWorld.removeBall(ball);
+    }
+  }
+  engine.hasFiredInRound = true;
+  engine.handlePostTurnCleanup(true);
+  assert.equal(engine.physicsWorld.balls.length, 0, 'the neutral anchors crumbled');
+  assert.ok(engine.stageTransitionFrames > 0, 'the shape counts as cleared');
+  assert.equal(engine.fluxStage, stage + 1);
+});
+
+test('Late Flux stages roll chains, bubbles and the three new cores', () => {
+  const engine = createFluxEngine();
+  const seen = new Set();
+  for (let seed = 0; seed < SWEEP_SEED_COUNT; seed++) {
+    engine.startFluxRun(`late-${seed}`);
+    for (let stage = LATE_STAGE_SWEEP_FROM; stage <= SWEEP_STAGE_COUNT; stage++) {
+      engine.fluxPreviousFamily = engine.fluxFamily;
+      engine.fluxStage = stage;
+      engine.buildFluxStage({ persist: false });
+      for (const ball of engine.physicsWorld.balls) {
+        seen.add(ball.clusterModifier);
+      }
+    }
+  }
+  for (const mod of ['bubble', 'chained', 'freezeCore', 'lightningCore', 'paintCore']) {
+    assert.ok(seen.has(mod), `${mod} never rolled in late Flux stages`);
+  }
 });
