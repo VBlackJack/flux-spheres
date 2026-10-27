@@ -22,7 +22,8 @@ import {
   CLUSTER_MODIFIERS,
   DAILY_MUTATORS,
   GAME_OVER_REASONS,
-  MATH_CONSTANTS
+  MATH_CONSTANTS,
+  BOARD_MECHANICS
 } from '../core/Constants.js';
 import { t } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
@@ -34,6 +35,12 @@ import { SpecialBallController } from './SpecialBallController.js';
 import { captureRunSnapshot, isValidRunSnapshot, applyRunSnapshot, isRunSnapshotable } from './RunSnapshot.js';
 import { generateLayout, NO_PIVOT_SLOT } from './layouts/LayoutGenerators.js';
 import { generateFluxStage } from './layouts/FluxStageGenerator.js';
+import {
+  listBoardMechanics,
+  listLevelMechanics,
+  listMechanicsSharingHint,
+  pickNextDiscovery
+} from './Discovery.js';
 
 export class GameEngine {
   constructor({
@@ -89,7 +96,8 @@ export class GameEngine {
     this.trailFrameCounter = 0;
     this.hasFiredInRound = false;
     this.bossesDestroyedInRun = 0;
-    this.activeTutorialKey = null;
+    this.activeDiscoveryId = null;
+    this.discoveryTurnCount = 0;
     this.levelTutorialKey = null;
     this.isAimCancelled = false;
     this.isPolarityFlipped = false;
@@ -118,6 +126,8 @@ export class GameEngine {
     this.isAimPreviewStale = false;
     this.laserBonuses = { distanceBonus: 0, bouncesBonus: 0 };
     this.stepCallbacks = null;
+    this.isRestoringRun = false;
+    this.seedDiscoveriesFromProgress();
   }
 
   random() {
@@ -261,15 +271,19 @@ export class GameEngine {
       return false;
     }
     let isRestored = false;
+    this.isRestoringRun = true;
     try {
       isRestored = applyRunSnapshot(this, snapshot);
     } catch (err) {
       console.error('Saved run could not be restored:', err);
+    } finally {
+      this.isRestoringRun = false;
     }
     if (!isRestored) {
       this.storageManager.clearRunSnapshot();
       return false;
     }
+    this.refreshDiscovery();
     this.saveRunSnapshot();
     this.notifyUI();
     return true;
@@ -298,7 +312,8 @@ export class GameEngine {
     this.hitStopFrames = 0;
     this.hasFiredInRound = false;
     this.bossesDestroyedInRun = 0;
-    this.activeTutorialKey = null;
+    this.activeDiscoveryId = null;
+    this.discoveryTurnCount = 0;
     this.levelTutorialKey = null;
     this.isAimCancelled = false;
     this.isPolarityFlipped = false;
@@ -457,7 +472,6 @@ export class GameEngine {
     this.resetRunState(GAME_MODES.CAMPAIGN);
     this.currentLevelId = levelDef.id;
     this.shotsRemaining = levelDef.maxShots + this.getStartingShotsBonus();
-    this.activeTutorialKey = levelDef.tutorialKey || null;
     this.levelTutorialKey = levelDef.tutorialKey || null;
     this.specialInventory = { ...levelDef.specialInventory };
 
@@ -484,6 +498,7 @@ export class GameEngine {
     this.state = GAME_STATES.PLAYING;
     const canvasCfg = this.gameConfig.canvas;
     this.updateAim(canvasCfg.launcherX, canvasCfg.launcherY + canvasCfg.initialAimOffsetY);
+    this.refreshDiscovery();
     this.notifyUI();
   }
 
@@ -616,6 +631,7 @@ export class GameEngine {
     if (this.currentBall) {
       this.updateAimFromAngle(this.aimAngle);
     }
+    this.refreshDiscovery();
     if (persist) {
       const snapshot = captureRunSnapshot(this, this.storageManager.getRunSnapshotVersion());
       if (snapshot) {
@@ -758,6 +774,7 @@ export class GameEngine {
     this.state = GAME_STATES.PLAYING;
     const canvasCfg = this.gameConfig.canvas;
     this.updateAim(canvasCfg.launcherX, canvasCfg.launcherY + canvasCfg.initialAimOffsetY);
+    this.refreshDiscovery();
   }
 
   /**
@@ -974,10 +991,86 @@ export class GameEngine {
     this.notifyUI();
   }
 
-  dismissTutorial() {
-    if (this.activeTutorialKey) {
-      this.activeTutorialKey = null;
+  /**
+   * Closes the open discovery hint. The next unknown mechanic on the board, if any, is
+   * shown at the end of the following turn rather than at once.
+   */
+  dismissDiscovery() {
+    if (this.activeDiscoveryId) {
+      this.activeDiscoveryId = null;
+      this.discoveryTurnCount = 0;
       this.notifyUI();
+    }
+  }
+
+  /** Forgets every discovered mechanic; the board's own hints come back right away. */
+  resetDiscoveries() {
+    this.storageManager.resetDiscoveries();
+    this.activeDiscoveryId = null;
+    this.discoveryTurnCount = 0;
+    if (this.state === GAME_STATES.PLAYING || this.state === GAME_STATES.PAUSED) {
+      this.refreshDiscovery();
+    }
+    this.notifyUI();
+  }
+
+  /** A hint left open counts the turns played under it, so it can give way to the next. */
+  countDiscoveryTurn() {
+    if (this.activeDiscoveryId) {
+      this.discoveryTurnCount++;
+    }
+  }
+
+  /**
+   * Shows the first unknown mechanic on the board, unless a hint is still open within its
+   * turn allowance. A mechanic counts as discovered as soon as its hint shows, together
+   * with the mechanics explained by the same text. Does nothing while a saved run is being
+   * rebuilt: that board is replaced before the player sees it.
+   */
+  refreshDiscovery() {
+    if (this.isRestoringRun) {
+      return;
+    }
+    const onboarding = this.gameConfig.onboarding;
+    if (this.activeDiscoveryId && this.discoveryTurnCount < onboarding.hintShotLimit) {
+      return;
+    }
+    const present = listBoardMechanics(this.physicsWorld.balls, this.physicsWorld.obstacles);
+    const next = pickNextDiscovery(present, this.storageManager.getDiscoveries(), onboarding.order);
+    this.activeDiscoveryId = next;
+    this.discoveryTurnCount = 0;
+    if (next) {
+      this.storageManager.markDiscovered(listMechanicsSharingHint(next, onboarding.mechanics));
+    }
+  }
+
+  /**
+   * Gives a player who already played before discoveries existed credit for the mechanics
+   * of the levels behind them, so they are not shown hints for what they already know.
+   * Runs once: a new player gets an empty set and starts from the basics.
+   */
+  seedDiscoveriesFromProgress() {
+    if (this.storageManager.hasDiscoveries()) {
+      return;
+    }
+    const unlockedLevel = this.storageManager.getUnlockedLevel();
+    const hasPlayedBefore =
+      unlockedLevel > this.gameConfig.defaults.initialUnlockedLevel ||
+      this.storageManager.getEndlessHighScore() > 0 ||
+      this.storageManager.getFluxHighScore() > 0;
+    const known = new Set();
+    if (hasPlayedBefore) {
+      known.add(BOARD_MECHANICS.BASICS);
+      for (const level of this.levelsConfig.levels.filter((lvl) => lvl.id < unlockedLevel)) {
+        for (const mechanicId of listLevelMechanics(level)) {
+          known.add(mechanicId);
+        }
+      }
+    }
+    if (known.size > 0) {
+      this.storageManager.markDiscovered([...known]);
+    } else {
+      this.storageManager.resetDiscoveries();
     }
   }
 
@@ -1913,6 +2006,8 @@ export class GameEngine {
 
     this.evaluateRoundEnd();
     this.updateAimFromAngle(this.aimAngle);
+    this.countDiscoveryTurn();
+    this.refreshDiscovery();
     this.saveRunSnapshot();
     this.notifyUI();
   }

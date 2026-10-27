@@ -5,7 +5,17 @@ All notable changes to **FluxSpheres** are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **First-Encounter Hints**: Each mechanic is explained the first time it reaches the board, in every mode (Campaign, Survival, Daily Challenge, Flux): the level tutorial when one exists, else the mechanic's Codex entry. A hint shows once, and the mechanics sharing its text (the three cores) count as discovered with it; a hint left open gives way to the next one after three turns (`onboarding` in `configs/game.json`). Players who already played start with the mechanics of the levels they have passed marked as known.
+- **Show Hints Again**: A Settings button forgets every discovered mechanic.
+- **Onboarding Guard**: `tests/onboarding.test.js` fails when a mechanic has no hint text, when a level tutorial teaches a mechanic its level may not show, or when level 1 shows more than the basics.
 - **Browser Smoke Tests**: `npm run test:browser` opens the game in headless Chromium at the four supported layouts and fails on console errors, sideways scrolling, clipped control labels, dialogs that do not pause or close, and broken victory, game over or reload-resume paths. CI runs it as a separate job.
+
+### Changed
+- **Level 1**: Three colors, no special ball and no modifier, so the first level teaches matching and avalanches alone. Its star thresholds move to 6400 and 10400, keeping their ratio to the median winning score of simulated play (30 games, median 17130 before, 26070 after).
+- **Level Tutorials**: A tutorial no longer comes back each time a level is restarted; the Pause and Game Over tips still show it.
+
+### Fixed
+- **Levels 12 and 13**: The Boss Core tutorial level now always has a Boss Core, and the Quantum Lock level at least two locks; before, about one Level 12 board in twenty had no boss to destroy.
 
 ## [1.5.0] - 2026-10-27
 

@@ -49,7 +49,10 @@
         "tiltOffAria": "Contrôle par inclinaison : Désactivé",
         "tiltAria": "Contrôle par inclinaison",
         "settings": "Réglages",
-        "settingsIcon": "⚙"
+        "settingsIcon": "⚙",
+        "resetHints": "💡",
+        "resetHintsAria": "Revoir les indices de découverte",
+        "resetHintsCaption": "Indices"
       },
       "groups": {
         "modes": "Modes de jeu",
@@ -189,6 +192,9 @@
         "victory": "Niveau terminé. Score : {{score}}. Étoiles : {{stars}} sur {{maxStars}}.",
         "gameOver": "Partie terminée. {{reason}} Score : {{score}}.",
         "fluxStageCleared": "Forme {{stage}} vidée. La forme suivante arrive."
+      },
+      "hints": {
+        "reset": "Les indices de découverte s'afficheront de nouveau."
       }
     }
   },
@@ -306,6 +312,9 @@
       "thruster": "Les propulseurs (⏫) poussent leur amas vers le haut : détruisez-les et l'amas s'affaisse vers la ligne de danger !",
       "tether": "Les sphères amarres (∿) retiennent des sphères éloignées par de longs liens incassables : coupez la sphère amarre pour les faire tomber !",
       "rust": "La rouille (⚙) bloque tous les groupes : faites-la sauter, tomber, ou repeignez-la. Les fusées (🚀) visent les cibles les plus coriaces !"
+    },
+    "discovery": {
+      "hint": "Nouveau : {{icon}} {{name}}. {{description}}"
     }
   },
   "modals": {

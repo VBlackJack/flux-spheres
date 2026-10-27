@@ -23,6 +23,9 @@
   - **Survival (Endless)**: Infinite wave defense with Gold Rush waves and Boss anomalies.
   - **Daily Challenge**: Deterministic daily seed with rotating physics mutators (*Hyper Gravity*, *Turbo Rotors*, *Super Magnetism*, *Volatile Cluster*) and a daily coin reward.
   - **Flux Mode**: An endless chain of procedurally generated shapes sharing one shot reserve. Each stage draws a parametric rotor or pendulum, a hanging silhouette (heart, crown, bell, lighthouse, ship anchor...), some held by neutral anchors, or a pair of small shapes, never the same family twice in a row. A difficulty budget adds bumpers, portals, repulsors and singularities as the run goes on, every fifth stage hides a Boss Core, later stages add chains, bubbles and freeze, lightning and paint cores, and clearing a shape refills shots. Runs are seeded, so a reload resumes on the same shape.
+- **Learning the Game**:
+  - A first-encounter hint explains each mechanic the first time it reaches the board, in every mode: the level tutorial when there is one, else its Codex entry. Each hint shows once; one left open gives way to the next after three turns, and **Settings** can show them all again.
+  - Level 1 keeps to matching and avalanches: three colors, no special ball, no modifier.
 - **Game Feel**:
   - Slow motion when a shot flies close to one of the last three spheres of a level or Flux shape.
   - The victory score rolls up and the earned stars pop in one after another; both respect reduced motion.
@@ -89,6 +92,7 @@ The codebase follows a modular, zero-dependency ES module architecture with stri
 │   │   ├── GameLoop.js       # Fixed-step loop with interpolation, idle throttling and fatal error stop
 │   │   ├── Renderer.js       # HiDPI Canvas 2D renderer with alpha interpolation & AOE preview
 │   │   ├── SpecialBallController.js # Bomb, Lightning, Prism, Anvil & Cryo impact resolution
+│   │   ├── Discovery.js      # First-encounter hints: mechanics on a board, next unknown one, hint text
 │   │   └── layouts/
 │   │       ├── LayoutGenerators.js   # Pure shape geometry: pendulum, rings, hexagon, spiral, cross, masks
 │   │       └── FluxStageGenerator.js # Seeded Flux stages: shape family, difficulty budget, boss core
@@ -118,10 +122,11 @@ npm test
 npm run test:browser
 ```
 
-The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, and two repository guards:
+The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, and three repository guards:
 
 - `typography.test.js` rejects typographic look-alikes of ASCII characters (long dashes, curly quotes, ellipsis, special spaces, ligatures) in every text file.
 - `pwa.test.js` checks that every file under `src/`, `configs/`, `locales/` and `icons/` is precached by `sw.js`, and that the Service Worker cache version matches `package.json`.
+- `onboarding.test.js` checks that every mechanic has a hint in both languages, that a level whose tutorial teaches a mechanic always shows it, and that level 1 shows only the basics.
 
 `tests/browser/smoke.test.js` opens the real page in headless Chromium at the four supported layouts (desktop, portrait tablet, landscape and portrait phones). It fails on any console error, sideways scrolling or clipped control label, checks that the Settings, Levels, Workshop and Pause dialogs pause and resume the run, and walks through the victory, game over and reload-resume paths. CI runs it as a separate job.
 

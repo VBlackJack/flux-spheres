@@ -301,6 +301,40 @@
       "rewardCoins": 100
     }
   },
+  "onboarding": {
+    "hintShotLimit": 3,
+    "order": [
+      "basics", "pivot", "coinCore", "dormantBomb", "bumper", "armored", "repulsor", "chameleon",
+      "barrier", "attractor", "bossCore", "portal", "laserLock", "singularity", "neutralAnchor",
+      "chained", "bubble", "freezeCore", "lightningCore", "paintCore", "rail", "thruster", "tether", "rust"
+    ],
+    "mechanics": {
+      "basics": { "hintKey": "gameplay.tutorial.pendulum" },
+      "pivot": { "hintKey": "gameplay.tutorial.rotor" },
+      "coinCore": {},
+      "dormantBomb": {},
+      "bumper": {},
+      "armored": {},
+      "repulsor": { "hintKey": "gameplay.tutorial.repulsor" },
+      "chameleon": {},
+      "barrier": {},
+      "attractor": {},
+      "bossCore": { "hintKey": "gameplay.tutorial.boss" },
+      "portal": { "hintKey": "gameplay.tutorial.portal" },
+      "laserLock": { "hintKey": "gameplay.tutorial.laserLock" },
+      "singularity": { "hintKey": "gameplay.tutorial.singularity" },
+      "neutralAnchor": { "hintKey": "gameplay.tutorial.neutralAnchor" },
+      "chained": { "hintKey": "gameplay.tutorial.chained" },
+      "bubble": { "hintKey": "gameplay.tutorial.bubble" },
+      "freezeCore": { "hintKey": "gameplay.tutorial.cores" },
+      "lightningCore": { "hintKey": "gameplay.tutorial.cores" },
+      "paintCore": { "hintKey": "gameplay.tutorial.cores" },
+      "rail": { "hintKey": "gameplay.tutorial.rail" },
+      "thruster": { "hintKey": "gameplay.tutorial.thruster" },
+      "tether": { "hintKey": "gameplay.tutorial.tether" },
+      "rust": { "hintKey": "gameplay.tutorial.rust" }
+    }
+  },
   "storage": {
     "prefix": "flux_spheres_v1_",
     "keys": {
@@ -321,7 +355,8 @@
       "coins": "coins",
       "upgrades": "upgrades",
       "achievements": "achievements",
-      "runSnapshot": "run_snapshot"
+      "runSnapshot": "run_snapshot",
+      "discoveries": "discoveries"
     },
     "runSnapshotVersion": 1
   },

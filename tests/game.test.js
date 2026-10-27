@@ -206,7 +206,8 @@ test('ParticleSystem object pooling recycles particles on clear and update', () 
 
 test('Special ball equip and unequip restores original regular ball and inventory count', () => {
   const engine = createTestEngine();
-  engine.startCampaignLevel(1);
+  // Level 1 has no special ball; level 2 is the first to hand out a bomb.
+  engine.startCampaignLevel(2);
   const originalColor = engine.currentBall.colorId;
   const initialBombCount = engine.specialInventory[SPECIAL_TYPES.BOMB];
   assert.ok(initialBombCount >= 1);
@@ -221,14 +222,14 @@ test('Special ball equip and unequip restores original regular ball and inventor
   assert.equal(engine.specialInventory[SPECIAL_TYPES.BOMB], initialBombCount);
 });
 
-test('Tutorial banner stays active until dismissed and levelTutorialKey persists for Pause modal', () => {
+test('Discovery hint stays active until dismissed and levelTutorialKey persists for Pause modal', () => {
   const engine = createTestEngine();
   engine.startCampaignLevel(1);
-  assert.equal(engine.activeTutorialKey, 'gameplay.tutorial.pendulum');
+  assert.equal(engine.activeDiscoveryId, 'basics');
   assert.equal(engine.levelTutorialKey, 'gameplay.tutorial.pendulum');
 
-  engine.dismissTutorial();
-  assert.equal(engine.activeTutorialKey, null);
+  engine.dismissDiscovery();
+  assert.equal(engine.activeDiscoveryId, null);
   assert.equal(engine.levelTutorialKey, 'gameplay.tutorial.pendulum');
 });
 

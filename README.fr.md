@@ -23,6 +23,9 @@
   - **Survie (sans fin)** : défense par vagues infinies, avec vagues de ruée vers l'or et anomalies Boss.
   - **Défi du jour** : graine quotidienne déterministe, mutateurs physiques tournants (*Hyper Gravité*, *Rotors Turbo*, *Super Magnétisme*, *Amas Volatil*) et récompense quotidienne en pièces.
   - **Mode Flux** : un enchaînement sans fin de formes générées, avec une réserve de tirs commune. Chaque forme est un rotor ou un pendule paramétré, une silhouette suspendue (coeur, couronne, cloche, phare, ancre marine...), parfois tenue par des ancres neutres, ou une paire de petites formes, jamais deux fois de suite la même famille. Un budget de difficulté ajoute bumpers, portails, répulseurs et singularités au fil de la partie, une forme sur cinq cache un Noyau Boss, les formes avancées ajoutent chaînes, bulles et coeurs de givre, de foudre et de peinture, et vider une forme rend des tirs. Chaque partie a sa graine : un rechargement reprend sur la même forme.
+- **Prise en main** :
+  - Un indice de première rencontre explique chaque mécanique la première fois qu'elle arrive sur le plateau, dans tous les modes : le tutoriel du niveau quand il existe, sinon son entrée du Codex. Chaque indice ne s'affiche qu'une fois ; laissé ouvert, il cède la place au suivant après trois tours, et les **Réglages** permettent de tous les revoir.
+  - Le niveau 1 s'en tient aux groupes et aux avalanches : trois couleurs, aucune sphère spéciale, aucun modificateur.
 - **Sensations de jeu** :
   - Ralenti quand un tir passe près de l'une des trois dernières sphères d'un niveau ou d'une forme Flux.
   - À la victoire, le score défile et les étoiles gagnées apparaissent une par une ; les deux respectent le mode mouvements réduits.
@@ -89,6 +92,7 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 │   │   ├── GameLoop.js       # Boucle à pas fixe avec interpolation, ralenti au repos et arrêt sur erreur fatale
 │   │   ├── Renderer.js       # Rendu Canvas 2D HiDPI avec interpolation et prévisualisation de zone
 │   │   ├── SpecialBallController.js # Résolution des impacts Bombe, Éclair, Prisme, Enclume et Cryo
+│   │   ├── Discovery.js      # Indices de première rencontre : mécaniques du plateau, prochaine inconnue, texte
 │   │   └── layouts/
 │   │       ├── LayoutGenerators.js   # Géométrie pure des formes : pendule, anneaux, hexagone, spirale, croix, masques
 │   │       └── FluxStageGenerator.js # Formes Flux à graine : famille, budget de difficulté, Noyau Boss
@@ -118,10 +122,11 @@ npm test
 npm run test:browser
 ```
 
-Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, et deux gardes du dépôt :
+Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, et trois gardes du dépôt :
 
 - `typography.test.js` refuse, dans tous les fichiers texte, les variantes typographiques des caractères ASCII (tirets longs, guillemets courbes, points de suspension, espaces spéciales, ligatures).
 - `pwa.test.js` vérifie que chaque fichier de `src/`, `configs/`, `locales/` et `icons/` est mis en cache par `sw.js`, et que la version du cache du Service Worker correspond à `package.json`.
+- `onboarding.test.js` vérifie que chaque mécanique a un indice dans les deux langues, qu'un niveau dont le tutoriel enseigne une mécanique l'affiche toujours, et que le niveau 1 ne montre que les bases.
 
 `tests/browser/smoke.test.js` ouvre la vraie page dans Chromium sans interface, aux quatre mises en page prises en charge (ordinateur, tablette en portrait, téléphone en paysage et en portrait). Il échoue sur toute erreur de console, tout défilement horizontal ou tout libellé de bouton coupé, vérifie que les fenêtres Réglages, Niveaux, Atelier et Pause mettent la partie en pause puis la reprennent, et parcourt la victoire, la défaite et la reprise après rechargement. La CI le lance dans une tâche séparée.
 

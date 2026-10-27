@@ -49,7 +49,10 @@
         "tiltOffAria": "Tilt control: Off",
         "tiltAria": "Tilt control",
         "settings": "Settings",
-        "settingsIcon": "⚙"
+        "settingsIcon": "⚙",
+        "resetHints": "💡",
+        "resetHintsAria": "Show discovery hints again",
+        "resetHintsCaption": "Hints"
       },
       "groups": {
         "modes": "Game modes",
@@ -189,6 +192,9 @@
         "victory": "Level cleared. Score: {{score}}. Stars: {{stars}} of {{maxStars}}.",
         "gameOver": "Game over. {{reason}} Score: {{score}}.",
         "fluxStageCleared": "Shape {{stage}} cleared. The next shape is coming."
+      },
+      "hints": {
+        "reset": "Discovery hints will show again."
       }
     }
   },
@@ -306,6 +312,9 @@
       "thruster": "Thrusters (⏫) push their cluster up: destroy them and the cluster sags toward the danger line!",
       "tether": "Tether spheres (∿) hold distant spheres with long links that never snap: cut the tether sphere to drop them!",
       "rust": "Rust (⚙) blocks every group: blast it, drop it, or paint it. Rockets (🚀) seek out the hardest targets!"
+    },
+    "discovery": {
+      "hint": "New: {{icon}} {{name}}. {{description}}"
     }
   },
   "modals": {

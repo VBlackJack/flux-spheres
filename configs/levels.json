@@ -5,19 +5,17 @@
       "nameKey": "levels.items.lvl1.name",
       "descriptionKey": "levels.items.lvl1.description",
       "tutorialKey": "gameplay.tutorial.pendulum",
-      "starThresholds": [0, 4200, 6800],
+      "starThresholds": [0, 6400, 10400],
       "maxShots": 28,
-      "paletteCount": 4,
+      "paletteCount": 3,
       "specialInventory": {
-        "bomb": 1,
+        "bomb": 0,
         "lightning": 0,
-        "rainbow": 1,
+        "rainbow": 0,
         "anvil": 0,
-        "freeze": 1
+        "freeze": 0
       },
-      "modifierWeights": {
-        "coinCore": 0.12
-      },
+      "modifierWeights": {},
       "layout": {
         "type": "pendulum",
         "anchors": [
@@ -534,6 +532,9 @@
         "coinCore": 0.18,
         "bossCore": 0.12
       },
+      "minModifierCounts": {
+        "bossCore": 1
+      },
       "layout": {
         "type": "dualRing",
         "clusters": [
@@ -611,6 +612,9 @@
         "laserLock": 0.16,
         "coinCore": 0.16,
         "armored": 0.1
+      },
+      "minModifierCounts": {
+        "laserLock": 2
       },
       "layout": {
         "type": "pendulum",

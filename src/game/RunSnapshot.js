@@ -35,7 +35,8 @@ const ENGINE_SCALAR_FIELDS = [
   'outOfShotsGraceFrames',
   'hasFiredInRound',
   'bossesDestroyedInRun',
-  'activeTutorialKey',
+  'activeDiscoveryId',
+  'discoveryTurnCount',
   'isPolarityFlipped',
   'stashedRegularColorId',
   'aimAngle',
@@ -99,7 +100,7 @@ const NULLABLE_FIELD_TYPES = new Set(['string', 'number', 'boolean']);
 /**
  * True when a saved value can replace the live one: same primitive type (a finite number
  * for numbers), any primitive or null where the live field is currently empty, or null
- * over text (text fields are optional keys, such as a dismissed tutorial).
+ * over text (text fields are optional keys, such as a dismissed discovery hint).
  */
 const isCompatibleValue = (current, saved) => {
   if (typeof saved === 'number' && !Number.isFinite(saved)) {

@@ -546,17 +546,16 @@ test('A saved run whose values have the wrong type is discarded instead of resto
   assert.notEqual(resumed.score, '01200');
 });
 
-test('A saved run with its tutorial dismissed restores over a level that shows one', () => {
-  const tutorialLevel = levelsConfig.levels.find((lvl) => lvl.tutorialKey);
+test('A saved run with its discovery hint dismissed restores without it', () => {
   const engine = createTestEngine();
-  engine.startCampaignLevel(tutorialLevel.id);
-  engine.dismissTutorial();
+  engine.startCampaignLevel(1);
+  assert.notEqual(engine.activeDiscoveryId, null, 'a new player gets the basics hint');
+  engine.dismissDiscovery();
   engine.hasFiredInRound = true;
   engine.saveRunSnapshot();
 
-  // Restoring rebuilds the level, which shows its tutorial again before the saved fields land.
   const resumed = createTestEngine();
   resumed.storageManager = engine.storageManager;
   assert.equal(resumed.restoreSavedRun(), true);
-  assert.equal(resumed.activeTutorialKey, null);
+  assert.equal(resumed.activeDiscoveryId, null);
 });
