@@ -61,3 +61,17 @@ test('Service worker cache version matches package.json version', () => {
   const source = readFileSync(join(REPO_ROOT, 'sw.js'), 'utf8');
   assert.ok(source.includes(`APP_VERSION = '${pkg.version}'`));
 });
+
+/** Version of the newest released section of CHANGELOG.md, skipping [Unreleased]. */
+function readLatestReleasedVersion() {
+  const changelog = readFileSync(join(REPO_ROOT, 'CHANGELOG.md'), 'utf8');
+  const match = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m);
+  return match ? match[1] : null;
+}
+
+test('package.json version is the newest released CHANGELOG section', () => {
+  // A release bumps package.json, sw.js and the CHANGELOG together; this catches a release
+  // that ships changed assets under the previous version number and cache name.
+  const pkg = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
+  assert.equal(readLatestReleasedVersion(), pkg.version);
+});
