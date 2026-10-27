@@ -42,6 +42,9 @@ export class SpecialBallController {
     if (specialType === SPECIAL_TYPES.FREEZE) {
       return this.triggerFreeze(ball, specs, physicsWorld, particleSystem, audioManager, radiusMultiplier);
     }
+    if (specialType === SPECIAL_TYPES.ROCKET) {
+      return this.triggerRocket(ball, specs, physicsWorld, particleSystem, audioManager, destroyBallFn);
+    }
 
     return { destroyed: [], scoreDelta: 0, freezeTurns: 0 };
   }
@@ -94,6 +97,38 @@ export class SpecialBallController {
   }
 
   /**
+   * A Rocket shot fires a salvo at the hardest targets on the board: special spheres
+   * first (modifiers, then anchors), nearest first within each rank. Each rocket hits like
+   * a blast: armor breaks, and a Boss Core loses one shield.
+   */
+  triggerRocket(ball, specs, physicsWorld, particleSystem, audioManager, destroyBallFn) {
+    if (physicsWorld.ballMap.has(ball.id)) {
+      physicsWorld.removeBall(ball);
+    }
+    const rank = (target) => (target.clusterModifier ? 0 : target.isAnchor ? 1 : 2);
+    const distance = (target) => Math.hypot(target.x - ball.x, target.y - ball.y);
+    const targets = [...physicsWorld.balls]
+      .sort((a, b) => rank(a) - rank(b) || distance(a) - distance(b))
+      .slice(0, specs.rocketCount);
+    const destroyed = [];
+    for (const target of targets) {
+      particleSystem.spawnStreak(ball.x, ball.y, target.x, target.y, specs.highlight);
+      if (destroyBallFn(target, specs.highlight, true, specs.burstCount, specs.burstSpeed)) {
+        destroyed.push(target);
+      }
+    }
+    particleSystem.spawnFloatingText(
+      ball.x,
+      ball.y + this.gameConfig.canvas.floatingTextOffsetY,
+      t('gameplay.feedback.special.rocket'),
+      specs.highlight
+    );
+    particleSystem.addScreenShake(this.gameConfig.juice.bombShake, this.gameConfig.juice.maxShakeOffset);
+    audioManager.playEffect('bomb');
+    return { destroyed, scoreDelta: destroyed.length * specs.pointsPerBall, freezeTurns: 0 };
+  }
+
+  /**
    * An explosion is the only thing that breaks chains without destroying the ball: every
    * chained ball that survives inside the blast loses its chains.
    */
@@ -119,10 +154,15 @@ export class SpecialBallController {
     const painted = [];
     if (color) {
       for (const target of physicsWorld.balls) {
-        if (target.id === ball.id || !target.colorId || target.specialType || target.colorId === color) {
+        const isRust = target.clusterModifier === CLUSTER_MODIFIERS.RUST;
+        if (target.id === ball.id || (!target.colorId && !isRust) || target.specialType || target.colorId === color) {
           continue;
         }
         if (Math.hypot(target.x - ball.x, target.y - ball.y) <= paintRadius) {
+          if (isRust) {
+            // Paint scrubs rust off: the sphere comes back as a plain colored one.
+            target.clusterModifier = null;
+          }
           target.colorId = color;
           physicsWorld.pendingChainCandidateIds.add(target.id);
           painted.push(target);

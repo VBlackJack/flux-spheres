@@ -121,6 +121,18 @@
       "burstCount": 18,
       "burstSpeed": 4.5,
       "pointsPerBall": 110
+    },
+    "rocket": {
+      "id": "rocket",
+      "fill": "#7c2d12",
+      "highlight": "#fb923c",
+      "shadow": "#1c0a03",
+      "glow": "rgba(251, 146, 60, 0.8)",
+      "icon": "🚀",
+      "rocketCount": 3,
+      "burstCount": 12,
+      "burstSpeed": 5,
+      "pointsPerBall": 150
     }
   },
   "clusterModifiers": {
@@ -242,7 +254,37 @@
       "burstCount": 12,
       "burstSpeed": 3.5,
       "pointsPerBall": 30
+    },
+    "thruster": {
+      "id": "thruster",
+      "ringColor": "#f59e0b",
+      "badge": "⏫",
+      "liftFactor": 2.2
+    },
+    "tether": {
+      "id": "tether",
+      "ringColor": "#a78bfa",
+      "badge": "∿",
+      "rangeFactor": 4.6,
+      "restFactor": 4.2,
+      "maxLinks": 2,
+      "arcColor": "#c4b5fd",
+      "arcWidth": 2,
+      "arcSegments": 7,
+      "arcAmplitude": 4
+    },
+    "rust": {
+      "id": "rust",
+      "ringColor": "#b45309",
+      "badge": "⚙"
     }
+  },
+  "rustPalette": {
+    "id": "rust",
+    "fill": "#92400e",
+    "highlight": "#d6a46b",
+    "shadow": "#3b1704",
+    "glow": "rgba(180, 83, 9, 0.4)"
   },
   "neutralPalette": {
     "id": "neutral",
@@ -252,6 +294,9 @@
     "glow": "rgba(148, 163, 184, 0.4)"
   },
   "render": {
+    "railColor": "rgba(148, 163, 184, 0.7)",
+    "railLineWidth": 3,
+    "railStopRadius": 4,
     "gradientOffsetFactor": -0.35,
     "gradientInnerRadiusFactor": 0.12,
     "gradientMidStop": 0.55,

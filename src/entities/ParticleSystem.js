@@ -25,6 +25,7 @@ export class ParticleSystem {
     this.shockwaves = [];
     this.floatingTexts = [];
     this.lightningBolts = [];
+    this.streaks = [];
     this.particlePool = [];
     this.trailPool = [];
     this.shockwavePool = [];
@@ -52,6 +53,7 @@ export class ParticleSystem {
       this.shockwavePool.push(this.shockwaves.pop());
     }
     this.lightningBolts.length = 0;
+    this.streaks.length = 0;
     this.shakeIntensity = 0;
   }
 
@@ -181,6 +183,14 @@ export class ParticleSystem {
     });
   }
 
+  /** A curved rocket trail from a launch point to its target. */
+  spawnStreak(x1, y1, x2, y2, color) {
+    if (this.reducedMotion) {
+      return;
+    }
+    this.streaks.push({ x1, y1, x2, y2, color, alpha: 1.0 });
+  }
+
   spawnFloatingText(x, y, text, color = this.cfg.floatingTextDefaultColor) {
     const item = this.textPool.pop() || {};
     item.x = x;
@@ -241,6 +251,14 @@ export class ParticleSystem {
       bolt.alpha -= cfg.lightningAlphaDecay;
       if (bolt.alpha <= 0) {
         this.removeAt(this.lightningBolts, i);
+      }
+    }
+
+    for (let i = this.streaks.length - 1; i >= 0; i--) {
+      const streak = this.streaks[i];
+      streak.alpha -= cfg.streakAlphaDecay;
+      if (streak.alpha <= 0) {
+        this.removeAt(this.streaks, i);
       }
     }
 

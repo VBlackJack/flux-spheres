@@ -291,6 +291,116 @@ test('Each chain link gets one metal link drawn over the touching spheres', () =
   assert.equal(ellipses, 2 * strokesPerLink, 'two chain links (one per neighbor), each drawn as a shadow then a metal ring');
 });
 
+test('A rail anchor slides toward the weight it holds and stays on its rail', () => {
+  const board = createEmptyBoard();
+  const world = board.physicsWorld;
+  const railHalfWidth = REST_DISTANCE * 2;
+  const anchor = addBall(board, CENTER_X, TOP_Y, {
+    isAnchor: true,
+    railMinX: CENTER_X - railHalfWidth,
+    railMaxX: CENTER_X + railHalfWidth
+  });
+  // The held sphere hangs off to the right, as if the left side had been cleared.
+  const held = addBall(board, CENTER_X + REST_DISTANCE * 1.5, TOP_Y + REST_DISTANCE, { colorId: COLOR_B });
+  world.createBond(anchor, held, false);
+  board.hasFiredInRound = true;
+  const steps = 200;
+  for (let i = 0; i < steps; i++) {
+    board.update();
+  }
+  assert.ok(anchor.anchorX > CENTER_X, 'the anchor slid toward the weight');
+  assert.ok(anchor.anchorX <= anchor.railMaxX && anchor.anchorX >= anchor.railMinX, 'the anchor stays on its rail');
+  assert.ok(Math.abs(anchor.y - TOP_Y) < 1, 'a rail is horizontal');
+});
+
+test('A thruster lifts the sphere it sits in against gravity', () => {
+  const heights = [];
+  for (const clusterModifier of [null, CLUSTER_MODIFIERS.THRUSTER]) {
+    const board = createEmptyBoard();
+    const anchor = addBall(board, CENTER_X, TOP_Y, { isAnchor: true });
+    const hanging = addBall(board, CENTER_X, TOP_Y + REST_DISTANCE, { colorId: COLOR_B, clusterModifier });
+    board.physicsWorld.createBond(anchor, hanging, false);
+    board.hasFiredInRound = true;
+    const steps = 120;
+    for (let i = 0; i < steps; i++) {
+      board.update();
+    }
+    heights.push(hanging.y);
+  }
+  assert.ok(heights[1] < heights[0], 'the thruster sphere rides higher than a plain one');
+});
+
+test('A tether binds distant spheres with long links that never snap or carry a color group', () => {
+  const board = createEmptyBoard();
+  const world = board.physicsWorld;
+  const tetherSpec = ballsConfig.clusterModifiers.tether;
+  const anchor = addBall(board, CENTER_X, TOP_Y, { isAnchor: true, colorId: COLOR_B });
+  const tetherBall = addBall(board, CENTER_X, TOP_Y + REST_DISTANCE, { clusterModifier: CLUSTER_MODIFIERS.TETHER });
+  const distant = addBall(board, CENTER_X + RADIUS * tetherSpec.rangeFactor * 0.9, TOP_Y + REST_DISTANCE, { colorId: COLOR_A });
+  const outOfRange = addBall(board, CENTER_X - RADIUS * tetherSpec.rangeFactor * 1.5, TOP_Y + REST_DISTANCE);
+  world.rebuildInitialBonds();
+  assert.ok(tetherBall.tethers.has(distant.id) && distant.tethers.has(tetherBall.id));
+  assert.ok(!tetherBall.tethers.has(outOfRange.id));
+  assert.ok(world.getAnchoredBallIds().has(distant.id), 'a tether holds the distant sphere up');
+  assert.ok(!world.findColorCluster(tetherBall).includes(distant), 'a tether never joins a color group');
+
+  world.allowTensionBreak = true;
+  board.hasFiredInRound = true;
+  board.update();
+  assert.ok(tetherBall.bonds.has(distant.id), 'a stretched tether does not snap');
+
+  board.destroyClusterBall(tetherBall, COLOR_A, true);
+  assert.equal(distant.tethers.size, 0, 'destroying the tether sphere frees its links');
+});
+
+test('Rust is colorless, never joins a group, and paint turns it back into a colored sphere', () => {
+  const board = createEmptyBoard();
+  const { row } = addHangingRow(board, [COLOR_A, COLOR_A, COLOR_A]);
+  const rusty = board.createClusterBall({ x: row[2].x + REST_DISTANCE, y: TOP_Y, radius: RADIUS, clusterModifier: CLUSTER_MODIFIERS.RUST });
+  board.physicsWorld.addBall(rusty);
+  board.physicsWorld.createBond(row[2], rusty, false);
+  assert.equal(rusty.colorId, null);
+  assert.ok(!board.physicsWorld.findColorCluster(row[0]).includes(rusty));
+
+  row[2].clusterModifier = CLUSTER_MODIFIERS.PAINT_CORE;
+  board.destroyClusterBall(row[2], COLOR_A, false);
+  assert.equal(rusty.clusterModifier, null, 'paint scrubbed the rust off');
+  assert.equal(rusty.colorId, COLOR_A);
+});
+
+test('A neutral anchor holding only rust crumbles and lets the rust fall', () => {
+  const board = createEmptyBoard();
+  const anchor = addBall(board, CENTER_X, TOP_Y, { isAnchor: true, colorId: null, clusterModifier: CLUSTER_MODIFIERS.NEUTRAL_ANCHOR });
+  const rusty = addBall(board, CENTER_X, TOP_Y + REST_DISTANCE, { colorId: null, clusterModifier: CLUSTER_MODIFIERS.RUST });
+  board.physicsWorld.createBond(anchor, rusty, false);
+  addBall(board, CENTER_X + REST_DISTANCE * 4, TOP_Y, { isAnchor: true });
+  board.detachAndRewardAvalanche();
+  board.detachAndRewardAvalanche();
+  assert.equal(board.physicsWorld.ballMap.has(anchor.id), false);
+  assert.equal(board.physicsWorld.ballMap.has(rusty.id), false, 'the rust fell once its anchor crumbled');
+});
+
+test('A Rocket shot hits the hardest targets first and cracks a Boss Core shield', () => {
+  const board = createEmptyBoard();
+  const rocketSpec = ballsConfig.specialTypes.rocket;
+  const plain = addBall(board, CENTER_X, TOP_Y + REST_DISTANCE);
+  const boss = addBall(board, CENTER_X + REST_DISTANCE * 3, TOP_Y, { clusterModifier: CLUSTER_MODIFIERS.BOSS_CORE, armorHits: 3 });
+  const rusty = addBall(board, CENTER_X - REST_DISTANCE * 3, TOP_Y, { colorId: null, clusterModifier: CLUSTER_MODIFIERS.RUST });
+  const anchor = addBall(board, CENTER_X + REST_DISTANCE * 5, TOP_Y, { isAnchor: true });
+  const extra = Array.from({ length: rocketSpec.rocketCount }, (_, i) => addBall(board, CENTER_X - REST_DISTANCE * (i + 1), TOP_Y + REST_DISTANCE * 3));
+  const rocket = addBall(board, CENTER_X, TOP_Y + REST_DISTANCE * 2, { colorId: null, specialType: 'rocket' });
+
+  // The impact alone: the turn cleanup would also drop these unbonded test spheres.
+  board.specialController.resolveSpecialImpact(rocket, board.physicsWorld, board.particleSystem, board.audioManager, 1, (target, color, ignoreArmor, count, speed) =>
+    board.destroyClusterBall(target, color, ignoreArmor, count, speed)
+  );
+  const gone = (ball) => !board.physicsWorld.ballMap.has(ball.id);
+  assert.ok(gone(rusty), 'spheres with a modifier are hit first');
+  assert.equal(boss.armorHits, 2, 'a rocket cracks one Boss Core shield, like a blast');
+  assert.ok(gone(anchor), 'then anchors');
+  assert.ok(!gone(plain) && extra.every((ball) => !gone(ball)), `only ${rocketSpec.rocketCount} rockets fly`);
+});
+
 test('A guaranteed armored ball gets its armor like a rolled one', () => {
   const engine = createEmptyBoard();
   const ball = addBall(engine, CENTER_X, TOP_Y);

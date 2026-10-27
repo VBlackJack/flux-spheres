@@ -20,7 +20,8 @@
     "lightning": 1,
     "rainbow": 1,
     "anvil": 0,
-    "freeze": 1
+    "freeze": 1,
+    "rocket": 0
   },
   "bossStageInterval": 5,
   "difficultyRampStages": 12,
@@ -40,7 +41,8 @@
     { "fromStage": 3, "weights": { "coinCore": 0.06, "armored": 0.06 } },
     { "fromStage": 6, "weights": { "coinCore": 0.05, "armored": 0.07, "chameleon": 0.05, "dormantBomb": 0.05 } },
     { "fromStage": 8, "weights": { "coinCore": 0.05, "armored": 0.06, "chameleon": 0.04, "dormantBomb": 0.05, "bubble": 0.06, "chained": 0.05 } },
-    { "fromStage": 11, "weights": { "coinCore": 0.05, "armored": 0.05, "chameleon": 0.04, "dormantBomb": 0.04, "bubble": 0.05, "chained": 0.05, "freezeCore": 0.03, "lightningCore": 0.03, "paintCore": 0.03 } }
+    { "fromStage": 11, "weights": { "coinCore": 0.05, "armored": 0.05, "chameleon": 0.04, "dormantBomb": 0.04, "bubble": 0.05, "chained": 0.05, "freezeCore": 0.03, "lightningCore": 0.03, "paintCore": 0.03 } },
+    { "fromStage": 14, "weights": { "coinCore": 0.05, "armored": 0.05, "chameleon": 0.03, "dormantBomb": 0.04, "bubble": 0.05, "chained": 0.04, "freezeCore": 0.03, "lightningCore": 0.03, "paintCore": 0.03, "thruster": 0.03, "tether": 0.03, "rust": 0.04 } }
   ],
   "rotor": {
     "baseAngularSpeed": 0.004,

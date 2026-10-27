@@ -74,7 +74,8 @@ export const SPECIAL_TYPES = Object.freeze({
   LIGHTNING: 'lightning',
   RAINBOW: 'rainbow',
   ANVIL: 'anvil',
-  FREEZE: 'freeze'
+  FREEZE: 'freeze',
+  ROCKET: 'rocket'
 });
 
 export const SPECIAL_TYPES_ORDER = Object.freeze([
@@ -82,7 +83,8 @@ export const SPECIAL_TYPES_ORDER = Object.freeze([
   SPECIAL_TYPES.LIGHTNING,
   SPECIAL_TYPES.RAINBOW,
   SPECIAL_TYPES.ANVIL,
-  SPECIAL_TYPES.FREEZE
+  SPECIAL_TYPES.FREEZE,
+  SPECIAL_TYPES.ROCKET
 ]);
 
 export const CLUSTER_MODIFIERS = Object.freeze({
@@ -97,7 +99,10 @@ export const CLUSTER_MODIFIERS = Object.freeze({
   BUBBLE: 'bubble',
   FREEZE_CORE: 'freezeCore',
   LIGHTNING_CORE: 'lightningCore',
-  PAINT_CORE: 'paintCore'
+  PAINT_CORE: 'paintCore',
+  THRUSTER: 'thruster',
+  TETHER: 'tether',
+  RUST: 'rust'
 });
 
 export const OBSTACLE_TYPES = Object.freeze({

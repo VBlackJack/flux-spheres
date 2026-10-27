@@ -10,6 +10,8 @@
     "wallRestitution": 0.96
   },
   "simulation": {
+    "railStiffness": 0.3,
+    "railDamping": 0.9,
     "fixedStepMs": 16.6667,
     "maxAccumulatedMs": 100.0,
     "substeps": 3,

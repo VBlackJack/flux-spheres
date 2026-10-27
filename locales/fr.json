@@ -140,6 +140,10 @@
         "name": "Cryo",
         "tooltip": "Gèle la descente et stabilise l'amas magnétique"
       },
+      "rocket": {
+        "name": "Fusée",
+        "tooltip": "Tire trois fusées à tête chercheuse sur les sphères les plus coriaces"
+      },
       "button": {
         "aria": "{{name}} : {{count}} en stock"
       }
@@ -207,7 +211,8 @@
         "lightning": "DÉCHARGE ÉLECTRIQUE !",
         "rainbow": "RÉSONANCE PRISMATIQUE !",
         "anvil": "IMPACT LOURD !",
-        "freeze": "CHAMP CRYOGÉNIQUE !"
+        "freeze": "CHAMP CRYOGÉNIQUE !",
+        "rocket": "SALVE DE FUSÉES !"
       },
       "wave": {
         "incoming": "Nouvelle rangée magnétique !",
@@ -271,7 +276,11 @@
       "neutralAnchor": "Les ancres grises (⚓) ne cassent jamais dans un groupe : coupez les sphères autour, elles s'effritent dès que plus rien n'y pend !",
       "chained": "Les sphères enchaînées (⛓) ne cèdent jamais à l'étirement : faites-les sauter à la bombe, ou détruisez les sphères qu'elles retiennent !",
       "bubble": "Les sphères en bulle (◌) ne rejoignent aucun groupe : touchez-les, ou videz un groupe à côté, pour faire éclater la bulle !",
-      "cores": "Les coeurs colorés se déclenchent quand leur groupe est détruit : ❄ gèle, ⚡ foudroie la rangée, 🎨 repeint les voisines !"
+      "cores": "Les coeurs colorés se déclenchent quand leur groupe est détruit : ❄ gèle, ⚡ foudroie la rangée, 🎨 repeint les voisines !",
+      "rail": "Les ancres sur rail glissent le long de leur piste : videz un côté et le poids de l'autre entraîne l'ancre !",
+      "thruster": "Les propulseurs (⏫) poussent leur amas vers le haut : détruisez-les et l'amas s'affaisse vers la ligne de danger !",
+      "tether": "Les sphères amarres (∿) retiennent des sphères éloignées par de longs liens incassables : coupez la sphère amarre pour les faire tomber !",
+      "rust": "La rouille (⚙) bloque tous les groupes : faites-la sauter, tomber, ou repeignez-la. Les fusées (🚀) visent les cibles les plus coriaces !"
     }
   },
   "modals": {
@@ -361,6 +370,18 @@
           "paintCore": {
             "name": "Coeur de Peinture",
             "description": "Repeint les sphères voisines dans sa couleur quand il est détruit, et prépare de nouveaux groupes."
+          },
+          "thruster": {
+            "name": "Sphère Propulseur",
+            "description": "Pousse vers le haut contre la gravité, et éloigne de la ligne de danger les sphères qui lui sont liées."
+          },
+          "tether": {
+            "name": "Sphère Amarre",
+            "description": "Se lie à des sphères plus éloignées par de longs liens qui ne cassent jamais. Ces liens tiennent le poids mais ne forment jamais de groupe."
+          },
+          "rust": {
+            "name": "Sphère Rouillée",
+            "description": "Sans couleur et inerte : elle ne rejoint aucun groupe. Explosions, fusées, enclume et avalanches l'enlèvent, et un Coeur de Peinture lui rend une couleur."
           }
         },
         "obstacles": {
@@ -510,7 +531,7 @@
           "pointer": "Annuler un tir : relâchez le clic sous le lanceur",
           "touch": "Annuler un tir : ramenez le doigt sous le lanceur avant de relâcher"
         },
-        "keyboard": "Clavier : Flèches pour viser, Entrée pour tirer, F pour inverser la polarité, 1-5 pour les billes spéciales",
+        "keyboard": "Clavier : Flèches pour viser, Entrée pour tirer, F pour inverser la polarité, 1-6 pour les billes spéciales",
         "physics": "Astuce : Détachez les ancres ou déséquilibrez les rotors pour créer des réactions en chaîne !"
       },
       "button": {
@@ -610,6 +631,22 @@
       "lvl20": {
         "name": "Réacteur à Coeurs",
         "description": "Les coeurs de givre, de foudre et de peinture changent un seul groupe en réaction en chaîne."
+      },
+      "lvl21": {
+        "name": "Rails Glissants",
+        "description": "Deux ancres roulent sur des rails : déséquilibrez l'amas pour les entraîner."
+      },
+      "lvl22": {
+        "name": "Décollage",
+        "description": "Des propulseurs tiennent l'amas en hauteur. Abattez-les pour le ramener à portée."
+      },
+      "lvl23": {
+        "name": "Longues Amarres",
+        "description": "De longs liens enjambent les vides. Trouvez la sphère qui les retient tous."
+      },
+      "lvl24": {
+        "name": "Ceinture de Rouille",
+        "description": "La rouille étouffe chaque groupe. Prévoyez fusées, bombes et peinture."
       }
     }
   }

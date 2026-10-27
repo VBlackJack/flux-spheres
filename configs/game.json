@@ -107,7 +107,8 @@
     "lightning": 30,
     "rainbow": 25,
     "anvil": 35,
-    "freeze": 20
+    "freeze": 20,
+    "rocket": 40
   },
   "juice": {
     "shakeDecay": 0.86,
@@ -159,6 +160,9 @@
       "lightningBranches": 3,
       "lightningBranchLength": 26,
       "lightningAlphaDecay": 0.06,
+      "streakAlphaDecay": 0.05,
+      "streakLineWidth": 3,
+      "streakCurveFactor": 0.25,
       "lightningLineWidth": 4,
       "lightningBranchLineWidth": 2,
       "lightningBranchMinPad": 2,
@@ -187,7 +191,8 @@
       "lightning": 1,
       "rainbow": 2,
       "anvil": 1,
-      "freeze": 2
+      "freeze": 2,
+      "rocket": 1
     },
     "modifierWeights": {
       "armored": 0.045,
@@ -198,7 +203,10 @@
       "chained": 0.025,
       "freezeCore": 0.015,
       "lightningCore": 0.015,
-      "paintCore": 0.015
+      "paintCore": 0.015,
+      "thruster": 0.015,
+      "tether": 0.015,
+      "rust": 0.02
     },
     "goldRushWaveInterval": 3,
     "goldRushCoinCoreCount": 3,

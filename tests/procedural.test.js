@@ -76,7 +76,11 @@ const CAMPAIGN_LAYOUT_COUNTS = {
   17: 49,
   18: 32,
   19: 57,
-  20: 54
+  20: 54,
+  21: 42,
+  22: 57,
+  23: 57,
+  24: 57
 };
 
 const createTestStorage = () => {
