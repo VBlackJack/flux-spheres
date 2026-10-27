@@ -26,6 +26,7 @@ import {
 } from '../core/Constants.js';
 import { i18n, t, formatNumber } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
+import { resolveHintText } from '../game/Discovery.js';
 
 /** Elements a modal focus trap may cycle through (inactive tabs use tabindex="-1"). */
 export const MODAL_FOCUSABLE_SELECTOR =
@@ -316,6 +317,7 @@ export class UIManager {
       btnPatterns: document.getElementById('btn-patterns'),
       btnTilt: document.getElementById('btn-tilt'),
       btnMotion: document.getElementById('btn-motion'),
+      btnResetHints: document.getElementById('btn-reset-hints'),
       btnLang: document.getElementById('btn-lang'),
       swapBtn: document.getElementById('btn-swap-ball'),
       polarityBtn: document.getElementById('btn-polarity'),
@@ -871,9 +873,16 @@ export class UIManager {
       });
     }
 
+    if (this.elements.btnResetHints) {
+      this.elements.btnResetHints.addEventListener('click', () => {
+        this.engine.resetDiscoveries();
+        this.announce(t('hud.announcer.hints.reset'));
+      });
+    }
+
     if (this.elements.btnDismissTutorial) {
       this.elements.btnDismissTutorial.addEventListener('click', () => {
-        this.engine.dismissTutorial();
+        this.engine.dismissDiscovery();
       });
     }
 
@@ -2157,11 +2166,14 @@ export class UIManager {
     // Both banners are polite live regions: rewriting identical text on every
     // engine event would make screen readers repeat them.
     if (this.elements.tutorialBanner) {
-      if (engine.activeTutorialKey && engine.state === GAME_STATES.PLAYING) {
+      const hintText = engine.activeDiscoveryId
+        ? resolveHintText(engine.activeDiscoveryId, this.gameConfig.onboarding, this.ballsConfig, t)
+        : '';
+      if (hintText && engine.state === GAME_STATES.PLAYING) {
         revealLiveRegion({
           region: this.elements.tutorialBanner,
           textElement: this.elements.tutorialBannerText,
-          text: t(engine.activeTutorialKey),
+          text: hintText,
           schedule: scheduleNextFrame
         });
       } else {

@@ -303,6 +303,36 @@ export class StorageManager {
     return true;
   }
 
+  /** True once discoveries have been written, even as an empty set. */
+  hasDiscoveries() {
+    return this.safeGetItem(this.storageConfig.keys.discoveries) !== null;
+  }
+
+  /** Mechanics whose first-encounter hint the player has already been shown. */
+  getDiscoveries() {
+    const parsed = this.readJsonObject(this.storageConfig.keys.discoveries);
+    const seen = {};
+    for (const [mechanicId, value] of Object.entries(parsed)) {
+      if (value === true) {
+        seen[mechanicId] = true;
+      }
+    }
+    return seen;
+  }
+
+  /** @param {string[]} mechanicIds - Mechanics to record as discovered. */
+  markDiscovered(mechanicIds) {
+    const seen = this.getDiscoveries();
+    for (const mechanicId of mechanicIds) {
+      seen[mechanicId] = true;
+    }
+    this.safeSetItem(this.storageConfig.keys.discoveries, JSON.stringify(seen));
+  }
+
+  resetDiscoveries() {
+    this.safeSetItem(this.storageConfig.keys.discoveries, JSON.stringify({}));
+  }
+
   getEndlessHighScore() {
     const raw = this.safeGetItem(this.storageConfig.keys.endlessHighScore);
     const parsed = Number.parseInt(raw, 10);

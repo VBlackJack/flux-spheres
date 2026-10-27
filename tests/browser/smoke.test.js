@@ -256,13 +256,13 @@ describe('end of round (desktop)', () => {
     }
   });
 
-  test('a run saved after its tutorial was dismissed resumes, paused, after a reload', async () => {
+  test('a run saved after its discovery hint was dismissed resumes, paused, after a reload', async () => {
     const { context, page, errors } = await openGame(desktop);
     try {
       await startLevelOne(page);
       await page.evaluate(() => {
         const engine = window.__fluxEngine;
-        engine.dismissTutorial();
+        engine.dismissDiscovery();
         engine.hasFiredInRound = true;
         engine.score = 1234;
         engine.saveRunSnapshot();

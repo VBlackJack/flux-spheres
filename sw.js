@@ -52,6 +52,7 @@ const PRECACHE_ASSETS = [
   './src/game/GameLoop.js',
   './src/game/Renderer.js',
   './src/game/RunSnapshot.js',
+  './src/game/Discovery.js',
   './src/game/SpecialBallController.js',
   './src/game/layouts/FluxStageGenerator.js',
   './src/game/layouts/LayoutGenerators.js',

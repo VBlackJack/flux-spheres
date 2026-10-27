@@ -125,6 +125,15 @@ export const OBSTACLE_TYPES_ORDER = Object.freeze([
   OBSTACLE_TYPES.SINGULARITY
 ]);
 
+/**
+ * Discoverable mechanics that are neither a cluster modifier nor an obstacle type: the
+ * basic rules every board shows, and anchors sliding on a rail.
+ */
+export const BOARD_MECHANICS = Object.freeze({
+  BASICS: 'basics',
+  RAIL: 'rail'
+});
+
 export const LAYOUT_TYPES = Object.freeze({
   PENDULUM: 'pendulum',
   RING: 'ring',
