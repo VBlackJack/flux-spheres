@@ -1036,12 +1036,30 @@ export class GameEngine {
       return;
     }
     const present = listBoardMechanics(this.physicsWorld.balls, this.physicsWorld.obstacles);
-    const next = pickNextDiscovery(present, this.storageManager.getDiscoveries(), onboarding.order);
+    const next = pickNextDiscovery(
+      present,
+      this.storageManager.getDiscoveries(),
+      onboarding.order,
+      this.listCurrentLevelMechanics()
+    );
     this.activeDiscoveryId = next;
     this.discoveryTurnCount = 0;
     if (next) {
       this.storageManager.markDiscovered(listMechanicsSharingHint(next, onboarding.mechanics));
     }
+  }
+
+  /**
+   * Mechanics the campaign level being played always shows, explained before the rest so a
+   * player who opens a level directly first learns what the level is built around.
+   * @returns {Set<string>} Mechanic ids; empty outside the campaign.
+   */
+  listCurrentLevelMechanics() {
+    if (this.mode !== GAME_MODES.CAMPAIGN) {
+      return new Set();
+    }
+    const levelDef = this.levelsConfig.levels.find((l) => l.id === this.currentLevelId);
+    return levelDef ? listLevelMechanics(levelDef, { guaranteedOnly: true }) : new Set();
   }
 
   /**

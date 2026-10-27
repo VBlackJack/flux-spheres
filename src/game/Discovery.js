@@ -85,14 +85,17 @@ export function listLevelMechanics(levelDef, { guaranteedOnly = false } = {}) {
 }
 
 /**
- * The first mechanic of the discovery order that is present and not met yet.
+ * The first mechanic of the discovery order that is present and not met yet. Prioritized
+ * mechanics, such as the ones a campaign level is built around, go before the others.
  * @param {Set<string>} present - Mechanics on the board.
  * @param {Object<string, boolean>} seen - Mechanics already discovered.
  * @param {string[]} order - Discovery priority.
+ * @param {Set<string>} [prioritized] - Mechanics to explain first, still in discovery order.
  * @returns {?string} Mechanic id, or null when everything present is known.
  */
-export function pickNextDiscovery(present, seen, order) {
-  return order.find((id) => present.has(id) && !seen[id]) || null;
+export function pickNextDiscovery(present, seen, order, prioritized = new Set()) {
+  const isNew = (id) => present.has(id) && !seen[id];
+  return order.find((id) => prioritized.has(id) && isNew(id)) || order.find(isNew) || null;
 }
 
 /**

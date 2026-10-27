@@ -217,6 +217,23 @@ test('A mechanic met before its campaign level is explained where it appears', (
   assert.equal(engine.activeDiscoveryId, expected);
 });
 
+test('A player who opens a level directly first learns what that level guarantees', () => {
+  for (const level of levels) {
+    const engine = createTestEngine();
+    engine.storageManager.markDiscovered([BOARD_MECHANICS.BASICS]);
+    engine.startCampaignLevel(level.id);
+    const guaranteed = listLevelMechanics(level, { guaranteedOnly: true });
+    guaranteed.delete(BOARD_MECHANICS.BASICS);
+    if (guaranteed.size > 0) {
+      assert.ok(guaranteed.has(engine.activeDiscoveryId), `level ${level.id} opens on ${engine.activeDiscoveryId}`);
+    }
+  }
+  const engine = createTestEngine();
+  engine.storageManager.markDiscovered([BOARD_MECHANICS.BASICS]);
+  engine.startCampaignLevel(3);
+  assert.equal(engine.activeDiscoveryId, OBSTACLE_TYPES.BUMPER, 'level 3 explains its bumpers first');
+});
+
 test('Survival boards trigger discovery hints too', () => {
   const engine = createTestEngine();
   engine.startEndlessMode();
