@@ -25,10 +25,11 @@ import { GameEngine } from '../src/game/GameEngine.js';
 import { Renderer, buildResolutionQuery } from '../src/game/Renderer.js';
 import { createGameLoop } from '../src/game/GameLoop.js';
 import { GAME_STATES } from '../src/core/Constants.js';
+import { applyWorldGeometry } from '../src/core/WorldGeometry.js';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
-const gameConfig = loadJson('./configs/game.json');
+const gameConfig = applyWorldGeometry(loadJson('./configs/game.json'));
 const physicsConfig = loadJson('./configs/physics.json');
 const ballsConfig = loadJson('./configs/balls.json');
 const obstaclesConfig = loadJson('./configs/obstacles.json');

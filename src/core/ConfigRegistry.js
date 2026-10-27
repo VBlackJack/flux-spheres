@@ -15,6 +15,7 @@
  */
 
 import { CONFIG_PATHS, DATA_FETCH_OPTIONS } from './Constants.js';
+import { applyWorldGeometry } from './WorldGeometry.js';
 
 /**
  * Settings that must be strictly positive numbers: zero or a negative value would loop
@@ -64,6 +65,7 @@ class ConfigRegistry {
       this.configs.set(key, data);
     }
     validateConfigs(this.configs);
+    applyWorldGeometry(this.configs.get('game'));
     this.loaded = true;
   }
 

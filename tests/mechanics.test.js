@@ -26,10 +26,11 @@ import { Renderer } from '../src/game/Renderer.js';
 import { SeededRandom } from '../src/core/SeededRandom.js';
 import { generateLayout, MASK_CELLS } from '../src/game/layouts/LayoutGenerators.js';
 import { CLUSTER_MODIFIERS, LAYOUT_TYPES } from '../src/core/Constants.js';
+import { applyWorldGeometry } from '../src/core/WorldGeometry.js';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
-const gameConfig = loadJson('./configs/game.json');
+const gameConfig = applyWorldGeometry(loadJson('./configs/game.json'));
 const physicsConfig = loadJson('./configs/physics.json');
 const ballsConfig = loadJson('./configs/balls.json');
 const obstaclesConfig = loadJson('./configs/obstacles.json');

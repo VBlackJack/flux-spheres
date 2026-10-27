@@ -35,6 +35,7 @@ import { SpecialBallController } from './SpecialBallController.js';
 import { captureRunSnapshot, isValidRunSnapshot, applyRunSnapshot, isRunSnapshotable } from './RunSnapshot.js';
 import { generateLayout, NO_PIVOT_SLOT } from './layouts/LayoutGenerators.js';
 import { generateFluxStage } from './layouts/FluxStageGenerator.js';
+import { shiftObstacleDefsX, shiftSpecX } from '../core/WorldGeometry.js';
 import {
   listBoardMechanics,
   listLevelMechanics,
@@ -489,7 +490,7 @@ export class GameEngine {
     this.physicsWorld.clear();
     this.particleSystem.clear();
 
-    for (const obsDef of levelDef.obstacles) {
+    for (const obsDef of shiftObstacleDefsX(levelDef.obstacles, this.gameConfig.canvas.contentOffsetX)) {
       const obs = new Obstacle(obsDef, this.obstaclesConfig);
       this.physicsWorld.obstacles.push(obs);
     }
@@ -609,10 +610,11 @@ export class GameEngine {
     this.activePalette = this.ballsConfig.standardColors
       .slice(0, stageDef.paletteCount)
       .map((c) => c.id);
-    for (const obsDef of stageDef.obstacles) {
+    const contentOffsetX = this.gameConfig.canvas.contentOffsetX;
+    for (const obsDef of shiftObstacleDefsX(stageDef.obstacles, contentOffsetX)) {
       this.physicsWorld.obstacles.push(new Obstacle(obsDef, this.obstaclesConfig));
     }
-    const balls = this.materializeLayout(stageDef.spec, stageDef.modifierWeights);
+    const balls = this.materializeLayout(shiftSpecX(stageDef.spec, contentOffsetX), stageDef.modifierWeights);
     if (stageDef.bossBallIndex !== null) {
       const bossBall = balls[stageDef.bossBallIndex];
       bossBall.clusterModifier = CLUSTER_MODIFIERS.BOSS_CORE;
@@ -839,7 +841,8 @@ export class GameEngine {
   }
 
   buildLevelLayout(layout, modifierWeights = {}, minModifierCounts = {}) {
-    this.materializeLayout(generateLayout(layout), modifierWeights, minModifierCounts);
+    const spec = shiftSpecX(generateLayout(layout), this.gameConfig.canvas.contentOffsetX);
+    this.materializeLayout(spec, modifierWeights, minModifierCounts);
   }
 
   /**
