@@ -1094,8 +1094,8 @@ export class UIManager {
       } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
         e.preventDefault();
         const step = e.shiftKey
-          ? this.gameConfig.canvas.keyboardAimFastStepRad
-          : this.gameConfig.canvas.keyboardAimStepRad;
+          ? this.gameConfig.canvas.keyboardAimStepRad
+          : this.gameConfig.canvas.keyboardAimFineStepRad;
         const dir = e.code === 'ArrowLeft' ? -1 : 1;
         this.engine.adjustAimByDelta(dir * step);
         this.updateAimState(this.engine);

@@ -100,6 +100,8 @@ export class GameEngine {
     this.discoveryTurnCount = 0;
     this.levelTutorialKey = null;
     this.isAimCancelled = false;
+    this.isAimLocked = false;
+    this.aimLockOrigin = null;
     this.isPolarityFlipped = false;
     this.activeMutatorKey = null;
     this.dailySeedKey = null;
@@ -316,6 +318,8 @@ export class GameEngine {
     this.discoveryTurnCount = 0;
     this.levelTutorialKey = null;
     this.isAimCancelled = false;
+    this.isAimLocked = false;
+    this.aimLockOrigin = null;
     this.isPolarityFlipped = false;
     this.activeMutatorKey = null;
     this.dailySeedKey = null;
@@ -1159,14 +1163,51 @@ export class GameEngine {
     this.notifyUI();
   }
 
+  /**
+   * Turns the aim by a keyboard step and locks it against small mouse movements, so a
+   * fine adjustment survives a hand resting on the mouse (see followPointer).
+   * @param {number} deltaRad - Signed angle step.
+   */
   adjustAimByDelta(deltaRad) {
     if (this.state !== GAME_STATES.PLAYING) {
       return;
     }
     this.isAimCancelled = false;
+    this.isAimLocked = true;
+    this.aimLockOrigin = null;
     const canvasCfg = this.gameConfig.canvas;
     const clamped = Math.max(-canvasCfg.maxAimAngleRad, Math.min(-canvasCfg.minAimAngleRad, this.aimAngle + deltaRad));
     this.updateAimFromAngle(clamped);
+  }
+
+  /**
+   * Whether a mouse position should drive the aim. After a keyboard adjustment the aim
+   * stays put until the pointer travels farther than canvas.pointerAimUnlockDistance from
+   * where it was first seen; the lock then lifts and the pointer drives the aim again.
+   * @param {number} x - Pointer position in logical coordinates.
+   * @param {number} y - Pointer position in logical coordinates.
+   * @returns {boolean} True when the caller should aim at the pointer.
+   */
+  followPointer(x, y) {
+    if (!this.isAimLocked) {
+      return true;
+    }
+    if (!this.aimLockOrigin) {
+      this.aimLockOrigin = { x, y };
+      return false;
+    }
+    const travel = Math.hypot(x - this.aimLockOrigin.x, y - this.aimLockOrigin.y);
+    if (travel <= this.gameConfig.canvas.pointerAimUnlockDistance) {
+      return false;
+    }
+    this.releaseAimLock();
+    return true;
+  }
+
+  /** Hands the aim back to the pointer, as a touch or a long mouse movement does. */
+  releaseAimLock() {
+    this.isAimLocked = false;
+    this.aimLockOrigin = null;
   }
 
   updateAim(targetX, targetY) {

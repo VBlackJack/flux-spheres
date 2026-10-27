@@ -179,7 +179,7 @@
     "canvas": {
       "aria": {
         "label": {
-          "pointer": "Plateau de jeu. Visez à la souris ou avec les flèches gauche/droite, tirez d'un clic ou avec Entrée, échangez avec Espace.",
+          "pointer": "Plateau de jeu. Visez à la souris, puis affinez avec les flèches gauche/droite (Maj pour aller plus vite), tirez d'un clic ou avec Entrée, échangez avec Espace.",
           "touch": "Plateau de jeu. Glissez sur le plateau pour viser, relâchez pour tirer, touchez le lanceur pour échanger."
         }
       }
@@ -569,7 +569,7 @@
           "pointer": "Annuler un tir : relâchez le clic sous le lanceur",
           "touch": "Annuler un tir : ramenez le doigt sous le lanceur avant de relâcher"
         },
-        "keyboard": "Clavier : Flèches pour viser, Entrée pour tirer, F pour inverser la polarité, 1-6 pour les billes spéciales",
+        "keyboard": "Clavier : Flèches pour affiner la visée (Maj : plus vite), Entrée pour tirer, F pour inverser la polarité, 1-6 pour les billes spéciales",
         "physics": "Astuce : Détachez les ancres ou déséquilibrez les rotors pour créer des réactions en chaîne !"
       },
       "button": {

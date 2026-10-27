@@ -228,6 +228,53 @@ for (const viewport of VIEWPORTS) {
   });
 }
 
+describe('precise aim (desktop)', () => {
+  const desktop = VIEWPORTS[0];
+  /** Small mouse movement that must not undo a keyboard adjustment, in CSS pixels. */
+  const MOUSE_TREMOR_PX = 4;
+  /** Mouse movement that must hand the aim back to the pointer, in CSS pixels. */
+  const MOUSE_SWEEP_PX = 120;
+  const ANGLE_TOLERANCE_RAD = 1e-6;
+
+  test('arrows fine-tune the aim, a mouse tremor keeps it, and a click shoots along it', async () => {
+    const { context, page, errors } = await openGame(desktop);
+    try {
+      await startLevelOne(page);
+      await page.evaluate(() => window.__fluxEngine.dismissDiscovery());
+      const box = await page.locator('#game-canvas').boundingBox();
+      const aimX = box.x + box.width / 2;
+      const aimY = box.y + box.height * 0.4;
+      await page.mouse.move(aimX, aimY);
+      const before = await page.evaluate(() => window.__fluxEngine.aimAngle);
+
+      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press('ArrowRight');
+      const tuned = await page.evaluate(() => window.__fluxEngine.aimAngle);
+      const fineStep = await page.evaluate(() => window.__fluxEngine.gameConfig.canvas.keyboardAimFineStepRad);
+      assert.ok(Math.abs(tuned - before - 2 * fineStep) < ANGLE_TOLERANCE_RAD, 'two fine steps');
+
+      await page.mouse.move(aimX + MOUSE_TREMOR_PX, aimY);
+      assert.equal(await page.evaluate(() => window.__fluxEngine.aimAngle), tuned, 'a tremor keeps the tuned aim');
+
+      await page.mouse.down();
+      await page.mouse.up();
+      const shot = await page.evaluate(() => {
+        const projectile = window.__fluxEngine.physicsWorld.projectile;
+        return projectile ? Math.atan2(projectile.vy, projectile.vx) : null;
+      });
+      assert.ok(shot !== null && Math.abs(shot - tuned) < ANGLE_TOLERANCE_RAD, 'the click shoots along the tuned aim');
+
+      await page.keyboard.press('ArrowLeft');
+      const relocked = await page.evaluate(() => window.__fluxEngine.aimAngle);
+      await page.mouse.move(aimX + MOUSE_TREMOR_PX + MOUSE_SWEEP_PX, aimY, { steps: 4 });
+      assert.notEqual(await page.evaluate(() => window.__fluxEngine.aimAngle), relocked, 'a long sweep takes the aim back');
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  });
+});
+
 describe('end of round (desktop)', () => {
   const desktop = VIEWPORTS[0];
 

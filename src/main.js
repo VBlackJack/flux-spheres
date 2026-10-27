@@ -193,6 +193,16 @@ class Application {
       return Math.hypot(x - startPos.x, y - startPos.y) <= canvasCfg.tapMaxMoveDistance;
     };
 
+    // A finger always aims; a mouse leaves a keyboard-adjusted aim alone until it moves
+    // far enough (GameEngine.followPointer).
+    const aimsAtPointer = (e, pos) => {
+      if (e.pointerType === 'touch') {
+        engine.releaseAimLock();
+        return true;
+      }
+      return engine.followPointer(pos.x, pos.y);
+    };
+
     let isPointerDownOnCanvas = false;
     let pointerDownPos = null;
 
@@ -205,7 +215,9 @@ class Application {
       }
       const rawPos = toLogicalCoords(e.clientX, e.clientY);
       const aimPos = getAimAdjustedCoords(e, rawPos);
-      engine.updateAim(aimPos.x, aimPos.y);
+      if (aimsAtPointer(e, aimPos)) {
+        engine.updateAim(aimPos.x, aimPos.y);
+      }
       if (uiManager) {
         uiManager.updateAimState(engine);
       }
@@ -235,7 +247,9 @@ class Application {
         return;
       }
       const aimPos = getAimAdjustedCoords(e, rawPos);
-      engine.updateAim(aimPos.x, aimPos.y);
+      if (aimsAtPointer(e, aimPos)) {
+        engine.updateAim(aimPos.x, aimPos.y);
+      }
       if (uiManager) {
         uiManager.updateAimState(engine);
       }
@@ -274,7 +288,10 @@ class Application {
         return;
       }
       const aimPos = getAimAdjustedCoords(e, rawPos);
-      engine.updateAim(aimPos.x, aimPos.y);
+      // A click within the lock shoots along the keyboard-adjusted angle.
+      if (aimsAtPointer(e, aimPos)) {
+        engine.updateAim(aimPos.x, aimPos.y);
+      }
       engine.shoot();
       if (uiManager) {
         uiManager.updateAimState(engine);

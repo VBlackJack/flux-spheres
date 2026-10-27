@@ -559,3 +559,38 @@ test('A saved run with its discovery hint dismissed restores without it', () => 
   assert.equal(resumed.restoreSavedRun(), true);
   assert.equal(resumed.activeDiscoveryId, null);
 });
+
+test('A keyboard aim step locks the aim until the mouse travels past the unlock distance', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  const canvasCfg = gameConfig.canvas;
+  const unlock = canvasCfg.pointerAimUnlockDistance;
+
+  engine.updateAimFromAngle(-Math.PI / 2);
+  engine.adjustAimByDelta(canvasCfg.keyboardAimFineStepRad);
+  const lockedAngle = engine.aimAngle;
+  assert.ok(Math.abs(lockedAngle + Math.PI / 2 - canvasCfg.keyboardAimFineStepRad) < 1e-9, 'one fine step');
+
+  const origin = { x: 100, y: 300 };
+  assert.equal(engine.followPointer(origin.x, origin.y), false, 'the first pointer position only sets the origin');
+  assert.equal(engine.followPointer(origin.x + unlock, origin.y), false, 'a small movement keeps the lock');
+  assert.equal(engine.aimAngle, lockedAngle);
+  assert.equal(engine.followPointer(origin.x + unlock + 1, origin.y), true, 'a long movement lifts the lock');
+  assert.equal(engine.isAimLocked, false);
+  assert.equal(engine.followPointer(origin.x, origin.y), true, 'the pointer drives the aim again');
+});
+
+test('The fine keyboard step is smaller than the Shift step', () => {
+  const canvasCfg = gameConfig.canvas;
+  assert.ok(canvasCfg.keyboardAimFineStepRad > 0);
+  assert.ok(canvasCfg.keyboardAimFineStepRad < canvasCfg.keyboardAimStepRad);
+});
+
+test('A new run starts with the aim unlocked', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  engine.adjustAimByDelta(gameConfig.canvas.keyboardAimStepRad);
+  assert.equal(engine.isAimLocked, true);
+  engine.startCampaignLevel(1);
+  assert.equal(engine.isAimLocked, false);
+});
