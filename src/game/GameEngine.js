@@ -112,6 +112,8 @@ export class GameEngine {
     this.aimAngle = -Math.PI * MATH_CONSTANTS.HALF;
     this.aimPoints = [];
     this.isAimPreviewStale = false;
+    this.laserBonuses = { distanceBonus: 0, bouncesBonus: 0 };
+    this.stepCallbacks = null;
   }
 
   random() {
@@ -337,13 +339,16 @@ export class GameEngine {
     return 1 + lvl * spec.rateMultiplierPerLevel;
   }
 
+  /**
+   * Laser Sight reach bonuses. The returned object is reused across calls (the aim preview
+   * asks every frame): read it right away, do not keep it.
+   */
   getLaserBonuses() {
     const lvl = this.storageManager.getUpgradeLevel('laserSight');
     const spec = this.gameConfig.upgrades.laserSight;
-    return {
-      distanceBonus: lvl * spec.distanceBonusPerLevel,
-      bouncesBonus: lvl * spec.bouncesBonusPerLevel
-    };
+    this.laserBonuses.distanceBonus = lvl * spec.distanceBonusPerLevel;
+    this.laserBonuses.bouncesBonus = lvl * spec.bouncesBonusPerLevel;
+    return this.laserBonuses;
   }
 
   getStartingShotsBonus() {
@@ -1015,6 +1020,114 @@ export class GameEngine {
   }
 
   /**
+   * Physics callbacks of the fixed step, built once: creating these closures on every
+   * update allocated eight functions per step for the garbage collector.
+   */
+  getStepCallbacks() {
+    if (this.stepCallbacks) {
+      return this.stepCallbacks;
+    }
+    const theme = this.gameConfig.theme;
+    const juice = this.gameConfig.juice;
+    this.stepCallbacks = {
+      onBounce: (x, y) => {
+        this.audioManager.playEffect('bounce');
+        this.particleSystem.spawnBurst(
+          x,
+          y,
+          theme.bounceParticleColor,
+          juice.bounceBurstCount,
+          juice.bounceBurstSpeed
+        );
+      },
+      onPortalWarp: (entryPortal, exitPortal) => {
+        const portalCfg = this.obstaclesConfig.types.portal;
+        this.audioManager.playEffect('portal');
+        this.particleSystem.spawnBurst(
+          entryPortal.x,
+          entryPortal.y,
+          portalCfg.ringColor,
+          portalCfg.burstCount,
+          portalCfg.burstSpeed
+        );
+        this.particleSystem.spawnBurst(
+          exitPortal.x,
+          exitPortal.y,
+          portalCfg.ringColor,
+          portalCfg.burstCount,
+          portalCfg.burstSpeed
+        );
+        this.particleSystem.spawnFloatingText(
+          exitPortal.x,
+          exitPortal.y + this.gameConfig.canvas.floatingTextOffsetY,
+          t('gameplay.feedback.portal.warp'),
+          theme.portalPopupColor
+        );
+      },
+      onAnvilCrush: (target) => {
+        const anvilSpecs = this.ballsConfig.specialTypes.anvil;
+        if (this.destroyClusterBall(target, anvilSpecs.highlight, true)) {
+          this.anvilCrushCount++;
+          this.addScore(anvilSpecs.pointsPerBall);
+          this.addOvercharge(this.gameConfig.scoring.overchargePerMatchedBall);
+          this.audioManager.playEffect('snap');
+        }
+      },
+      onAnvilComplete: () => {
+        const anvilSpecs = this.ballsConfig.specialTypes.anvil;
+        const canvasCfg = this.gameConfig.canvas;
+        this.particleSystem.spawnFloatingText(
+          canvasCfg.launcherX,
+          canvasCfg.launcherY + canvasCfg.anvilPopupOffsetY,
+          t('gameplay.feedback.special.anvil'),
+          anvilSpecs.highlight
+        );
+        this.particleSystem.addScreenShake(juice.anvilShake, juice.maxShakeOffset);
+        this.hitStopFrames = juice.hitStopFramesSpecial;
+        // An anvil that crushed nothing is a miss: it breaks the combo and counts toward the next wave.
+        const madeMatch = this.anvilCrushCount > 0;
+        if (!madeMatch) {
+          this.combo = 0;
+        }
+        this.handlePostTurnCleanup(madeMatch);
+      },
+      onProjectileSnapped: (snappedBall) => {
+        this.handleProjectileSnapped(snappedBall);
+      },
+      onProjectileMissed: () => {
+        this.combo = 0;
+        this.handlePostTurnCleanup(false);
+      },
+      onSingularityCapture: (capturedBall, singularityObs) => {
+        if (!this.isRunPlaying()) {
+          return;
+        }
+        const singCfg = this.obstaclesConfig.types.singularity;
+        const baseDropPts = this.gameConfig.scoring.droppedBallPoints;
+        const bonusPts = Math.round(baseDropPts * singularityObs.scoreMultiplier * Math.max(1, this.combo));
+        this.addScore(bonusPts);
+        this.addOvercharge(singularityObs.bonusOvercharge);
+        this.audioManager.playEffect('portal');
+        this.particleSystem.spawnBurst(
+          singularityObs.x,
+          singularityObs.y,
+          singCfg.ringColor,
+          singCfg.burstCount,
+          singCfg.burstSpeed
+        );
+        this.particleSystem.spawnFloatingText(
+          singularityObs.x,
+          singularityObs.y + this.gameConfig.canvas.floatingTextOffsetY,
+          t('gameplay.feedback.singularity.absorbed', { points: bonusPts }),
+          this.gameConfig.theme.singularityPopupColor
+        );
+        this.notifyUI();
+      }
+    };
+    return this.stepCallbacks;
+  }
+
+  /**
    * Recomputes the aim preview if the board moved since it was last traced. Called once
    * per rendered frame, however many fixed steps the frame ran.
    */
@@ -1113,101 +1226,7 @@ export class GameEngine {
       }
     }
 
-    this.physicsWorld.step({
-      onBounce: (x, y) => {
-        this.audioManager.playEffect('bounce');
-        this.particleSystem.spawnBurst(
-          x,
-          y,
-          theme.bounceParticleColor,
-          juice.bounceBurstCount,
-          juice.bounceBurstSpeed
-        );
-      },
-      onPortalWarp: (entryPortal, exitPortal) => {
-        const portalCfg = this.obstaclesConfig.types.portal;
-        this.audioManager.playEffect('portal');
-        this.particleSystem.spawnBurst(
-          entryPortal.x,
-          entryPortal.y,
-          portalCfg.ringColor,
-          portalCfg.burstCount,
-          portalCfg.burstSpeed
-        );
-        this.particleSystem.spawnBurst(
-          exitPortal.x,
-          exitPortal.y,
-          portalCfg.ringColor,
-          portalCfg.burstCount,
-          portalCfg.burstSpeed
-        );
-        this.particleSystem.spawnFloatingText(
-          exitPortal.x,
-          exitPortal.y + this.gameConfig.canvas.floatingTextOffsetY,
-          t('gameplay.feedback.portal.warp'),
-          theme.portalPopupColor
-        );
-      },
-      onAnvilCrush: (target) => {
-        const anvilSpecs = this.ballsConfig.specialTypes.anvil;
-        if (this.destroyClusterBall(target, anvilSpecs.highlight, true)) {
-          this.anvilCrushCount++;
-          this.addScore(anvilSpecs.pointsPerBall);
-          this.addOvercharge(this.gameConfig.scoring.overchargePerMatchedBall);
-          this.audioManager.playEffect('snap');
-        }
-      },
-      onAnvilComplete: () => {
-        const anvilSpecs = this.ballsConfig.specialTypes.anvil;
-        const canvasCfg = this.gameConfig.canvas;
-        this.particleSystem.spawnFloatingText(
-          canvasCfg.launcherX,
-          canvasCfg.launcherY + canvasCfg.anvilPopupOffsetY,
-          t('gameplay.feedback.special.anvil'),
-          anvilSpecs.highlight
-        );
-        this.particleSystem.addScreenShake(juice.anvilShake, juice.maxShakeOffset);
-        this.hitStopFrames = juice.hitStopFramesSpecial;
-        // An anvil that crushed nothing is a miss: it breaks the combo and counts toward the next wave.
-        const madeMatch = this.anvilCrushCount > 0;
-        if (!madeMatch) {
-          this.combo = 0;
-        }
-        this.handlePostTurnCleanup(madeMatch);
-      },
-      onProjectileSnapped: (snappedBall) => {
-        this.handleProjectileSnapped(snappedBall);
-      },
-      onProjectileMissed: () => {
-        this.combo = 0;
-        this.handlePostTurnCleanup(false);
-      },
-      onSingularityCapture: (capturedBall, singularityObs) => {
-        if (!this.isRunPlaying()) {
-          return;
-        }
-        const singCfg = this.obstaclesConfig.types.singularity;
-        const baseDropPts = this.gameConfig.scoring.droppedBallPoints;
-        const bonusPts = Math.round(baseDropPts * singularityObs.scoreMultiplier * Math.max(1, this.combo));
-        this.addScore(bonusPts);
-        this.addOvercharge(singularityObs.bonusOvercharge);
-        this.audioManager.playEffect('portal');
-        this.particleSystem.spawnBurst(
-          singularityObs.x,
-          singularityObs.y,
-          singCfg.ringColor,
-          singCfg.burstCount,
-          singCfg.burstSpeed
-        );
-        this.particleSystem.spawnFloatingText(
-          singularityObs.x,
-          singularityObs.y + this.gameConfig.canvas.floatingTextOffsetY,
-          t('gameplay.feedback.singularity.absorbed', { points: bonusPts }),
-          this.gameConfig.theme.singularityPopupColor
-        );
-        this.notifyUI();
-      }
-    });
+    this.physicsWorld.step(this.getStepCallbacks());
 
     if (this.physicsWorld.hasBrokenBondThisStep) {
       this.physicsWorld.hasBrokenBondThisStep = false;
