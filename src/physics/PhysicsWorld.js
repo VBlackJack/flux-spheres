@@ -66,6 +66,7 @@ export class PhysicsWorld {
     this.spatialGrid = new SpatialHashGrid(attractRange);
 
     this.pairBufferA = [];
+    this.clusterFieldBuffer = [];
     this.pairBufferB = [];
     this.ballRootPivots = new Map();
     this.pivotTorqueScratch = new Map();
@@ -518,7 +519,50 @@ export class PhysicsWorld {
   }
 
   /**
-   * Integrates cluster forces (anchor springs, gravity, inverse-square magnetic attraction)
+   * Repulsor and attractor fields that act on hanging spheres this step, collected into a
+   * reused buffer. Singularities only pull falling spheres and are left out.
+   * @returns {Array<object>} Enabled repulsors and attractors.
+   */
+  collectClusterFields() {
+    const fields = this.clusterFieldBuffer;
+    fields.length = 0;
+    for (const obs of this.obstacles) {
+      if (!obs.disabled && obs.force !== 0 && (obs.type === OBSTACLE_TYPES.REPULSOR || obs.type === OBSTACLE_TYPES.ATTRACTOR)) {
+        fields.push(obs);
+      }
+    }
+    return fields;
+  }
+
+  /**
+   * Pushes a hanging sphere away from repulsors and toward attractors, with the same
+   * linear falloff the shots feel, scaled down by simulation.clusterFieldFactor so the
+   * cluster leans and sways without tearing.
+   * @param {object} ball - A sphere that is not an anchor.
+   * @param {Array<object>} fields - Fields from collectClusterFields.
+   * @param {number} scale - clusterFieldFactor times the substep fraction.
+   */
+  applyClusterFields(ball, fields, scale) {
+    for (const obs of fields) {
+      const dx = obs.x - ball.x;
+      const dy = obs.y - ball.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq >= obs.fieldRadius * obs.fieldRadius) {
+        continue;
+      }
+      const dist = Math.sqrt(distSq);
+      if (dist <= MATH_CONSTANTS.EPSILON) {
+        continue;
+      }
+      const push = (1 - dist / obs.fieldRadius) * obs.force * scale;
+      ball.vx += (dx / dist) * push;
+      ball.vy += (dy / dist) * push;
+    }
+  }
+
+  /**
+   * Integrates cluster forces (anchor springs, gravity, repulsor and attractor fields,
+   * inverse-square magnetic attraction)
    * and iteratively resolves bond distance constraints and ball-ball overlaps.
    * The neighbor pairs are collected once per substep and reused by every pass.
    * @param {number} dt - Substep time fraction (1 / substeps).
@@ -534,6 +578,8 @@ export class PhysicsWorld {
     const balls = this.balls;
     this.slideRailAnchors(dt);
     const thrusterLift = sim.clusterGravity * this.ballsConfig.clusterModifiers.thruster.liftFactor;
+    const fields = this.collectClusterFields();
+    const fieldScale = sim.clusterFieldFactor * dt;
 
     for (const ball of balls) {
       if (ball.pivotRef) {
@@ -550,6 +596,9 @@ export class PhysicsWorld {
       } else {
         ball.vy += sim.clusterGravity * this.gravityMultiplier * dt;
         ball.vx += sim.clusterGravity * this.tiltFactor * dt;
+        if (fields.length > 0) {
+          this.applyClusterFields(ball, fields, fieldScale);
+        }
         if (ball.clusterModifier === CLUSTER_MODIFIERS.THRUSTER) {
           ball.vy -= thrusterLift * dt;
         }

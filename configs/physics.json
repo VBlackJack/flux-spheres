@@ -23,6 +23,7 @@
     "dropMinVerticalSpeed": 0.5,
     "dropOutMarginY": 40,
     "clusterGravity": 0.055,
+    "clusterFieldFactor": 0.08,
     "constraintIterations": 4,
     "bondRestDistanceFactor": 2.02,
     "bondCreationDistanceFactor": 2.45,

@@ -13,7 +13,7 @@
 
 ## Fonctionnalités
 
-- **Physique magnétique dynamique** : les sphères de même couleur s'attirent, les pôles opposés (`N`/`S`, `+`/`-`, `Ω`/`Φ`) se rapprochent, et les pôles identiques courbent la trajectoire du projectile.
+- **Physique magnétique dynamique** : les sphères de même couleur s'attirent, les pôles opposés (`N`/`S`, `+`/`-`, `Ω`/`Φ`) se rapprochent, et les pôles identiques courbent la trajectoire du projectile. Répulseurs et attracteurs courbent les tirs et font aussi pencher les amas suspendus, à l'écart ou vers eux.
 - **Visée tactique et prévisualisation** :
   - Viseur laser courbe avec prédiction des rebonds sur les murs et les bumpers.
   - Prévisualisation en temps réel de la zone d'effet des sphères spéciales (Bombe, Foudre, Prisme, Enclume, Cryo).
