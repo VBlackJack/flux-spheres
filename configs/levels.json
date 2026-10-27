@@ -5,7 +5,7 @@
       "nameKey": "levels.items.lvl1.name",
       "descriptionKey": "levels.items.lvl1.description",
       "tutorialKey": "gameplay.tutorial.pendulum",
-      "starThresholds": [0, 6400, 10400],
+      "starThresholds": [0, 5200, 8500],
       "maxShots": 28,
       "paletteCount": 3,
       "specialInventory": {
@@ -119,7 +119,7 @@
       "nameKey": "levels.items.lvl4.name",
       "descriptionKey": "levels.items.lvl4.description",
       "tutorialKey": "gameplay.tutorial.repulsor",
-      "starThresholds": [0, 5500, 8800],
+      "starThresholds": [0, 4200, 6700],
       "maxShots": 34,
       "paletteCount": 5,
       "specialInventory": {
@@ -158,7 +158,7 @@
       "id": 5,
       "nameKey": "levels.items.lvl5.name",
       "descriptionKey": "levels.items.lvl5.description",
-      "starThresholds": [0, 6000, 9500],
+      "starThresholds": [0, 5300, 8400],
       "maxShots": 36,
       "paletteCount": 5,
       "specialInventory": {
@@ -202,7 +202,7 @@
       "id": 6,
       "nameKey": "levels.items.lvl6.name",
       "descriptionKey": "levels.items.lvl6.description",
-      "starThresholds": [0, 6200, 9800],
+      "starThresholds": [0, 6900, 10900],
       "maxShots": 40,
       "paletteCount": 6,
       "specialInventory": {
@@ -297,7 +297,7 @@
       "id": 8,
       "nameKey": "levels.items.lvl8.name",
       "descriptionKey": "levels.items.lvl8.description",
-      "starThresholds": [0, 6800, 10800],
+      "starThresholds": [0, 6100, 9600],
       "maxShots": 40,
       "paletteCount": 5,
       "specialInventory": {
@@ -346,7 +346,7 @@
       "id": 9,
       "nameKey": "levels.items.lvl9.name",
       "descriptionKey": "levels.items.lvl9.description",
-      "starThresholds": [0, 7200, 11400],
+      "starThresholds": [0, 5700, 9100],
       "maxShots": 42,
       "paletteCount": 6,
       "specialInventory": {
@@ -458,7 +458,7 @@
       "nameKey": "levels.items.lvl11.name",
       "descriptionKey": "levels.items.lvl11.description",
       "tutorialKey": "gameplay.tutorial.portal",
-      "starThresholds": [0, 8200, 12800],
+      "starThresholds": [0, 10800, 16800],
       "maxShots": 42,
       "paletteCount": 5,
       "specialInventory": {
@@ -515,7 +515,7 @@
       "nameKey": "levels.items.lvl12.name",
       "descriptionKey": "levels.items.lvl12.description",
       "tutorialKey": "gameplay.tutorial.boss",
-      "starThresholds": [0, 8800, 14000],
+      "starThresholds": [0, 7500, 12000],
       "maxShots": 48,
       "paletteCount": 6,
       "specialInventory": {
@@ -654,7 +654,7 @@
       "nameKey": "levels.items.lvl14.name",
       "descriptionKey": "levels.items.lvl14.description",
       "tutorialKey": "gameplay.tutorial.singularity",
-      "starThresholds": [0, 8200, 13200],
+      "starThresholds": [0, 7100, 11500],
       "maxShots": 42,
       "paletteCount": 5,
       "specialInventory": {
@@ -837,7 +837,7 @@
       "nameKey": "levels.items.lvl17.name",
       "descriptionKey": "levels.items.lvl17.description",
       "tutorialKey": "gameplay.tutorial.neutralAnchor",
-      "starThresholds": [0, 9200, 14600],
+      "starThresholds": [0, 11000, 17400],
       "maxShots": 38,
       "paletteCount": 4,
       "specialInventory": {
@@ -884,7 +884,7 @@
       "nameKey": "levels.items.lvl18.name",
       "descriptionKey": "levels.items.lvl18.description",
       "tutorialKey": "gameplay.tutorial.chained",
-      "starThresholds": [0, 6700, 10600],
+      "starThresholds": [0, 5600, 8900],
       "maxShots": 40,
       "paletteCount": 5,
       "specialInventory": {
@@ -936,7 +936,7 @@
       "nameKey": "levels.items.lvl19.name",
       "descriptionKey": "levels.items.lvl19.description",
       "tutorialKey": "gameplay.tutorial.bubble",
-      "starThresholds": [0, 11200, 17400],
+      "starThresholds": [0, 9900, 15400],
       "maxShots": 44,
       "paletteCount": 5,
       "specialInventory": {
@@ -984,7 +984,7 @@
       "nameKey": "levels.items.lvl20.name",
       "descriptionKey": "levels.items.lvl20.description",
       "tutorialKey": "gameplay.tutorial.cores",
-      "starThresholds": [0, 10400, 16500],
+      "starThresholds": [0, 8700, 13800],
       "maxShots": 44,
       "paletteCount": 5,
       "specialInventory": {
