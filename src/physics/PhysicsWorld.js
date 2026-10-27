@@ -250,18 +250,24 @@ export class PhysicsWorld {
   /**
    * Each tether ball reaches past its neighbors: it binds to the nearest balls it is not
    * bonded to yet, within its range, up to its link count. These long bonds hold weight
-   * like any bond but never snap, and never carry a color group.
+   * like any bond but never snap, and never carry a color group. A tether never ties a
+   * rotor's spheres to spheres the same rotor does not carry: two rotors would lock each
+   * other, and a rotor would drag a neighboring shape around its pivot.
    */
   createTetherLinks() {
     const tetherSpec = this.ballsConfig.clusterModifiers.tether;
     const r = this.physicsConfig.ball.radius;
     const range = r * tetherSpec.rangeFactor;
+    const rootPivots = this.computeBallRootPivots();
+    const sameRotor = (a, b) => (rootPivots.get(a.id) || null) === (rootPivots.get(b.id) || null);
     for (const a of this.balls) {
       if (a.clusterModifier !== CLUSTER_MODIFIERS.TETHER) {
         continue;
       }
       const candidates = this.balls
-        .filter((b) => b.id !== a.id && !a.bonds.has(b.id) && Math.hypot(b.x - a.x, b.y - a.y) <= range)
+        .filter(
+          (b) => b.id !== a.id && !a.bonds.has(b.id) && sameRotor(a, b) && Math.hypot(b.x - a.x, b.y - a.y) <= range
+        )
         .sort((b1, b2) => Math.hypot(b1.x - a.x, b1.y - a.y) - Math.hypot(b2.x - a.x, b2.y - a.y));
       for (const b of candidates.slice(0, Math.max(0, tetherSpec.maxLinks - a.tethers.size))) {
         this.createBond(a, b, false);
