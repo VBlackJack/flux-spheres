@@ -288,6 +288,7 @@ export class UIManager {
     this.elements = {
       appShell: document.querySelector('.app-shell'),
       canvasWrapper: document.querySelector('.canvas-wrapper'),
+      gameCanvas: document.getElementById('game-canvas'),
       scoreValue: document.getElementById('hud-score-value'),
       starProgress: document.getElementById('hud-star-progress'),
       starGlyphs: document.getElementById('hud-star-glyphs'),
@@ -1461,9 +1462,10 @@ export class UIManager {
   }
 
   /**
-   * Tilt control exists only on touch devices that report their orientation. Where the
-   * browser asks permission (iOS), it starts off and is turned on from the button, since
-   * the permission request must come from a tap.
+   * Tilt control exists only on touch devices that report their orientation, and is on
+   * unless the player turned it off (tilt.enabledByDefault). Where the browser asks
+   * permission (iOS), the request must come from a tap: it is made on the first tap on the
+   * board, and a refusal is stored as the player's choice.
    */
   setupTiltControl() {
     this.isTiltActive = false;
@@ -1485,8 +1487,11 @@ export class UIManager {
       return;
     }
     const needsPermission = typeof window.DeviceOrientationEvent.requestPermission === 'function';
-    if (this.storageManager.getTilt() && !needsPermission) {
+    const wantsTilt = this.storageManager.getTilt(this.gameConfig.tilt.enabledByDefault);
+    if (wantsTilt && !needsPermission) {
       this.setTiltActive(true);
+    } else if (wantsTilt) {
+      this.requestTiltOnFirstTap();
     }
     const toggleTilt = async () => {
       const next = !this.isTiltActive;
@@ -1503,6 +1508,24 @@ export class UIManager {
       btn?.addEventListener('click', toggleTilt);
     }
     this.updateTiltButton();
+  }
+
+  /** Asks the orientation permission on the first tap on the board (iOS needs a tap). */
+  requestTiltOnFirstTap() {
+    const canvas = this.elements.gameCanvas;
+    if (!canvas) {
+      return;
+    }
+    const askOnce = async () => {
+      if (this.isTiltActive) {
+        return;
+      }
+      const answer = await window.DeviceOrientationEvent.requestPermission().catch(() => 'denied');
+      const isGranted = answer === 'granted';
+      this.storageManager.setTilt(isGranted);
+      this.setTiltActive(isGranted);
+    };
+    canvas.addEventListener('pointerup', askOnce, { once: true });
   }
 
   setTiltActive(isActive) {

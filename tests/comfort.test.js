@@ -253,3 +253,14 @@ test('Shots bouncing off a side wall crack it, up to a limit, until the next run
   engine.startCampaignLevel(1);
   assert.equal(particles.wallCracks.length, 0, 'a new run has clean walls');
 });
+
+test('Tilt control is on for a player who never chose, and a stored choice wins', () => {
+  const storage = new StorageManager();
+  storage.init();
+  assert.equal(gameConfig.tilt.enabledByDefault, true);
+  assert.equal(storage.getTilt(gameConfig.tilt.enabledByDefault), true, 'no choice yet: the default');
+  storage.setTilt(false);
+  assert.equal(storage.getTilt(gameConfig.tilt.enabledByDefault), false, 'turned off stays off');
+  storage.setTilt(true);
+  assert.equal(storage.getTilt(gameConfig.tilt.enabledByDefault), true);
+});
