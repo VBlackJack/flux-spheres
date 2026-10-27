@@ -523,6 +523,12 @@ test('A zero or missing tuning value that would hang the game is rejected at loa
   configs.get('game').scoring.overchargeMax = gameConfig.scoring.overchargeMax;
   delete configs.get('physics').simulation.fixedStepMs;
   assert.throws(() => validateConfigs(configs), /fixedStepMs/);
+  configs.get('physics').simulation.fixedStepMs = physicsConfig.simulation.fixedStepMs;
+
+  configs.get('physics').simulation.clusterFieldFactor = 0;
+  assert.doesNotThrow(() => validateConfigs(configs), 'fields may be turned off');
+  delete configs.get('physics').simulation.clusterFieldFactor;
+  assert.throws(() => validateConfigs(configs), /clusterFieldFactor/);
 });
 
 test('A saved run whose values have the wrong type is discarded instead of restored', () => {

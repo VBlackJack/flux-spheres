@@ -29,15 +29,29 @@ const POSITIVE_SETTINGS = Object.freeze([
 ]);
 
 /**
+ * Settings that may be zero but must be numbers: a missing one turns every velocity it
+ * scales into NaN and silently breaks the simulation.
+ */
+const NON_NEGATIVE_SETTINGS = Object.freeze([['physics', 'simulation.clusterFieldFactor']]);
+
+/**
  * Throws when a setting listed in POSITIVE_SETTINGS is missing or not a positive number,
+ * or one listed in NON_NEGATIVE_SETTINGS is missing or negative,
  * so a broken config stops at startup with the loading error instead of hanging the game.
  * @param {Map<string, object>} configs - Loaded configs by namespace.
  */
 export function validateConfigs(configs) {
+  const read = (namespace, path) => path.split('.').reduce((node, key) => node?.[key], configs.get(namespace));
   for (const [namespace, path] of POSITIVE_SETTINGS) {
-    const value = path.split('.').reduce((node, key) => node?.[key], configs.get(namespace));
+    const value = read(namespace, path);
     if (!Number.isFinite(value) || value <= 0) {
       throw new Error(`Invalid config ${namespace}.${path}: expected a positive number, got ${value}`);
+    }
+  }
+  for (const [namespace, path] of NON_NEGATIVE_SETTINGS) {
+    const value = read(namespace, path);
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`Invalid config ${namespace}.${path}: expected a number of zero or more, got ${value}`);
     }
   }
 }

@@ -13,7 +13,7 @@
 
 ## Features
 
-- **Dynamic Magnetic Physics**: Same-color spheres attract, opposite magnetic poles (`N`/`S`, `+`/`-`, `Ω`/`Φ`) pull, and like poles curve projectile trajectories.
+- **Dynamic Magnetic Physics**: Same-color spheres attract, opposite magnetic poles (`N`/`S`, `+`/`-`, `Ω`/`Φ`) pull, and like poles curve projectile trajectories. Repulsors and attractors bend shots and also make the hanging clusters lean away from or toward them.
 - **Tactical Aiming & Predictive Preview**:
   - Curved laser sight with wall and bumper ricochet prediction.
   - Real-time blast/effect radius preview for Special Balls (Bomb, Lightning, Prism, Anvil, Cryo).

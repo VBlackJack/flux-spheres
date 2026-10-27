@@ -267,3 +267,49 @@ test('Coincident cluster balls are separated deterministically', () => {
   world.step({});
   assert.ok(Math.hypot(b.x - a.x, b.y - a.y) > RADIUS, 'Coincident balls must be pushed apart');
 });
+
+test('Repulsor fields push hanging spheres away gently, without tearing the cluster', () => {
+  const SETTLE_FRAMES = 600;
+  /** Minimum average lean, in logical px, for the push to be visible. */
+  const MIN_MEAN_LEAN = 2;
+  const settle = (fieldFactor) => {
+    const original = physicsConfig.simulation.clusterFieldFactor;
+    physicsConfig.simulation.clusterFieldFactor = fieldFactor;
+    try {
+      const engine = createTestEngine();
+      engine.startCampaignLevel(14);
+      for (let i = 0; i < SETTLE_FRAMES; i++) {
+        engine.update();
+      }
+      const world = engine.physicsWorld;
+      return {
+        world,
+        bonds: world.balls.reduce((total, b) => total + b.bonds.size, 0),
+        positions: world.balls.map((b) => ({ x: b.x, y: b.y, isAnchor: b.isAnchor }))
+      };
+    } finally {
+      physicsConfig.simulation.clusterFieldFactor = original;
+    }
+  };
+  const calm = settle(0);
+  const pushed = settle(physicsConfig.simulation.clusterFieldFactor);
+  assert.ok(physicsConfig.simulation.clusterFieldFactor > 0);
+  assert.equal(pushed.positions.length, calm.positions.length, 'no sphere torn off');
+  assert.equal(pushed.bonds, calm.bonds, 'no bond broken');
+
+  const repulsor = pushed.world.obstacles.find((o) => o.type === OBSTACLE_TYPES.REPULSOR);
+  let awayLean = 0;
+  let inField = 0;
+  calm.positions.forEach((before, i) => {
+    const after = pushed.positions[i];
+    if (before.isAnchor || Math.hypot(before.x - repulsor.x, before.y - repulsor.y) >= repulsor.fieldRadius) {
+      return;
+    }
+    const outward = { x: before.x - repulsor.x, y: before.y - repulsor.y };
+    const length = Math.hypot(outward.x, outward.y);
+    awayLean += ((after.x - before.x) * outward.x + (after.y - before.y) * outward.y) / length;
+    inField++;
+  });
+  assert.ok(inField > 0, 'level 14 hangs spheres inside its repulsor field');
+  assert.ok(awayLean / inField > MIN_MEAN_LEAN, `spheres lean away from the repulsor by ${(awayLean / inField).toFixed(1)} px`);
+});
