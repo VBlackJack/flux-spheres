@@ -1093,6 +1093,21 @@ export class GameEngine {
   }
 
   /**
+   * False on a campaign level that hands out no special ball while the run holds none and
+   * none is loaded: the special ball slots stay out of sight until there is one to use.
+   * @returns {boolean} True when the special ball slots belong on screen.
+   */
+  offersSpecialBalls() {
+    if (this.mode !== GAME_MODES.CAMPAIGN) {
+      return true;
+    }
+    const levelDef = this.levelsConfig.levels.find((l) => l.id === this.currentLevelId);
+    const grants = Object.values(levelDef?.specialInventory || {}).some((count) => count > 0);
+    const holds = Object.values(this.specialInventory).some((count) => count > 0);
+    return grants || holds || Boolean(this.currentBall?.specialType);
+  }
+
+  /**
    * Buys one special ball for the active run.
    * @param {string} specialType - Special ball type to buy.
    * @returns {boolean} True when coins were debited and the ball added; false when no run is

@@ -118,14 +118,44 @@ async function waitShown(page, selector) {
   );
 }
 
-/** Starts a run from a known state: level 1, playing, nothing open. */
-async function startLevelOne(page) {
-  await page.evaluate(() => {
+/** Starts a campaign level from a known state: playing, nothing open. */
+async function startLevel(page, levelId) {
+  await page.evaluate((id) => {
     const engine = window.__fluxEngine;
-    engine.startCampaignLevel(1);
+    engine.startCampaignLevel(id);
     engine.notifyUI();
-  });
+  }, levelId);
   await page.waitForFunction((playing) => window.__fluxEngine.state === playing, GAME_STATES.PLAYING);
+}
+
+const startLevelOne = (page) => startLevel(page, 1);
+
+/** Level 1 hands out no special ball; level 2 is the first that shows their slots. */
+const LEVELS_WITHOUT_AND_WITH_SPECIALS = [
+  { levelId: 1, showsSpecials: false },
+  { levelId: 2, showsSpecials: true }
+];
+
+/** Fails when the page scrolls sideways or a visible control label is clipped. */
+async function assertLayoutFits(page, levelId) {
+  const layout = await page.evaluate(
+    ({ selector, tolerance }) => {
+      const clipped = [...document.querySelectorAll(selector)]
+        .filter((el) => el.checkVisibility() && el.offsetWidth > tolerance)
+        .filter((el) => el.scrollWidth > el.clientWidth + tolerance)
+        .map((el) => `${el.id || el.className}: "${el.textContent.trim()}"`);
+      return {
+        pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+        clipped
+      };
+    },
+    { selector: FITTED_TEXT_SELECTOR, tolerance: OVERFLOW_TOLERANCE_PX }
+  );
+  assert.ok(
+    layout.pageOverflow <= OVERFLOW_TOLERANCE_PX,
+    `level ${levelId}: the page scrolls sideways by ${layout.pageOverflow}px`
+  );
+  assert.deepEqual(layout.clipped, [], `level ${levelId}: clipped labels`);
 }
 
 /** Clicks a header control; on portrait phones it sits in the slide-in menu. */
@@ -141,22 +171,12 @@ for (const viewport of VIEWPORTS) {
     test('boots without console errors, scrolls nowhere and clips no control label', async () => {
       const { context, page, errors } = await openGame(viewport);
       try {
-        await startLevelOne(page);
-        const layout = await page.evaluate(
-          ({ selector, tolerance }) => {
-            const clipped = [...document.querySelectorAll(selector)]
-              .filter((el) => el.checkVisibility() && el.offsetWidth > tolerance)
-              .filter((el) => el.scrollWidth > el.clientWidth + tolerance)
-              .map((el) => `${el.id || el.className}: "${el.textContent.trim()}"`);
-            return {
-              pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
-              clipped
-            };
-          },
-          { selector: FITTED_TEXT_SELECTOR, tolerance: OVERFLOW_TOLERANCE_PX }
-        );
-        assert.ok(layout.pageOverflow <= OVERFLOW_TOLERANCE_PX, `the page scrolls sideways by ${layout.pageOverflow}px`);
-        assert.deepEqual(layout.clipped, []);
+        for (const { levelId, showsSpecials } of LEVELS_WITHOUT_AND_WITH_SPECIALS) {
+          await startLevel(page, levelId);
+          // The bar itself is display: contents on portrait phones, so check one of its buttons.
+          assert.equal(await isShown(page, '#powerups-bar .powerup-btn'), showsSpecials, `level ${levelId} special ball slots`);
+          await assertLayoutFits(page, levelId);
+        }
         assert.deepEqual(errors, []);
       } finally {
         await context.close();

@@ -162,6 +162,24 @@ test('Level 1 shows only the basics: no obstacle, modifier or special ball, few 
   }
 });
 
+test('Special ball slots show only once the run has a special ball to use', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  assert.equal(engine.offersSpecialBalls(), false, 'level 1 hands out none');
+
+  engine.storageManager.setCoins(gameConfig.specialShopCosts.bomb);
+  assert.equal(engine.buySpecialAmmo('bomb'), true);
+  assert.equal(engine.offersSpecialBalls(), true, 'a bought ball brings the slots back');
+
+  engine.startCampaignLevel(2);
+  engine.specialInventory = {};
+  assert.equal(engine.offersSpecialBalls(), true, 'a level that hands some out keeps its slots when empty');
+
+  engine.startEndlessMode();
+  engine.specialInventory = {};
+  assert.equal(engine.offersSpecialBalls(), true, 'other modes keep their slots');
+});
+
 test('A board lists the basics, its modifiers, its obstacles and its rail anchors', () => {
   const present = listBoardMechanics(
     [{ clusterModifier: CLUSTER_MODIFIERS.ARMORED, railMinX: null }, { clusterModifier: null, railMinX: 40 }],
