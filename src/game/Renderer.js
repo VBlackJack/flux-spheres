@@ -819,6 +819,9 @@ export class Renderer {
 
     ctx.save();
     ctx.translate(bxPos, byPos);
+    if (ball.impactScale !== 1) {
+      ctx.scale(ball.impactScale, ball.impactScale);
+    }
 
     if (palette.glow && (ball.specialType || ball.clusterModifier)) {
       ctx.save();

@@ -29,6 +29,7 @@
   - A level that teaches a modifier always shows the same number of it, set in its definition.
 - **Game Feel**:
   - Slow motion when a shot flies close to one of the last three spheres of a level or Flux shape.
+  - Every landing sends a swelling wave through the cluster, bond by bond and weaker at each step, with a light screen shake. The wave only changes how spheres are drawn; reduced motion turns both off.
   - The victory score rolls up and the earned stars pop in one after another; both respect reduced motion.
 - **Workshop & Codex**:
   - Permanent upgrades (*Curved Laser Sight*, *Magnetic Amplifier*, *Overcharge Capacitor*, *Projectile Reserve*).

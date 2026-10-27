@@ -93,6 +93,7 @@ export class GameEngine {
     this.victoryCelebrationFrames = 0;
     this.victorySummary = null;
     this.hitStopFrames = 0;
+    this.impactWave = null;
     this.trailFrameCounter = 0;
     this.hasFiredInRound = false;
     this.bossesDestroyedInRun = 0;
@@ -312,6 +313,7 @@ export class GameEngine {
     this.victoryCelebrationFrames = 0;
     this.victorySummary = null;
     this.hitStopFrames = 0;
+    this.impactWave = null;
     this.hasFiredInRound = false;
     this.bossesDestroyedInRun = 0;
     this.activeDiscoveryId = null;
@@ -1453,6 +1455,8 @@ export class GameEngine {
     const theme = this.gameConfig.theme;
     const juice = this.gameConfig.juice;
 
+    this.updateImpactWave();
+
     if (this.hitStopFrames > 0) {
       this.hitStopFrames--;
       this.particleSystem.update(juice.shakeDecay);
@@ -1855,6 +1859,8 @@ export class GameEngine {
 
   handleProjectileSnapped(snappedBall, hitTarget = null) {
     this.audioManager.playEffect('snap');
+    this.startImpactWave(snappedBall);
+    this.particleSystem.addScreenShake(this.gameConfig.juice.snapShake, this.gameConfig.juice.maxShakeOffset);
     // A shot that lands on a bubble bursts it before the match is checked.
     if (
       !snappedBall.specialType &&
@@ -1897,6 +1903,73 @@ export class GameEngine {
       this.combo = 0;
       this.handlePostTurnCleanup(false);
     }
+  }
+
+  /**
+   * Sends a swelling wave through the cluster from the sphere that just landed, one bond
+   * hop at a time and weaker at each hop. The wave only scales how spheres are drawn: their
+   * positions, and so the game, are untouched. Reduced motion skips it.
+   * @param {import('../entities/Ball.js').Ball} origin - The sphere that just landed.
+   */
+  startImpactWave(origin) {
+    this.clearImpactWave();
+    if (this.isReducedMotion) {
+      return;
+    }
+    const maxHops = this.gameConfig.juice.impactWave.maxHops;
+    const hops = new Map([[origin.id, 0]]);
+    let frontier = [origin];
+    for (let hop = 1; hop <= maxHops && frontier.length > 0; hop++) {
+      const next = [];
+      for (const ball of frontier) {
+        for (const neighborId of ball.bonds) {
+          const neighbor = this.physicsWorld.ballMap.get(neighborId);
+          if (neighbor && !hops.has(neighborId)) {
+            hops.set(neighborId, hop);
+            next.push(neighbor);
+          }
+        }
+      }
+      frontier = next;
+    }
+    this.impactWave = { frame: 0, hops };
+  }
+
+  /** Advances the impact wave by one frame and sets each reached sphere's drawing scale. */
+  updateImpactWave() {
+    if (!this.impactWave) {
+      return;
+    }
+    const waveCfg = this.gameConfig.juice.impactWave;
+    const wave = this.impactWave;
+    wave.frame++;
+    if (wave.frame > waveCfg.maxHops * waveCfg.hopDelayFrames + waveCfg.durationFrames) {
+      this.clearImpactWave();
+      return;
+    }
+    for (const [ballId, hop] of wave.hops) {
+      const ball = this.physicsWorld.ballMap.get(ballId);
+      if (!ball) {
+        continue;
+      }
+      const localFrame = wave.frame - hop * waveCfg.hopDelayFrames;
+      const isSwelling = localFrame > 0 && localFrame < waveCfg.durationFrames;
+      const envelope = isSwelling ? Math.sin((Math.PI * localFrame) / waveCfg.durationFrames) : 0;
+      ball.impactScale = 1 + waveCfg.amplitude * Math.pow(waveCfg.hopFalloff, hop) * envelope;
+    }
+  }
+
+  clearImpactWave() {
+    if (!this.impactWave) {
+      return;
+    }
+    for (const ballId of this.impactWave.hops.keys()) {
+      const ball = this.physicsWorld.ballMap.get(ballId);
+      if (ball) {
+        ball.impactScale = 1;
+      }
+    }
+    this.impactWave = null;
   }
 
   detachAndRewardAvalanche() {
