@@ -16,8 +16,8 @@
         "daily": "Défi du Jour",
         "dailyBonusBadge": "Défi du Jour (+{{coins}} ⬡)",
         "flux": "Mode Flux",
-        "shop": "Boutique",
-        "shopBadge": "Boutique ({{count}})",
+        "shop": "Atelier",
+        "shopBadge": "Atelier ({{count}})",
         "restart": "Recommencer",
         "pause": "Pause",
         "soundOn": "🔊",
@@ -47,7 +47,13 @@
         "tiltOff": "📱",
         "tiltOnAria": "Contrôle par inclinaison : Activé",
         "tiltOffAria": "Contrôle par inclinaison : Désactivé",
-        "tiltAria": "Contrôle par inclinaison"
+        "tiltAria": "Contrôle par inclinaison",
+        "settings": "Réglages",
+        "settingsIcon": "⚙"
+      },
+      "groups": {
+        "modes": "Modes de jeu",
+        "round": "Partie en cours"
       }
     },
     "drawer": {
@@ -68,7 +74,8 @@
       "score": {
         "label": "Score",
         "nextThreshold": "• Prochain : {{next}}",
-        "maxReached": "• MAX"
+        "maxReached": "• MAX",
+        "progressAria": "Progression vers l'étoile suivante"
       },
       "highScore": {
         "label": "Record"
@@ -97,19 +104,25 @@
       },
       "frozen": {
         "label": "Gel actif ({{turns}})"
-      }
+      },
+      "compactLine": "{{mode}} • {{coins}} • Record {{best}}"
     },
     "launcher": {
       "swap": {
         "icon": "⇄",
         "label": "Échanger",
-        "shortcut": "Espace"
+        "shortcut": "Espace",
+        "caption": "Échanger"
       },
       "polarity": {
         "icon": "🧲",
         "normal": "Polarité : Normale",
         "inverted": "Polarité : Inversée",
-        "shortcut": "F"
+        "shortcut": "F",
+        "caption": {
+          "normal": "Normale",
+          "inverted": "Inversée"
+        }
       },
       "cancel": {
         "hint": "Relâcher ici pour annuler le tir"
@@ -155,7 +168,9 @@
         "tooltip": "Tire trois fusées à tête chercheuse sur les sphères les plus coriaces"
       },
       "button": {
-        "aria": "{{name}} : {{count}} en stock"
+        "aria": "{{name}} : {{count}} en stock",
+        "buyAria": "{{name}} : aucune en stock. Ouvrir l'Atelier pour en acheter",
+        "emptyMark": "+"
       }
     },
     "canvas": {
@@ -303,21 +318,24 @@
         "levelNumber": "Niveau {{id}}",
         "locked": "Verrouillé : terminez le niveau {{previous}}",
         "bestScore": "Record : {{score}}",
-        "starsAria": "Étoiles : {{stars}} sur {{maxStars}}"
+        "starsAria": "Étoiles : {{stars}} sur {{maxStars}}",
+        "current": "En cours"
       },
       "button": {
         "close": "Fermer",
-        "playEndless": "Lancer le Mode Survie"
+        "resume": "Reprendre le niveau {{level}}",
+        "play": "Jouer le niveau {{level}}"
       }
     },
     "shop": {
       "title": {
-        "main": "Atelier Magnétique"
+        "main": "Atelier"
       },
       "tabs": {
         "upgrades": "Améliorations",
         "achievements": "Succès ({{unlocked}}/{{total}})",
-        "codex": "Codex & Guide"
+        "codex": "Codex & Guide",
+        "ammo": "Munitions"
       },
       "balance": {
         "label": "Pièces disponibles : {{coins}} ⬡"
@@ -466,7 +484,8 @@
       "card": {
         "level": "Niv. {{level}} / {{maxLevel}}",
         "maxed": "MAX",
-        "buy": "Améliorer ({{cost}} ⬡)"
+        "buy": "Améliorer ({{cost}} ⬡)",
+        "maxedAria": "Niveau maximum atteint"
       },
       "upgrades": {
         "laserSight": {
@@ -557,6 +576,14 @@
       "button": {
         "confirm": "Confirmer",
         "cancel": "Continuer la partie"
+      }
+    },
+    "settings": {
+      "title": {
+        "main": "Réglages"
+      },
+      "button": {
+        "close": "Fermer"
       }
     }
   },

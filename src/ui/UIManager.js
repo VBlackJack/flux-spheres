@@ -19,6 +19,7 @@ import {
   GAME_OVER_REASONS,
   GAME_STATES,
   INPUT_MODES,
+  MATH_CONSTANTS,
   SPECIAL_TYPES,
   SPECIAL_TYPES_ORDER,
   OBSTACLE_TYPES_ORDER
@@ -51,6 +52,25 @@ const TOUCH_POINTER_TYPES = new Set(['touch', 'pen']);
 /** Root data attribute mirroring the current input mode for CSS. */
 const INPUT_MODE_DATASET_KEY = 'input';
 
+/** Special ball button with no stock left: a click opens the Workshop ammo tab. */
+const EMPTY_POWERUP_CLASS = 'is-empty';
+
+/** Workshop tab names. */
+export const SHOP_TABS = Object.freeze({
+  UPGRADES: 'upgrades',
+  AMMO: 'ammo',
+  ACHIEVEMENTS: 'achievements',
+  CODEX: 'codex'
+});
+
+/** Mode buttons, keyed by the game mode each one starts. */
+const MODE_BUTTON_KEYS = Object.freeze({
+  [GAME_MODES.CAMPAIGN]: 'btnLevels',
+  [GAME_MODES.ENDLESS]: 'btnEndless',
+  [GAME_MODES.DAILY]: 'btnDaily',
+  [GAME_MODES.FLUX]: 'btnFlux'
+});
+
 /** Pause modal hints that have one wording per input mode. */
 const PAUSE_INPUT_HINTS = Object.freeze([
   { elementId: 'pause-instruction-aim', key: 'modals.pause.instructions.aim' },
@@ -60,6 +80,29 @@ const PAUSE_INPUT_HINTS = Object.freeze([
 
 /** Accessible names that have one wording per input mode (the board's text alternative). */
 export const INPUT_ARIA_HINTS = Object.freeze([{ elementId: 'game-canvas', key: 'hud.canvas.aria.label' }]);
+
+/** Percent scale of the star gauge. */
+const FULL_PERCENT = 100;
+
+/**
+ * How far a score has gone from the last star threshold it passed toward the next one.
+ * @param {number} score - Current score.
+ * @param {number[]} thresholds - Star thresholds, ascending.
+ * @param {number|undefined} nextThreshold - The first threshold above the score, if any.
+ * @returns {number} A whole percentage; 100 once every star is earned.
+ */
+export function computeStarProgressPct(score, thresholds, nextThreshold) {
+  if (nextThreshold === undefined) {
+    return FULL_PERCENT;
+  }
+  const passed = thresholds.filter((th) => th <= score);
+  const floor = passed.length > 0 ? passed[passed.length - 1] : 0;
+  const span = nextThreshold - floor;
+  if (span <= 0) {
+    return 0;
+  }
+  return Math.round(Math.max(0, Math.min(1, (score - floor) / span)) * FULL_PERCENT);
+}
 
 /**
  * Maps a pointer event type to an input mode; mouse and unknown types keep the
@@ -248,11 +291,14 @@ export class UIManager {
       starProgress: document.getElementById('hud-star-progress'),
       starGlyphs: document.getElementById('hud-star-glyphs'),
       starNext: document.getElementById('hud-star-next'),
+      starMeter: document.getElementById('hud-star-meter'),
+      starMeterFill: document.getElementById('hud-star-meter-fill'),
       highScoreValue: document.getElementById('hud-best-value'),
       coinsValue: document.getElementById('hud-coins-value'),
       overchargePct: document.getElementById('hud-overcharge-pct'),
       overchargeFill: document.getElementById('hud-overcharge-fill'),
       modeBanner: document.getElementById('hud-mode-banner'),
+      compactInfo: document.getElementById('hud-compact-info'),
       shotsLabel: document.getElementById('hud-shots-label'),
       shotsValue: document.getElementById('hud-shots-value'),
       comboBadge: document.getElementById('hud-combo-badge'),
@@ -293,10 +339,12 @@ export class UIManager {
       levelsStarsSummary: document.getElementById('levels-stars-summary'),
       levelsGrid: document.getElementById('levels-grid'),
       btnCloseLevels: document.getElementById('btn-close-levels'),
-      btnPlayEndlessModal: document.getElementById('btn-play-endless-modal'),
+      btnPlayLevelModal: document.getElementById('btn-play-level-modal'),
       modalShop: document.getElementById('modal-shop'),
       shopBalance: document.getElementById('shop-balance'),
       tabShopUpgrades: document.getElementById('tab-shop-upgrades'),
+      tabShopAmmo: document.getElementById('tab-shop-ammo'),
+      shopAmmoPane: document.getElementById('shop-ammo-pane'),
       tabShopAchievements: document.getElementById('tab-shop-achievements'),
       tabShopCodex: document.getElementById('tab-shop-codex'),
       shopUpgradesPane: document.getElementById('shop-upgrades-pane'),
@@ -329,6 +377,9 @@ export class UIManager {
       btnTiltPause: document.getElementById('btn-tilt-pause'),
       btnMotionPause: document.getElementById('btn-motion-pause'),
       btnLangPause: document.getElementById('btn-lang-pause'),
+      btnSettings: document.getElementById('btn-settings'),
+      modalSettings: document.getElementById('modal-settings'),
+      btnCloseSettings: document.getElementById('btn-close-settings'),
       modalConfirm: document.getElementById('modal-confirm'),
       btnConfirmYes: document.getElementById('btn-confirm-yes'),
       btnConfirmNo: document.getElementById('btn-confirm-no'),
@@ -339,7 +390,7 @@ export class UIManager {
     this.isAnnouncementScheduled = false;
     this.lastExtra = {};
     this.pendingConfirmCallback = null;
-    this.activeShopTab = 'upgrades';
+    this.activeShopTab = SHOP_TABS.UPGRADES;
     this.autoPausedByOverlay = false;
     this.lastFocusedElement = null;
     this.stackedModalOpener = null;
@@ -394,12 +445,14 @@ export class UIManager {
    * Fills a launcher button's icon and text parts. The text stays in the
    * accessibility tree even where the compact layout only shows the icon.
    */
-  setLauncherButton(button, iconKey, labelKey, shortcutKey) {
+  setLauncherButton(button, iconKey, labelKey, shortcutKey, captionKey) {
     if (!button) {
       return;
     }
     setTextIfChanged(button.querySelector('.launcher-icon'), t(iconKey));
     setTextIfChanged(button.querySelector('.launcher-text'), this.formatLauncherLabel(labelKey, shortcutKey));
+    // The short caption under the icon, shown where the compact layout hides the label.
+    setTextIfChanged(button.querySelector('.launcher-caption'), t(captionKey));
   }
 
   updateInputHints() {
@@ -407,7 +460,8 @@ export class UIManager {
       this.elements.swapBtn,
       'hud.launcher.swap.icon',
       'hud.launcher.swap.label',
-      'hud.launcher.swap.shortcut'
+      'hud.launcher.swap.shortcut',
+      'hud.launcher.swap.caption'
     );
     for (const { elementId, key } of PAUSE_INPUT_HINTS) {
       setTextIfChanged(document.getElementById(elementId), t(`${key}.${this.inputMode}`));
@@ -486,6 +540,11 @@ export class UIManager {
 
       btn.append(iconSpan, labelSpan, countSpan);
       btn.addEventListener('click', () => {
+        // An empty stock leads to where more can be bought.
+        if (btn.classList.contains(EMPTY_POWERUP_CLASS)) {
+          this.openShopModal(SHOP_TABS.AMMO);
+          return;
+        }
         this.engine.equipSpecialBall(type);
       });
 
@@ -697,6 +756,17 @@ export class UIManager {
       this.openShopModal();
     });
 
+    if (this.elements.btnSettings) {
+      this.elements.btnSettings.addEventListener('click', () => {
+        this.openOverlayModal(this.elements.modalSettings, this.elements.btnCloseSettings);
+      });
+    }
+    if (this.elements.btnCloseSettings) {
+      this.elements.btnCloseSettings.addEventListener('click', () => {
+        this.closeOverlayModal(this.elements.modalSettings);
+      });
+    }
+
     this.elements.btnRestart.addEventListener('click', () => {
       this.requestDestructiveAction(() => {
         this.hideAllModals();
@@ -807,13 +877,8 @@ export class UIManager {
       });
     }
 
-    if (this.elements.tabShopUpgrades && this.elements.tabShopAchievements) {
-      const shopTabs = [
-        { name: 'upgrades', el: this.elements.tabShopUpgrades },
-        { name: 'achievements', el: this.elements.tabShopAchievements },
-        ...(this.elements.tabShopCodex ? [{ name: 'codex', el: this.elements.tabShopCodex }] : [])
-      ];
-
+    const shopTabs = this.getShopTabs();
+    if (shopTabs.length > 0) {
       for (let i = 0; i < shopTabs.length; i++) {
         const { name, el } = shopTabs[i];
         el.addEventListener('click', () => {
@@ -863,6 +928,9 @@ export class UIManager {
     bindBackdropDismiss(this.elements.modalShop, () => {
       this.closeOverlayModal(this.elements.modalShop);
     });
+    bindBackdropDismiss(this.elements.modalSettings, () => {
+      this.closeOverlayModal(this.elements.modalSettings);
+    });
     bindBackdropDismiss(this.elements.modalPause, () => {
       if (this.engine.state === GAME_STATES.PAUSED) {
         this.engine.togglePause();
@@ -881,11 +949,13 @@ export class UIManager {
       this.closeOverlayModal(this.elements.modalShop);
     });
 
-    this.elements.btnPlayEndlessModal.addEventListener('click', () => {
-      this.requestDestructiveAction(() => {
-        this.hideAllModals();
-        this.engine.startEndlessMode();
-      });
+    this.elements.btnPlayLevelModal.addEventListener('click', () => {
+      if (this.isCampaignRunActive()) {
+        this.closeOverlayModal(this.elements.modalLevels);
+        return;
+      }
+      this.hideAllModals();
+      this.engine.startCampaignLevel(this.getSuggestedLevelId());
     });
 
     this.elements.btnNextLevel.addEventListener('click', () => {
@@ -970,6 +1040,10 @@ export class UIManager {
         }
         if (!this.elements.modalShop.classList.contains('hidden')) {
           this.closeOverlayModal(this.elements.modalShop);
+          return;
+        }
+        if (this.elements.modalSettings && !this.elements.modalSettings.classList.contains('hidden')) {
+          this.closeOverlayModal(this.elements.modalSettings);
           return;
         }
         if (this.engine.state === GAME_STATES.PLAYING || this.engine.state === GAME_STATES.PAUSED) {
@@ -1069,12 +1143,41 @@ export class UIManager {
   getModalsByPriority() {
     return [
       this.elements.modalConfirm,
-      this.elements.modalLevels,
-      this.elements.modalShop,
+      ...this.getOverlayModals(),
       this.elements.modalVictory,
       this.elements.modalGameOver,
       this.elements.modalPause
     ].filter(Boolean);
+  }
+
+  /** Dialogs opened from the menu over a run, which they pause until they close. */
+  getOverlayModals() {
+    return [this.elements.modalLevels, this.elements.modalShop, this.elements.modalSettings].filter(Boolean);
+  }
+
+  isAnyOverlayModalOpen() {
+    return this.getOverlayModals().some((modal) => !modal.classList.contains('hidden'));
+  }
+
+  /**
+   * Opens a menu dialog over the run, pausing it, and focuses the given control.
+   * @param {HTMLElement} modal - The dialog to show.
+   * @param {HTMLElement} [focusTarget] - The control that receives focus.
+   */
+  openOverlayModal(modal, focusTarget) {
+    if (!modal) {
+      return;
+    }
+    this.saveLastFocusedElement();
+    if (this.engine.state === GAME_STATES.PLAYING) {
+      this.autoPausedByOverlay = true;
+      this.engine.state = GAME_STATES.PAUSED;
+    }
+    modal.classList.remove('hidden');
+    this.syncModalInertState();
+    if (focusTarget) {
+      focusTarget.focus();
+    }
   }
 
   getActiveTopModal() {
@@ -1165,41 +1268,25 @@ export class UIManager {
     }
   }
 
+  /** The Workshop tabs in display order, each with its tab button and panel. */
+  getShopTabs() {
+    return [
+      { name: SHOP_TABS.UPGRADES, el: this.elements.tabShopUpgrades, pane: this.elements.shopUpgradesPane },
+      { name: SHOP_TABS.AMMO, el: this.elements.tabShopAmmo, pane: this.elements.shopAmmoPane },
+      { name: SHOP_TABS.ACHIEVEMENTS, el: this.elements.tabShopAchievements, pane: this.elements.achievementsGrid },
+      { name: SHOP_TABS.CODEX, el: this.elements.tabShopCodex, pane: this.elements.codexPane }
+    ].filter((tab) => tab.el && tab.pane);
+  }
+
   switchShopTab(tabName) {
-    if (tabName === 'achievements' || tabName === 'codex') {
-      this.activeShopTab = tabName;
-    } else {
-      this.activeShopTab = 'upgrades';
-    }
-    const isUpgrades = this.activeShopTab === 'upgrades';
-    const isAchievements = this.activeShopTab === 'achievements';
-    const isCodex = this.activeShopTab === 'codex';
-
-    if (this.elements.tabShopUpgrades) {
-      this.elements.tabShopUpgrades.classList.toggle('active', isUpgrades);
-      this.elements.tabShopUpgrades.setAttribute('aria-selected', String(isUpgrades));
-      this.elements.tabShopUpgrades.tabIndex = isUpgrades ? 0 : -1;
-    }
-    if (this.elements.tabShopAchievements) {
-      this.elements.tabShopAchievements.classList.toggle('active', isAchievements);
-      this.elements.tabShopAchievements.setAttribute('aria-selected', String(isAchievements));
-      this.elements.tabShopAchievements.tabIndex = isAchievements ? 0 : -1;
-    }
-    if (this.elements.tabShopCodex) {
-      this.elements.tabShopCodex.classList.toggle('active', isCodex);
-      this.elements.tabShopCodex.setAttribute('aria-selected', String(isCodex));
-      this.elements.tabShopCodex.tabIndex = isCodex ? 0 : -1;
-    }
-
-    const upgradesContainer = this.elements.shopUpgradesPane || this.elements.shopGrid;
-    if (upgradesContainer) {
-      upgradesContainer.classList.toggle('hidden', !isUpgrades);
-    }
-    if (this.elements.achievementsGrid) {
-      this.elements.achievementsGrid.classList.toggle('hidden', !isAchievements);
-    }
-    if (this.elements.codexPane) {
-      this.elements.codexPane.classList.toggle('hidden', !isCodex);
+    const tabs = this.getShopTabs();
+    this.activeShopTab = tabs.some((tab) => tab.name === tabName) ? tabName : SHOP_TABS.UPGRADES;
+    for (const { name, el, pane } of tabs) {
+      const isActive = name === this.activeShopTab;
+      el.classList.toggle('active', isActive);
+      el.setAttribute('aria-selected', String(isActive));
+      el.tabIndex = isActive ? 0 : -1;
+      pane.classList.toggle('hidden', !isActive);
     }
   }
 
@@ -1218,8 +1305,7 @@ export class UIManager {
   closeOverlayModal(modalElement) {
     modalElement.classList.add('hidden');
     const otherOverlayStillOpen =
-      !this.elements.modalLevels.classList.contains('hidden') ||
-      !this.elements.modalShop.classList.contains('hidden') ||
+      this.isAnyOverlayModalOpen() ||
       Boolean(this.elements.modalConfirm && !this.elements.modalConfirm.classList.contains('hidden'));
 
     if (!otherOverlayStillOpen && this.autoPausedByOverlay && this.engine.state === GAME_STATES.PAUSED) {
@@ -1238,14 +1324,7 @@ export class UIManager {
   }
 
   isAnyModalOpen() {
-    return (
-      !this.elements.modalLevels.classList.contains('hidden') ||
-      !this.elements.modalShop.classList.contains('hidden') ||
-      !this.elements.modalVictory.classList.contains('hidden') ||
-      !this.elements.modalGameOver.classList.contains('hidden') ||
-      !this.elements.modalPause.classList.contains('hidden') ||
-      Boolean(this.elements.modalConfirm && !this.elements.modalConfirm.classList.contains('hidden'))
-    );
+    return this.getModalsByPriority().some((modal) => !modal.classList.contains('hidden'));
   }
 
   /**
@@ -1388,8 +1467,10 @@ export class UIManager {
       typeof window.matchMedia === 'function' &&
       window.matchMedia(this.gameConfig.tilt.touchMediaQuery).matches;
     for (const btn of [this.elements.btnTilt, this.elements.btnTiltPause]) {
-      btn?.closest('.nav-setting, .pause-setting')?.classList.toggle('hidden', !isSupported);
+      btn?.closest('.pause-setting')?.classList.toggle('hidden', !isSupported);
     }
+    // Named even while hidden, so no audit tool finds an unnamed button.
+    this.updateTiltButton();
     if (!isSupported) {
       return;
     }
@@ -1477,34 +1558,22 @@ export class UIManager {
 
   hideAllModals() {
     this.autoPausedByOverlay = false;
-    this.elements.modalLevels.classList.add('hidden');
-    this.elements.modalShop.classList.add('hidden');
-    this.elements.modalVictory.classList.add('hidden');
-    this.elements.modalGameOver.classList.add('hidden');
-    this.elements.modalPause.classList.add('hidden');
-    if (this.elements.modalConfirm) {
-      this.elements.modalConfirm.classList.add('hidden');
+    for (const modal of this.getModalsByPriority()) {
+      modal.classList.add('hidden');
     }
     this.syncModalInertState();
   }
 
-  openShopModal() {
-    this.saveLastFocusedElement();
-    if (this.engine.state === GAME_STATES.PLAYING) {
-      this.autoPausedByOverlay = true;
-      this.engine.state = GAME_STATES.PAUSED;
-    }
+  /**
+   * @param {string} [tabName] - Tab to show; the last one used when omitted.
+   */
+  openShopModal(tabName = this.activeShopTab) {
     this.renderShopContents();
     if (this.elements.codexPane) {
       this.buildCodexPane();
     }
-
-    this.switchShopTab(this.activeShopTab);
-    this.elements.modalShop.classList.remove('hidden');
-    this.syncModalInertState();
-    if (this.elements.btnCloseShop) {
-      this.elements.btnCloseShop.focus();
-    }
+    this.switchShopTab(tabName);
+    this.openOverlayModal(this.elements.modalShop, this.elements.btnCloseShop);
   }
 
   /**
@@ -1557,14 +1626,28 @@ export class UIManager {
       desc.className = 'level-card-desc';
       desc.textContent = t(`modals.shop.upgrades.${upgradeKey}.description`);
 
+      if (isMaxed) {
+        // A finished upgrade shows a status, not a button that only looks pressable.
+        const maxedBadge = document.createElement('span');
+        maxedBadge.className = 'upgrade-maxed-badge';
+        const maxedGlyph = document.createElement('span');
+        maxedGlyph.setAttribute('aria-hidden', 'true');
+        maxedGlyph.textContent = t('modals.shop.card.maxed');
+        const maxedText = document.createElement('span');
+        maxedText.className = 'visually-hidden';
+        maxedText.textContent = t('modals.shop.card.maxedAria');
+        maxedBadge.append(maxedGlyph, maxedText);
+        card.append(header, title, desc, maxedBadge);
+        grid.appendChild(card);
+        continue;
+      }
+
       const buyBtn = document.createElement('button');
       buyBtn.type = 'button';
       buyBtn.className = 'modal-btn primary';
       buyBtn.dataset.upgradeKey = upgradeKey;
-      buyBtn.disabled = isMaxed || coins < cost;
-      buyBtn.textContent = isMaxed
-        ? t('modals.shop.card.maxed')
-        : t('modals.shop.card.buy', { cost: formatNumber(cost) });
+      buyBtn.disabled = coins < cost;
+      buyBtn.textContent = t('modals.shop.card.buy', { cost: formatNumber(cost) });
 
       buyBtn.addEventListener('click', () => {
         if (this.storageManager.purchaseUpgrade(upgradeKey)) {
@@ -1748,13 +1831,23 @@ export class UIManager {
     pane.appendChild(obsGrid);
   }
 
-  openLevelsModal() {
-    this.saveLastFocusedElement();
-    if (this.engine.state === GAME_STATES.PLAYING) {
-      this.autoPausedByOverlay = true;
-      this.engine.state = GAME_STATES.PAUSED;
+  isCampaignRunActive() {
+    return this.engine.mode === GAME_MODES.CAMPAIGN && this.isRunActive();
+  }
+
+  /** The level the select dialog puts forward: the one being played, else the furthest unlocked. */
+  getSuggestedLevelId() {
+    if (this.engine.mode === GAME_MODES.CAMPAIGN && this.engine.currentLevelId) {
+      return this.engine.currentLevelId;
     }
+    const levelIds = this.levelsConfig.levels.map((lvl) => lvl.id);
+    return Math.min(this.storageManager.getUnlockedLevel(), Math.max(...levelIds));
+  }
+
+  openLevelsModal() {
     const unlocked = this.storageManager.getUnlockedLevel();
+    const suggestedLevelId = this.getSuggestedLevelId();
+    let suggestedCard = null;
     const stats = this.storageManager.getLevelStats();
     const grid = this.elements.levelsGrid;
     grid.innerHTML = '';
@@ -1778,6 +1871,15 @@ export class UIManager {
       const header = document.createElement('div');
       header.className = 'level-card-header';
       header.textContent = t('modals.levelSelect.card.levelNumber', { id: lvl.id });
+      if (lvl.id === suggestedLevelId) {
+        suggestedCard = card;
+        card.classList.add('current');
+        card.setAttribute('aria-current', 'true');
+        const currentBadge = document.createElement('span');
+        currentBadge.className = 'level-current-badge';
+        currentBadge.textContent = t('modals.levelSelect.card.current');
+        header.append(' ', currentBadge);
+      }
 
       const title = document.createElement('div');
       title.className = 'level-card-title';
@@ -1845,11 +1947,31 @@ export class UIManager {
       grid.appendChild(card);
     }
 
-    this.elements.modalLevels.classList.remove('hidden');
-    this.syncModalInertState();
-    if (this.elements.btnCloseLevels) {
-      this.elements.btnCloseLevels.focus();
+    const playButton = this.elements.btnPlayLevelModal;
+    setTextIfChanged(
+      playButton,
+      t(this.isCampaignRunActive() ? 'modals.levelSelect.button.resume' : 'modals.levelSelect.button.play', {
+        level: suggestedLevelId
+      })
+    );
+    this.openOverlayModal(this.elements.modalLevels, playButton);
+    if (suggestedCard) {
+      // Only the grid scrolls: scrollIntoView would also move the dialog inside its backdrop.
+      const gridRect = grid.getBoundingClientRect();
+      const cardRect = suggestedCard.getBoundingClientRect();
+      grid.scrollTop += cardRect.top - gridRect.top - (gridRect.height - cardRect.height) * MATH_CONSTANTS.HALF;
     }
+  }
+
+  /** Fills the gauge from the last star earned toward the next one. */
+  updateStarMeter(score, thresholds, nextThreshold) {
+    const meter = this.elements.starMeter;
+    if (!meter) {
+      return;
+    }
+    const pct = computeStarProgressPct(score, thresholds, nextThreshold);
+    this.elements.starMeterFill.style.width = `${pct}%`;
+    setAttributeIfChanged(meter, 'aria-valuenow', String(pct));
   }
 
   refresh(engine, extra = {}) {
@@ -1872,13 +1994,20 @@ export class UIManager {
     );
     this.elements.btnShop.classList.toggle('has-affordable', affordableCount > 0);
 
-    this.elements.btnLevels.classList.toggle('active-mode', engine.mode === GAME_MODES.CAMPAIGN);
-    this.elements.btnEndless.classList.toggle('active-mode', engine.mode === GAME_MODES.ENDLESS);
-    if (this.elements.btnFlux) {
-      this.elements.btnFlux.classList.toggle('active-mode', engine.mode === GAME_MODES.FLUX);
+    // Only the mode being played stands out, and says so to screen readers.
+    for (const [mode, elementKey] of Object.entries(MODE_BUTTON_KEYS)) {
+      const button = this.elements[elementKey];
+      if (button) {
+        const isActive = engine.mode === mode;
+        button.classList.toggle('active-mode', isActive);
+        if (isActive) {
+          setAttributeIfChanged(button, 'aria-current', 'true');
+        } else {
+          button.removeAttribute('aria-current');
+        }
+      }
     }
     if (this.elements.btnDaily) {
-      this.elements.btnDaily.classList.toggle('active-mode', engine.mode === GAME_MODES.DAILY);
       const todayKey = SeededRandom.getTodayDateKey();
       const dailyBonusCoins = this.gameConfig.daily?.firstPlayBonusCoins || 0;
       const canClaimDaily = dailyBonusCoins > 0 && !this.storageManager.hasPlayedDailyToday(todayKey);
@@ -1911,10 +2040,14 @@ export class UIManager {
     setTextIfChanged(this.elements.highScoreValue, formatNumber(Math.max(bestScore, engine.score)));
 
     if (this.elements.polarityBtn) {
-      const polKey = engine.isPolarityFlipped
-        ? 'hud.launcher.polarity.inverted'
-        : 'hud.launcher.polarity.normal';
-      this.setLauncherButton(this.elements.polarityBtn, 'hud.launcher.polarity.icon', polKey, 'hud.launcher.polarity.shortcut');
+      const polState = engine.isPolarityFlipped ? 'inverted' : 'normal';
+      this.setLauncherButton(
+        this.elements.polarityBtn,
+        'hud.launcher.polarity.icon',
+        `hud.launcher.polarity.${polState}`,
+        'hud.launcher.polarity.shortcut',
+        `hud.launcher.polarity.caption.${polState}`
+      );
       this.elements.polarityBtn.classList.toggle('active', Boolean(engine.isPolarityFlipped));
     }
 
@@ -1944,6 +2077,7 @@ export class UIManager {
         const currentStars = engine.computeStars(engine.score);
         const starsStr = this.formatStars(currentStars, maxStars);
         const nextThreshold = thresholds.find((th) => th > engine.score);
+        this.updateStarMeter(engine.score, thresholds, nextThreshold);
         // Two unbreakable parts, so a narrow HUD wraps between them and never inside one.
         setTextIfChanged(this.elements.starGlyphs, starsStr);
         setTextIfChanged(
@@ -2057,16 +2191,24 @@ export class UIManager {
     this.updateAimState(engine);
 
     const buttons = this.elements.powerupsContainer.querySelectorAll('.powerup-btn');
+    const canBuyAmmo = this.isRunActive();
     for (const btn of buttons) {
       const type = btn.dataset.specialType;
       const count = engine.specialInventory[type] || 0;
-      const countEl = document.getElementById(`powerup-count-${type}`);
-      setTextIfChanged(countEl, String(count));
-      setAttributeIfChanged(btn, 'aria-label', this.getPowerupAriaLabel(type, count));
       const isEquipped = Boolean(engine.currentBall && engine.currentBall.specialType === type);
+      const isEmpty = count <= 0 && !isEquipped;
+      const countEl = document.getElementById(`powerup-count-${type}`);
+      setTextIfChanged(countEl, isEmpty && canBuyAmmo ? t('hud.powerups.button.emptyMark') : String(count));
+      const label =
+        isEmpty && canBuyAmmo
+          ? t('hud.powerups.button.buyAria', { name: t(`hud.powerups.${type}.name`) })
+          : this.getPowerupAriaLabel(type, count);
+      setAttributeIfChanged(btn, 'aria-label', label);
       btn.classList.toggle('equipped', isEquipped);
+      btn.classList.toggle(EMPTY_POWERUP_CLASS, isEmpty && canBuyAmmo);
       setAttributeIfChanged(btn, 'aria-pressed', String(isEquipped));
-      btn.disabled = count <= 0 && !isEquipped;
+      // Ammo is only sold during a round, so between rounds an empty button stays inert.
+      btn.disabled = isEmpty && !canBuyAmmo;
     }
 
     const transitionedState = this.prevEngineState !== engine.state;
@@ -2116,8 +2258,7 @@ export class UIManager {
     const canRevealVictory =
       engine.state === GAME_STATES.VICTORY &&
       !engine.isVictoryCelebrating() &&
-      this.elements.modalLevels.classList.contains('hidden') &&
-      this.elements.modalShop.classList.contains('hidden');
+      !this.isAnyOverlayModalOpen();
     const isVictoryJustRevealed = canRevealVictory && !this.isVictoryModalRevealed;
     if (engine.state !== GAME_STATES.VICTORY || canRevealVictory) {
       this.isVictoryModalRevealed = canRevealVictory;
@@ -2199,6 +2340,14 @@ export class UIManager {
       }
     }
 
+    setTextIfChanged(
+      this.elements.compactInfo,
+      t('hud.stats.compactLine', {
+        mode: this.elements.modeBanner.textContent,
+        coins: this.elements.coinsValue.textContent,
+        best: this.elements.highScoreValue.textContent
+      })
+    );
     this.syncDrawerStats();
     this.syncModalInertState();
   }

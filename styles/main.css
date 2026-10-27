@@ -220,7 +220,7 @@ body {
   grid-column: 1 / -1;
 }
 
-.nav-settings {
+.nav-actions {
   padding-left: 8px;
   border-left: 1px solid var(--border-subtle);
 }
@@ -248,28 +248,23 @@ body {
   transform: translateY(-1px);
 }
 
+/* Mode buttons stay neutral; only the mode being played stands out. */
 .nav-btn.active-mode {
-  box-shadow: 0 0 10px var(--accent-blue-alpha-35);
-  border-width: 1px;
+  background: var(--accent-purple-alpha-38);
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 10px var(--accent-purple-alpha-45);
 }
 
+/* Pause is the one action a player reaches for mid-round. */
 .nav-btn.primary {
-  background: var(--accent-blue-alpha-18);
+  background: var(--accent-blue);
+  color: var(--text-on-accent);
   border-color: var(--accent-blue);
 }
 
-.nav-btn.primary.active-mode {
-  background: var(--accent-blue-alpha-34);
-}
-
-.nav-btn.accent {
-  background: var(--accent-purple-alpha-20);
-  border-color: var(--accent-purple);
-}
-
-.nav-btn.accent.active-mode {
-  background: var(--accent-purple-alpha-38);
-  box-shadow: 0 0 10px var(--accent-purple-alpha-45);
+.settings-btn-icon {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .nav-btn.gold {
@@ -328,6 +323,26 @@ body {
   white-space: nowrap;
 }
 
+/* Gauge from the last star earned to the next one: the round's goal at a glance. */
+.star-meter {
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin-top: 4px;
+  overflow: hidden;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+.star-meter-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent-amber);
+  transition: width 0.3s ease;
+}
+
 /* Slide-in menu parts: only portrait phones turn the header into a menu. */
 .hud-menu-btn,
 .drawer-close-btn {
@@ -347,15 +362,9 @@ body {
 
 .drawer-backdrop,
 .drawer-stats,
-.nav-setting-caption {
+.hud-compact-info,
+.launcher-caption {
   display: none;
-}
-
-.nav-setting {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
 }
 
 .drawer-stat {
@@ -486,6 +495,12 @@ body {
   aspect-ratio: var(--canvas-aspect);
   cursor: crosshair;
   touch-action: none;
+}
+
+/* Drawn inside the board: the wrapper clips anything outside it. */
+#game-canvas:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 
 .launcher-controls-dock {
@@ -712,6 +727,17 @@ body {
   cursor: not-allowed;
 }
 
+/* Empty stock: the ball fades, and the count turns into a gold "+" that opens the Workshop. */
+.powerup-btn.is-empty .powerup-icon,
+.powerup-btn.is-empty .powerup-name {
+  opacity: 0.45;
+}
+
+.powerup-btn.is-empty .powerup-count {
+  color: var(--text-gold);
+  border: 1px solid var(--accent-amber);
+}
+
 .powerup-icon {
   width: 28px;
   height: 28px;
@@ -905,6 +931,17 @@ body {
   max-height: 380px;
   overflow-y: auto;
   padding: 4px;
+}
+
+#levels-grid {
+  flex: 1 1 auto;
+  max-height: none;
+  scroll-padding: 12px;
+}
+
+#modal-levels .modal-card {
+  height: calc(100dvh - var(--modal-pad-top) - var(--modal-pad-bottom));
+  max-width: 880px;
 }
 
 .modal-subtitle {
@@ -1104,6 +1141,30 @@ body {
   font-style: italic;
 }
 
+.level-card.current {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 1px var(--accent-blue), 0 0 14px var(--accent-blue-alpha-35);
+}
+
+.level-current-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--accent-blue);
+  color: var(--text-on-accent);
+  text-transform: none;
+}
+
+/* Status, not a control: no fill, no button shape. */
+.upgrade-maxed-badge {
+  align-self: center;
+  padding: 6px 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--text-gold);
+}
+
 .modal-actions {
   display: flex;
   justify-content: center;
@@ -1220,15 +1281,10 @@ body {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
   }
-  #btn-restart,
-  #btn-sound,
-  #btn-contrast,
-  #btn-motion,
-  #btn-lang,
-  .nav-setting {
+  #btn-restart {
     display: none;
   }
-  .nav-settings {
+  .nav-actions {
     padding-left: 0;
     border-left: none;
     flex-wrap: nowrap;
@@ -1343,10 +1399,12 @@ body {
     --shell-gap: 0px;
     --stage-reserve-x: 0px;
     --canvas-max-width: 100cqw;
-    --control-row-height: var(--touch-target);
+    /* Room for a short name under each control icon. */
+    --control-row-height: calc(var(--touch-target) + 14px);
     --overcharge-line-height: 4px;
+    --overcharge-row-height: 14px;
     --stage-reserve-y: calc(
-      var(--control-row-height) + var(--overcharge-line-height) + 2 * var(--stage-column-gap) + var(--canvas-border)
+      var(--control-row-height) + var(--overcharge-row-height) + 2 * var(--stage-column-gap) + var(--canvas-border)
     );
     --drawer-width: min(320px, 86vw);
     --drawer-transition: 0.22s ease;
@@ -1435,35 +1493,17 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
-  .nav-settings {
+  .nav-actions {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: start;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
-  #btn-restart,
-  #btn-pause {
-    grid-column: span 2;
+  #btn-pause,
+  #btn-settings {
+    grid-column: 1 / -1;
   }
-  #btn-restart,
-  #btn-sound,
-  #btn-contrast,
-  #btn-motion,
-  #btn-lang {
+  #btn-restart {
     display: inline-block;
-  }
-  .nav-setting {
-    display: flex;
-  }
-  .nav-setting .nav-btn {
-    width: 100%;
-  }
-  .nav-setting-caption {
-    display: block;
-    font-size: 0.7rem;
-    line-height: 1.2;
-    text-align: center;
-    color: var(--text-muted);
   }
   .nav-controls .nav-btn {
     font-size: 0.85rem;
@@ -1492,6 +1532,23 @@ body {
   .hud-mode-banner,
   .hud-stat-score .hud-subvalue {
     display: none;
+  }
+  /* The round, coins and best score the one-line HUD drops, on a second line. */
+  .hud-bar {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+  .hud-compact-info {
+    display: block;
+    flex: 1 1 100%;
+    order: 10;
+    margin: 0;
+    padding: 0 0 4px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .hud-center-info {
     order: 0;
@@ -1528,21 +1585,35 @@ body {
     border-width: 1px 0;
     border-radius: 0;
   }
+  /* One labelled line: name, gauge, percentage. */
   .overcharge-widget {
     grid-column: 1 / -1;
     grid-row: 2;
-    padding: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    height: var(--overcharge-row-height);
+    padding: 0 max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
     background: none;
     border: none;
     border-radius: 0;
+    font-size: 0.62rem;
+    line-height: 1;
   }
-  .overcharge-header,
+  .overcharge-header {
+    display: contents;
+  }
+  #hud-overcharge-pct {
+    order: 2;
+  }
   .powerups-header {
     display: none;
   }
   .overcharge-track {
+    order: 1;
+    flex: 1 1 auto;
     height: var(--overcharge-line-height);
-    border-radius: 0;
   }
   .polarity-floating-btn,
   .swap-floating-btn,
@@ -1568,6 +1639,31 @@ body {
   }
   .launcher-icon {
     font-size: 1.2rem;
+  }
+  /* Touch screens show no tooltip: each control names itself under its icon. */
+  .launcher-caption,
+  .powerup-name {
+    display: block;
+    flex: none;
+    max-width: 100%;
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .polarity-floating-btn,
+  .swap-floating-btn {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .polarity-floating-btn,
+  .swap-floating-btn,
+  .powerup-btn {
+    padding: 2px 1px;
   }
   /* The launcher label stays readable by screen readers; only its pixels go away. */
   .launcher-text {
@@ -1617,11 +1713,18 @@ body {
     flex: 1 1 100%;
     gap: 4px;
   }
-  .nav-settings {
+  .nav-actions {
     flex: 1 1 100%;
+    flex-wrap: wrap;
+    padding-left: 0;
+    border-left: none;
   }
-  .nav-settings .nav-btn {
-    flex: 1 1 auto;
+  /* Pause gets a row of its own; the other round actions share the next one. */
+  .nav-actions .nav-btn {
+    flex: 1 1 0;
+  }
+  .nav-actions #btn-pause {
+    flex-basis: 100%;
   }
   .hud-bar {
     grid-column: 1;
@@ -1738,8 +1841,12 @@ body {
     font-size: 0.78rem;
   }
   .hud-subvalue {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     text-align: center;
+  }
+  .star-meter {
+    height: 8px;
+    margin-top: 6px;
   }
   .stage-container,
   .stage-column {

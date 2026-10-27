@@ -98,7 +98,8 @@ const NULLABLE_FIELD_TYPES = new Set(['string', 'number', 'boolean']);
 
 /**
  * True when a saved value can replace the live one: same primitive type (a finite number
- * for numbers), or any primitive or null where the live field is currently empty.
+ * for numbers), any primitive or null where the live field is currently empty, or null
+ * over text (text fields are optional keys, such as a dismissed tutorial).
  */
 const isCompatibleValue = (current, saved) => {
   if (typeof saved === 'number' && !Number.isFinite(saved)) {
@@ -106,6 +107,9 @@ const isCompatibleValue = (current, saved) => {
   }
   if (current === null || current === undefined) {
     return saved === null || NULLABLE_FIELD_TYPES.has(typeof saved);
+  }
+  if (saved === null) {
+    return typeof current === 'string';
   }
   return typeof saved === typeof current;
 };

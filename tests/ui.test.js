@@ -25,6 +25,7 @@ import {
   INPUT_ARIA_HINTS,
   MODAL_FOCUSABLE_SELECTOR,
   canOpenDrawer,
+  computeStarProgressPct,
   filterFocusTrapCandidates,
   gameOverReasonKey,
   isBrowserShortcut,
@@ -298,4 +299,75 @@ test('a locale that fails to load is replaced by one that loaded', async () => {
   } finally {
     globalThis.fetch = previousFetch;
   }
+});
+
+const indexHtml = readFileSync('./index.html', 'utf8');
+
+/** Markup of the element with the given id, up to its matching closing tag. */
+function elementMarkup(html, id) {
+  const start = html.indexOf(`id="${id}"`);
+  assert.notEqual(start, -1, `missing element #${id}`);
+  const open = html.lastIndexOf('<', start);
+  const tag = html.slice(open + 1).match(/^\w+/)[0];
+  let depth = 0;
+  const pattern = new RegExp(`<${tag}\\b|</${tag}>`, 'g');
+  pattern.lastIndex = open;
+  for (let match = pattern.exec(html); match; match = pattern.exec(html)) {
+    depth += match[0].startsWith('</') ? -1 : 1;
+    if (depth === 0) {
+      return html.slice(open, match.index + match[0].length);
+    }
+  }
+  return html.slice(open);
+}
+
+const SETTING_TOGGLE_IDS = ['btn-sound', 'btn-contrast', 'btn-patterns', 'btn-tilt', 'btn-motion', 'btn-lang'];
+
+test('the header holds game modes and round actions; the setting toggles live in the Settings dialog', () => {
+  const header = elementMarkup(indexHtml, 'app-drawer');
+  const settings = elementMarkup(indexHtml, 'modal-settings');
+  for (const id of SETTING_TOGGLE_IDS) {
+    assert.ok(!header.includes(`id="${id}"`), `#${id} must leave the header`);
+    assert.ok(settings.includes(`id="${id}"`), `#${id} must be in the Settings dialog`);
+  }
+  // Mode buttons share one neutral style; only the mode being played is lit, at run time.
+  for (const id of ['btn-levels', 'btn-endless', 'btn-daily', 'btn-flux']) {
+    assert.match(header, new RegExp(`id="${id}"[^>]*class="nav-btn mode-btn"`));
+  }
+  assert.match(elementMarkup(header, 'btn-pause'), /class="nav-btn primary"/, 'Pause is the one highlighted action');
+  assert.match(header, /id="btn-settings"/);
+});
+
+test('the Workshop has one name, in the menu and on its dialog', () => {
+  for (const lang of SUPPORTED) {
+    const locale = loadJson(`./locales/${lang}.json`);
+    assert.equal(locale.app.nav.button.shop, locale.modals.shop.title.main, `${lang}: one name for the Workshop`);
+    assert.ok(locale.app.nav.button.shopBadge.startsWith(locale.app.nav.button.shop));
+  }
+  assert.match(elementMarkup(indexHtml, 'modal-shop'), /id="shop-ammo-pane"[^>]*role="tabpanel"/, 'ammo has its own tab');
+});
+
+test('the level select puts a level forward instead of starting Survival', () => {
+  const dialog = elementMarkup(indexHtml, 'modal-levels');
+  assert.ok(!dialog.includes('playEndless'));
+  assert.match(dialog, /id="btn-play-level-modal"/);
+  for (const lang of SUPPORTED) {
+    const button = loadJson(`./locales/${lang}.json`).modals.levelSelect.button;
+    assert.deepEqual(placeholdersOf(button.resume), ['level']);
+    assert.deepEqual(placeholdersOf(button.play), ['level']);
+  }
+});
+
+test('the board takes keyboard focus and shows it', () => {
+  assert.match(indexHtml, /<canvas id="game-canvas"[^>]*tabindex="0"/);
+  assert.match(mainCss, /#game-canvas:focus-visible\s*\{[^}]*outline:/);
+});
+
+test('the star gauge runs from the last star earned to the next one', () => {
+  const thresholds = [1000, 2000, 4000];
+  assert.equal(computeStarProgressPct(0, thresholds, 1000), 0);
+  assert.equal(computeStarProgressPct(500, thresholds, 1000), 50);
+  assert.equal(computeStarProgressPct(1000, thresholds, 2000), 0, 'a fresh star empties the gauge');
+  assert.equal(computeStarProgressPct(3000, thresholds, 4000), 50);
+  assert.equal(computeStarProgressPct(5000, thresholds, undefined), 100, 'all stars: full gauge');
 });
