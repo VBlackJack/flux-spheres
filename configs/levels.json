@@ -829,6 +829,210 @@
           "y": 525
         }
       ]
+    },
+    {
+      "id": 17,
+      "nameKey": "levels.items.lvl17.name",
+      "descriptionKey": "levels.items.lvl17.description",
+      "tutorialKey": "gameplay.tutorial.neutralAnchor",
+      "starThresholds": [0, 9200, 14600],
+      "maxShots": 38,
+      "paletteCount": 4,
+      "specialInventory": {
+        "bomb": 2,
+        "lightning": 1,
+        "rainbow": 1,
+        "anvil": 1,
+        "freeze": 1
+      },
+      "modifierWeights": {
+        "coinCore": 0.12,
+        "armored": 0.06
+      },
+      "layout": {
+        "type": "pendulum",
+        "anchors": [
+          { "x": 130, "y": 85 },
+          { "x": 210, "y": 85, "neutral": true },
+          { "x": 330, "y": 85, "neutral": true },
+          { "x": 410, "y": 85 }
+        ],
+        "rows": 5,
+        "cols": 9,
+        "startX": 110,
+        "startY": 120,
+        "spacingX": 40,
+        "spacingY": 36
+      },
+      "obstacles": [
+        {
+          "type": "bumper",
+          "x": 95,
+          "y": 390
+        },
+        {
+          "type": "bumper",
+          "x": 445,
+          "y": 390
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "nameKey": "levels.items.lvl18.name",
+      "descriptionKey": "levels.items.lvl18.description",
+      "tutorialKey": "gameplay.tutorial.chained",
+      "starThresholds": [0, 6700, 10600],
+      "maxShots": 40,
+      "paletteCount": 5,
+      "specialInventory": {
+        "bomb": 3,
+        "lightning": 1,
+        "rainbow": 1,
+        "anvil": 1,
+        "freeze": 1
+      },
+      "modifierWeights": {
+        "chained": 0.16,
+        "coinCore": 0.14,
+        "dormantBomb": 0.08
+      },
+      "minModifierCounts": {
+        "chained": 5
+      },
+      "layout": {
+        "type": "spiral",
+        "centerX": 270,
+        "centerY": 245,
+        "arms": 4,
+        "ballsPerArm": 8,
+        "startRadius": 44,
+        "radiusStep": 18,
+        "angleStep": 0.36,
+        "anchorStepInterval": 2
+      },
+      "obstacles": [
+        {
+          "type": "pivot",
+          "x": 270,
+          "y": 245,
+          "angularSpeed": 0.007
+        },
+        {
+          "type": "bumper",
+          "x": 95,
+          "y": 390
+        },
+        {
+          "type": "bumper",
+          "x": 445,
+          "y": 390
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "nameKey": "levels.items.lvl19.name",
+      "descriptionKey": "levels.items.lvl19.description",
+      "tutorialKey": "gameplay.tutorial.bubble",
+      "starThresholds": [0, 11200, 17400],
+      "maxShots": 44,
+      "paletteCount": 5,
+      "specialInventory": {
+        "bomb": 2,
+        "lightning": 1,
+        "rainbow": 2,
+        "anvil": 1,
+        "freeze": 1
+      },
+      "modifierWeights": {
+        "bubble": 0.22,
+        "coinCore": 0.12
+      },
+      "minModifierCounts": {
+        "bubble": 8
+      },
+      "layout": {
+        "type": "pendulum",
+        "anchors": [
+          { "x": 155, "y": 80 },
+          { "x": 270, "y": 80 },
+          { "x": 385, "y": 80 }
+        ],
+        "rows": 6,
+        "cols": 9,
+        "startX": 110,
+        "startY": 116,
+        "spacingX": 40,
+        "spacingY": 36
+      },
+      "obstacles": [
+        {
+          "type": "bumper",
+          "x": 95,
+          "y": 390
+        },
+        {
+          "type": "bumper",
+          "x": 445,
+          "y": 390
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "nameKey": "levels.items.lvl20.name",
+      "descriptionKey": "levels.items.lvl20.description",
+      "tutorialKey": "gameplay.tutorial.cores",
+      "starThresholds": [0, 10400, 16500],
+      "maxShots": 44,
+      "paletteCount": 5,
+      "specialInventory": {
+        "bomb": 2,
+        "lightning": 2,
+        "rainbow": 2,
+        "anvil": 1,
+        "freeze": 1
+      },
+      "modifierWeights": {
+        "freezeCore": 0.07,
+        "lightningCore": 0.07,
+        "paintCore": 0.07,
+        "bubble": 0.06,
+        "coinCore": 0.12
+      },
+      "minModifierCounts": {
+        "freezeCore": 2,
+        "lightningCore": 2,
+        "paintCore": 2
+      },
+      "layout": {
+        "type": "mask",
+        "centerX": 270,
+        "topY": 85,
+        "spacing": 40,
+        "rows": [
+          "A...N...A",
+          "ooooooooo",
+          "oooooooo",
+          "ooooooooo",
+          "oooooooo",
+          "ooooooooo",
+          "oooooooo"
+        ]
+      },
+      "obstacles": [
+        {
+          "type": "bumper",
+          "x": 95,
+          "y": 390
+        },
+        {
+          "type": "bumper",
+          "x": 445,
+          "y": 390
+        }
+      ]
     }
   ]
 }

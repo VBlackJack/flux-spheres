@@ -15,14 +15,16 @@
  */
 
 import { OBSTACLE_TYPES, SPECIAL_TYPES, CLUSTER_MODIFIERS, MATH_CONSTANTS } from '../core/Constants.js';
+import { isChainLink } from '../physics/PhysicsWorld.js';
 
 const BOND_STYLE = Object.freeze({
   STRESSED: 0,
   SAME_COLOR: 1,
   REPEL: 2,
-  LINK: 3
+  LINK: 3,
+  CHAIN: 4
 });
-const BOND_STYLE_COUNT = 4;
+const BOND_STYLE_COUNT = 5;
 const SEGMENT_STRIDE = 4;
 /** Cubic ease-out of the Flux shape entrance: fast at first, soft landing. */
 const INTRO_EASE_POWER = 3;
@@ -500,7 +502,9 @@ export class Renderer {
         const polB = b.colorId ? (physicsWorld.polarityMap.get(b.colorId) || 0) : 0;
         const samePolarityRepel = !sameColor && polA * polB > 0;
         let style = BOND_STYLE.LINK;
-        if (isStressed) {
+        if (isChainLink(a, b)) {
+          style = BOND_STYLE.CHAIN;
+        } else if (isStressed) {
           style = BOND_STYLE.STRESSED;
         } else if (sameColor) {
           style = BOND_STYLE.SAME_COLOR;
@@ -530,6 +534,13 @@ export class Renderer {
     }
     if (segments[BOND_STYLE.LINK].length > 0) {
       this.strokeSegments(ctx, segments[BOND_STYLE.LINK], theme.magneticLinkColor);
+    }
+    if (segments[BOND_STYLE.CHAIN].length > 0) {
+      const chainSpec = this.ballsConfig.clusterModifiers.chained;
+      ctx.lineWidth = chainSpec.linkWidth;
+      ctx.setLineDash(chainSpec.linkDash);
+      this.strokeSegments(ctx, segments[BOND_STYLE.CHAIN], chainSpec.linkColor);
+      ctx.setLineDash([]);
     }
     ctx.restore();
   }
@@ -761,6 +772,9 @@ export class Renderer {
     if (ball.specialType) {
       return this.ballsConfig.specialTypes[ball.specialType];
     }
+    if (!ball.colorId) {
+      return this.ballsConfig.neutralPalette;
+    }
     return this.colorMap.get(ball.colorId) || this.ballsConfig.standardColors[0];
   }
 
@@ -902,7 +916,25 @@ export class Renderer {
       ctx.stroke();
     }
 
+    if (ball.clusterModifier === CLUSTER_MODIFIERS.BUBBLE) {
+      this.drawBubbleShell(ctx, r);
+    }
+
     ctx.restore();
+  }
+
+  /** Translucent shell around a bubbled ball: its color stays visible but it cannot match yet. */
+  drawBubbleShell(ctx, r) {
+    const bubbleSpec = this.ballsConfig.clusterModifiers.bubble;
+    const shellRadius = r * bubbleSpec.shellRadiusFactor;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = bubbleSpec.shellColor;
+    ctx.strokeStyle = bubbleSpec.ringColor;
+    ctx.lineWidth = bubbleSpec.shellLineWidth;
+    ctx.beginPath();
+    ctx.arc(0, 0, shellRadius, 0, MATH_CONSTANTS.TWO_PI);
+    ctx.fill();
+    ctx.stroke();
   }
 
   drawTrail(ctx, particleSystem) {

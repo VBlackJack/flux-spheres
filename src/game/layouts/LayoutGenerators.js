@@ -23,7 +23,8 @@ import { LAYOUT_TYPES, MATH_CONSTANTS } from '../../core/Constants.js';
  *
  *   { balls: [BallSpec], bonds: [[indexA, indexB]] }
  *
- * BallSpec: { x, y, isAnchor, allowModifier, pivotSlot, pivotRadius, pivotAngle }
+ * BallSpec: { x, y, isAnchor, isNeutral, allowModifier, pivotSlot, pivotRadius, pivotAngle }
+ * - isNeutral: a colorless anchor that matches cannot break (see the neutralAnchor modifier).
  * - pivotSlot: index into the board's pivot obstacles (in obstacle order), or NO_PIVOT_SLOT.
  * - allowModifier: whether the engine may roll a cluster modifier (armored, coin core...).
  * - bonds: explicit structural bonds created on top of the distance-based initial bonds.
@@ -38,7 +39,8 @@ export const NO_PIVOT_SLOT = -1;
 /** Mask characters understood by the mask generator. */
 export const MASK_CELLS = Object.freeze({
   BALL: 'o',
-  ANCHOR: 'A'
+  ANCHOR: 'A',
+  NEUTRAL_ANCHOR: 'N'
 });
 
 /** Hexagonal packing: vertical distance between rows for a given horizontal spacing. */
@@ -48,13 +50,14 @@ const freeBall = (x, y) => ({
   x,
   y,
   isAnchor: false,
+  isNeutral: false,
   allowModifier: true,
   pivotSlot: NO_PIVOT_SLOT,
   pivotRadius: 0,
   pivotAngle: 0
 });
 
-const fixedAnchor = (x, y) => ({ ...freeBall(x, y), isAnchor: true, allowModifier: false });
+const fixedAnchor = (x, y, isNeutral = false) => ({ ...freeBall(x, y), isAnchor: true, isNeutral, allowModifier: false });
 
 /**
  * Anchor bound to a pivot: it orbits the pivot at its current distance and angle.
@@ -79,7 +82,7 @@ const ringAnchor = (x, y, radius, angle, pivotSlot) => ({
 const orbitingFreeBall = (x, y, angle) => ({ ...freeBall(x, y), pivotAngle: angle });
 
 function generatePendulum(layout) {
-  const balls = layout.anchors.map((a) => fixedAnchor(a.x, a.y));
+  const balls = layout.anchors.map((a) => fixedAnchor(a.x, a.y, Boolean(a.neutral)));
   for (let row = 0; row < layout.rows; row++) {
     const offset = (row % 2) * (layout.spacingX * MATH_CONSTANTS.HALF);
     for (let col = 0; col < layout.cols; col++) {
@@ -210,7 +213,8 @@ function generateCross(layout) {
 /**
  * Fills a character mask with hexagonally packed balls, centered horizontally on centerX.
  * The first row sits at topY. Odd rows are shifted by half a cell. 'A' cells are fixed
- * anchors the silhouette hangs from; any other character is an empty cell.
+ * anchors the silhouette hangs from, 'N' cells are neutral anchors; any other character is
+ * an empty cell.
  * @param {{rows: string[], centerX: number, topY: number, spacing: number}} layout
  */
 function generateMask(layout) {
@@ -225,12 +229,16 @@ function generateMask(layout) {
     const offset = (rowIndex % 2) * spacing * MATH_CONSTANTS.HALF;
     for (let col = 0; col < row.length; col++) {
       const cell = row[col];
-      if (cell !== MASK_CELLS.BALL && cell !== MASK_CELLS.ANCHOR) {
+      if (cell !== MASK_CELLS.BALL && cell !== MASK_CELLS.ANCHOR && cell !== MASK_CELLS.NEUTRAL_ANCHOR) {
         continue;
       }
       const x = originX + col * spacing + offset;
       const y = topY + rowIndex * rowHeight;
-      balls.push(cell === MASK_CELLS.ANCHOR ? fixedAnchor(x, y) : freeBall(x, y));
+      if (cell === MASK_CELLS.BALL) {
+        balls.push(freeBall(x, y));
+      } else {
+        balls.push(fixedAnchor(x, y, cell === MASK_CELLS.NEUTRAL_ANCHOR));
+      }
     }
   });
   return { balls, bonds: [] };
