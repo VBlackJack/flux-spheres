@@ -169,6 +169,7 @@ export function captureRunSnapshot(engine, version) {
     mode: engine.mode,
     dailySeedKey: engine.dailySeedKey,
     rngState: engine.seededRng ? engine.seededRng.state : null,
+    upcomingColorIds: [...engine.upcomingColorIds],
     engine: pickFields(engine, ENGINE_SCALAR_FIELDS),
     specialInventory: { ...engine.specialInventory },
     currentBall: { colorId: engine.currentBall.colorId, specialType: engine.currentBall.specialType },
@@ -295,6 +296,11 @@ export function applyRunSnapshot(engine, snapshot) {
   }
   engine.currentBall = engine.createRandomLauncherBall(snapshot.currentBall.specialType, snapshot.currentBall.colorId);
   engine.nextBall = engine.createRandomLauncherBall(snapshot.nextBall.specialType, snapshot.nextBall.colorId);
+  // Runs saved before the queue existed, or with a damaged one, get a fresh queue.
+  const savedQueue = snapshot.upcomingColorIds;
+  const isValidQueue = Array.isArray(savedQueue) && savedQueue.every((color) => engine.activePalette.includes(color));
+  engine.upcomingColorIds = isValidQueue ? [...savedQueue] : [];
+  engine.fillUpcomingColors();
   engine.state = GAME_STATES.PAUSED;
   world.aimCacheValid = false;
   engine.updateAimFromAngle(engine.aimAngle);

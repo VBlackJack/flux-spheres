@@ -16,6 +16,7 @@
 
 import { OBSTACLE_TYPES, SPECIAL_TYPES, CLUSTER_MODIFIERS, MATH_CONSTANTS } from '../core/Constants.js';
 import { isChainLink, isTetherLink } from '../physics/PhysicsWorld.js';
+import { Ball } from '../entities/Ball.js';
 
 const BOND_STYLE = Object.freeze({
   STRESSED: 0,
@@ -26,6 +27,16 @@ const BOND_STYLE = Object.freeze({
 });
 const BOND_STYLE_COUNT = 5;
 const SEGMENT_STRIDE = 4;
+
+/** Color-blind patterns a standard color may declare in configs/balls.json. */
+const PATTERNS = Object.freeze({
+  STRIPES_H: 'stripesH',
+  STRIPES_V: 'stripesV',
+  STRIPES_D: 'stripesD',
+  DOTS: 'dots',
+  GRID: 'grid',
+  RINGS: 'rings'
+});
 /** Cubic ease-out of the Flux shape entrance: fast at first, soft landing. */
 const INTRO_EASE_POWER = 3;
 /** Fixed render clock under reduced motion: pulses and field waves hold their resting frame. */
@@ -71,6 +82,8 @@ export class Renderer {
     this.displayScale = 1;
     this.badgeFontCache = new Map();
 
+    // Reused to draw the queued launcher colors with the regular ball renderer.
+    this.upcomingPreviewBall = new Ball({ x: 0, y: 0, radius: 0, colorId: null });
     this.bondSegments = [];
     for (let i = 0; i < BOND_STYLE_COUNT; i++) {
       this.bondSegments.push([]);
@@ -103,6 +116,7 @@ export class Renderer {
 
     this.ballGradientCache = new Map();
     this.highContrast = false;
+    this.colorPatterns = false;
     this.bindResolutionListeners();
     this.updateCanvasResolution();
   }
@@ -212,6 +226,10 @@ export class Renderer {
     this.staticLayerDirty = false;
   }
 
+  setColorPatterns(enabled) {
+    this.colorPatterns = Boolean(enabled);
+  }
+
   setHighContrast(enabled) {
     this.highContrast = Boolean(enabled);
   }
@@ -316,6 +334,8 @@ export class Renderer {
     }
 
     ctx.drawImage(this.staticLayer, 0, 0, width, height);
+    this.drawWallCracks(ctx, engineState.particleSystem);
+    this.drawLiquid(ctx, engineState.particleSystem, width, height);
 
     this.drawDangerZone(ctx, width, height, theme, engineState.physicsWorld.balls, now, alpha);
 
@@ -827,6 +847,12 @@ export class Renderer {
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, MATH_CONSTANTS.TWO_PI);
     ctx.fill();
+    if (this.colorPatterns && palette.pattern) {
+      this.drawColorPattern(ctx, palette.pattern, r);
+      // save/restore does not keep the current path: rebuild the outline the border strokes.
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, MATH_CONSTANTS.TWO_PI);
+    }
 
     ctx.strokeStyle = this.highContrast ? renderCfg.borderStrokeHighContrast : renderCfg.borderStrokeNormal;
     ctx.lineWidth = this.highContrast ? renderCfg.borderWidthHighContrast : renderCfg.borderWidthNormal;
@@ -923,6 +949,103 @@ export class Renderer {
       this.drawBubbleShell(ctx, r);
     }
 
+    ctx.restore();
+  }
+
+  /**
+   * A pattern unique to each color, drawn inside the sphere, so colors stay apart for
+   * players who cannot tell them by hue.
+   */
+  drawColorPattern(ctx, pattern, r) {
+    const renderCfg = this.ballsConfig.render;
+    const step = r * renderCfg.patternSpacingFactor;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, MATH_CONSTANTS.TWO_PI);
+    ctx.clip();
+    ctx.strokeStyle = renderCfg.patternColor;
+    ctx.fillStyle = renderCfg.patternColor;
+    ctx.lineWidth = renderCfg.patternLineWidth;
+    ctx.beginPath();
+    // Parallel lines along the unit direction (dx, dy), spaced along its normal (-dy, dx).
+    const lines = (dx, dy) => {
+      for (let offset = -r * 2; offset <= r * 2; offset += step) {
+        ctx.moveTo(-r * 2 * dx - offset * dy, -r * 2 * dy + offset * dx);
+        ctx.lineTo(r * 2 * dx - offset * dy, r * 2 * dy + offset * dx);
+      }
+    };
+    if (pattern === PATTERNS.STRIPES_H) {
+      lines(1, 0);
+    } else if (pattern === PATTERNS.STRIPES_V) {
+      lines(0, 1);
+    } else if (pattern === PATTERNS.STRIPES_D) {
+      lines(Math.SQRT1_2, Math.SQRT1_2);
+    } else if (pattern === PATTERNS.GRID) {
+      lines(1, 0);
+      lines(0, 1);
+    } else if (pattern === PATTERNS.RINGS) {
+      for (let radius = step; radius < r; radius += step) {
+        ctx.moveTo(radius, 0);
+        ctx.arc(0, 0, radius, 0, MATH_CONSTANTS.TWO_PI);
+      }
+    }
+    ctx.stroke();
+    if (pattern === PATTERNS.DOTS) {
+      const dotRadius = r * renderCfg.patternDotRadiusFactor;
+      for (let x = -r; x <= r; x += step) {
+        for (let y = -r; y <= r; y += step) {
+          ctx.beginPath();
+          ctx.arc(x, y, dotRadius, 0, MATH_CONSTANTS.TWO_PI);
+          ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  /** The liquid at the bottom of the board, rippling where falling spheres land. */
+  drawLiquid(ctx, particleSystem, width, height) {
+    const pCfg = this.gameConfig.juice.particles;
+    const heights = particleSystem.liquidHeights;
+    const columnWidth = width / (heights.length - 1);
+    const surfaceY = height - pCfg.liquidDepth;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0, height);
+    for (let i = 0; i < heights.length; i++) {
+      ctx.lineTo(i * columnWidth, surfaceY + heights[i]);
+    }
+    ctx.lineTo(width, height);
+    ctx.closePath();
+    ctx.fillStyle = pCfg.liquidFillColor;
+    ctx.fill();
+    ctx.beginPath();
+    for (let i = 0; i < heights.length; i++) {
+      ctx.lineTo(i * columnWidth, surfaceY + heights[i]);
+    }
+    ctx.strokeStyle = pCfg.liquidLineColor;
+    ctx.lineWidth = pCfg.liquidLineWidth;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Cracks left on the side walls by the run's bouncing shots. */
+  drawWallCracks(ctx, particleSystem) {
+    if (particleSystem.wallCracks.length === 0) {
+      return;
+    }
+    const pCfg = this.gameConfig.juice.particles;
+    ctx.save();
+    ctx.strokeStyle = pCfg.wallCrackColor;
+    ctx.lineWidth = pCfg.wallCrackLineWidth;
+    ctx.beginPath();
+    for (const crack of particleSystem.wallCracks) {
+      ctx.moveTo(crack[0].x, crack[0].y);
+      for (let i = 1; i < crack.length; i++) {
+        ctx.lineTo(crack[i].x, crack[i].y);
+      }
+    }
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -1398,7 +1521,27 @@ export class Renderer {
       ctx.restore();
 
       this.drawBallAt(ctx, engineState.nextBall, nx, ny, now);
+      this.drawUpcomingBalls(ctx, engineState.upcomingColorIds, nx, ny, engineState.nextBall.radius, now);
     }
+  }
+
+  /** The queued colors after the next ball, smaller and in loading order, away from the launcher. */
+  drawUpcomingBalls(ctx, colorIds, nextX, nextY, radius, now) {
+    if (!colorIds || colorIds.length === 0) {
+      return;
+    }
+    const canvasCfg = this.gameConfig.canvas;
+    const scale = canvasCfg.upcomingBallScale;
+    colorIds.forEach((colorId, index) => {
+      const x = nextX + canvasCfg.upcomingBallSpacingX * (index + 1);
+      this.upcomingPreviewBall.colorId = colorId;
+      this.upcomingPreviewBall.radius = radius;
+      ctx.save();
+      ctx.translate(x, nextY);
+      ctx.scale(scale, scale);
+      this.drawBallAt(ctx, this.upcomingPreviewBall, 0, 0, now);
+      ctx.restore();
+    });
   }
 
   drawParticles(ctx, particleSystem, alpha = 1.0) {

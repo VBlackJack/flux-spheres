@@ -175,6 +175,22 @@ export class StorageManager {
     this.safeSetItem(this.storageConfig.keys.highContrast, Boolean(enabled));
   }
 
+  getTilt() {
+    return this.safeGetItem(this.storageConfig.keys.tilt) === 'true';
+  }
+
+  setTilt(enabled) {
+    this.safeSetItem(this.storageConfig.keys.tilt, Boolean(enabled));
+  }
+
+  getColorPatterns() {
+    return this.safeGetItem(this.storageConfig.keys.colorPatterns) === 'true';
+  }
+
+  setColorPatterns(enabled) {
+    this.safeSetItem(this.storageConfig.keys.colorPatterns, Boolean(enabled));
+  }
+
   getReducedMotion() {
     const raw = this.safeGetItem(this.storageConfig.keys.reducedMotion);
     if (raw !== null) {

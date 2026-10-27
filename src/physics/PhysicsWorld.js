@@ -55,6 +55,8 @@ export class PhysicsWorld {
     this.ballMap = new Map();
     this.pendingChainCandidateIds = new Set();
     this.gravityMultiplier = 1.0;
+    // Sideways share of gravity from the device tilt; 0 when tilt control is off.
+    this.tiltFactor = 0;
     this.magnetismMultiplier = 1.0;
     this.rotorSpeedMultiplier = 1.0;
     this.allowTensionBreak = false;
@@ -547,6 +549,7 @@ export class PhysicsWorld {
         ball.vy += dy * sim.anchorStiffness * dt;
       } else {
         ball.vy += sim.clusterGravity * this.gravityMultiplier * dt;
+        ball.vx += sim.clusterGravity * this.tiltFactor * dt;
         if (ball.clusterModifier === CLUSTER_MODIFIERS.THRUSTER) {
           ball.vy -= thrusterLift * dt;
         }

@@ -112,6 +112,9 @@ export class GameEngine {
     this.nextBall = null;
     this.aimAngle = -Math.PI * MATH_CONSTANTS.HALF;
     this.aimPoints = [];
+    // Colors of the balls queued after nextBall, shown beside the launcher.
+    this.upcomingColorIds = [];
+    this.levelStartBallCount = 0;
     this.isAimPreviewStale = false;
     this.laserBonuses = { distanceBonus: 0, bouncesBonus: 0 };
     this.stepCallbacks = null;
@@ -473,9 +476,11 @@ export class GameEngine {
 
     this.buildLevelLayout(levelDef.layout, levelDef.modifierWeights || {}, levelDef.minModifierCounts || {});
     this.physicsWorld.rebuildInitialBonds();
+    this.levelStartBallCount = this.physicsWorld.balls.length;
 
     this.currentBall = this.createRandomLauncherBall();
     this.nextBall = this.createRandomLauncherBall();
+    this.fillUpcomingColors();
     this.state = GAME_STATES.PLAYING;
     const canvasCfg = this.gameConfig.canvas;
     this.updateAim(canvasCfg.launcherX, canvasCfg.launcherY + canvasCfg.initialAimOffsetY);
@@ -517,6 +522,7 @@ export class GameEngine {
     this.buildFluxStage({ persist: false });
     this.currentBall = this.createRandomLauncherBall();
     this.nextBall = this.createRandomLauncherBall();
+    this.fillUpcomingColors();
     this.state = GAME_STATES.PLAYING;
     const canvasCfg = this.gameConfig.canvas;
     this.updateAim(canvasCfg.launcherX, canvasCfg.launcherY + canvasCfg.initialAimOffsetY);
@@ -534,6 +540,7 @@ export class GameEngine {
     this.buildFluxStage({ persist: false });
     this.currentBall = this.createRandomLauncherBall();
     this.nextBall = this.createRandomLauncherBall();
+    this.fillUpcomingColors();
     this.state = GAME_STATES.PLAYING;
   }
 
@@ -556,6 +563,7 @@ export class GameEngine {
     // draw from the new seed: a seed must give the same run whatever was played before.
     this.currentBall = null;
     this.nextBall = null;
+    this.upcomingColorIds = [];
     this.stashedRegularColorId = null;
     this.audioManager.stopAll();
     this.particleSystem.clear();
@@ -604,6 +612,7 @@ export class GameEngine {
         launcherBall.colorId = this.pickLauncherColor();
       }
     }
+    this.upcomingColorIds = this.upcomingColorIds.map((color) => (this.activePalette.includes(color) ? color : this.pickLauncherColor()));
     if (this.currentBall) {
       this.updateAimFromAngle(this.aimAngle);
     }
@@ -654,7 +663,7 @@ export class GameEngine {
 
   /** Lets the cleared shape's last balls fall, then brings in the next shape. */
   updateStageTransition() {
-    this.physicsWorld.stepDroppingBalls();
+    this.physicsWorld.stepDroppingBalls(this.getStepCallbacks());
     this.particleSystem.update(this.gameConfig.juice.shakeDecay);
     this.stageTransitionFrames--;
     if (this.stageTransitionFrames === 0) {
@@ -745,6 +754,7 @@ export class GameEngine {
     this.physicsWorld.rebuildInitialBonds();
     this.currentBall = this.createRandomLauncherBall();
     this.nextBall = this.createRandomLauncherBall();
+    this.fillUpcomingColors();
     this.state = GAME_STATES.PLAYING;
     const canvasCfg = this.gameConfig.canvas;
     this.updateAim(canvasCfg.launcherX, canvasCfg.launcherY + canvasCfg.initialAimOffsetY);
@@ -1087,6 +1097,10 @@ export class GameEngine {
           juice.bounceBurstCount,
           juice.bounceBurstSpeed
         );
+        this.crackWallAt(x, y);
+      },
+      onBallDroppedOut: (ball) => {
+        this.particleSystem.splashLiquid(ball.x / this.gameConfig.canvas.logicalWidth, ball.vy);
       },
       onPortalWarp: (entryPortal, exitPortal) => {
         const portalCfg = this.obstaclesConfig.types.portal;
@@ -1175,6 +1189,27 @@ export class GameEngine {
     return this.stepCallbacks;
   }
 
+  /** A bounce against a side wall cracks it; ceiling and obstacle bounces do not. */
+  crackWallAt(x, y) {
+    const canvasCfg = this.gameConfig.canvas;
+    const wallReach = canvasCfg.wallMargin + this.physicsConfig.ball.radius;
+    if (x <= wallReach) {
+      this.particleSystem.addWallCrack(canvasCfg.wallMargin, y, 1);
+    } else if (x >= canvasCfg.logicalWidth - wallReach) {
+      this.particleSystem.addWallCrack(canvasCfg.logicalWidth - canvasCfg.wallMargin, y, -1);
+    }
+  }
+
+  /**
+   * Tilts gravity sideways from the device orientation: a share of the cluster gravity,
+   * clamped to tilt.maxGravityShare, pushes the hanging spheres left or right.
+   * @param {number} share - Signed share of gravity, positive to the right.
+   */
+  setTilt(share) {
+    const maxShare = this.gameConfig.tilt.maxGravityShare;
+    this.physicsWorld.tiltFactor = Math.max(-maxShare, Math.min(maxShare, Number(share) || 0));
+  }
+
   /**
    * Recomputes the aim preview if the board moved since it was last traced. Called once
    * per rendered frame, however many fixed steps the frame ran.
@@ -1219,7 +1254,7 @@ export class GameEngine {
     this.anvilCrushCount = 0;
     this.stashedRegularColorId = null;
     this.currentBall = this.nextBall;
-    this.nextBall = this.createRandomLauncherBall();
+    this.nextBall = this.createRandomLauncherBall(null, this.takeUpcomingColor());
 
     if (this.usesShotBudget()) {
       this.shotsRemaining = Math.max(0, this.shotsRemaining - 1);
@@ -1322,7 +1357,7 @@ export class GameEngine {
    * because the run has ended; the victory modal is revealed when the countdown expires.
    */
   updateVictoryCelebration() {
-    this.physicsWorld.stepDroppingBalls();
+    this.physicsWorld.stepDroppingBalls(this.getStepCallbacks());
     this.particleSystem.update(this.gameConfig.juice.shakeDecay);
     this.victoryCelebrationFrames--;
     if (this.victoryCelebrationFrames === 0) {
@@ -1809,9 +1844,29 @@ export class GameEngine {
   }
 
   /**
+   * Fills the queue of upcoming launcher colors up to its configured length. Called when
+   * a run starts, never while drawing, so seeded runs draw the same colors every time.
+   */
+  fillUpcomingColors() {
+    const length = this.gameConfig.canvas.launcherPreviewCount;
+    this.upcomingColorIds.length = Math.min(this.upcomingColorIds.length, length);
+    while (this.upcomingColorIds.length < length) {
+      this.upcomingColorIds.push(this.pickLauncherColor());
+    }
+  }
+
+  /** Color of the next ball to load from the queue; the queue is topped up behind it. */
+  takeUpcomingColor() {
+    const color = this.upcomingColorIds.shift() || this.pickLauncherColor();
+    this.fillUpcomingColors();
+    return color;
+  }
+
+  /**
    * Recolors every regular launcher color that no longer exists on the board: the
-   * current ball, the next ball and the color stashed behind an equipped special,
-   * so neither a swap nor un-equipping a special can bring back a cleared color.
+   * current ball, the next ball, the queued colors and the color stashed behind an
+   * equipped special, so neither a swap nor un-equipping a special can bring back a
+   * cleared color.
    */
   refreshStaleLauncherColors() {
     const activeColors = new Set(this.physicsWorld.balls.map((b) => b.colorId).filter(Boolean));
@@ -1826,6 +1881,7 @@ export class GameEngine {
     if (this.stashedRegularColorId && !activeColors.has(this.stashedRegularColorId)) {
       this.stashedRegularColorId = this.pickLauncherColor();
     }
+    this.upcomingColorIds = this.upcomingColorIds.map((color) => (activeColors.has(color) ? color : this.pickLauncherColor()));
   }
 
   handlePostTurnCleanup(madeMatch, appliedFreeze = false) {
@@ -2073,9 +2129,25 @@ export class GameEngine {
     this.notifyUI({ gameOverReason: reasonKey });
   }
 
-  computeStars(score) {
+  /**
+   * Star thresholds of the current level. A level that declares none gets them from its
+   * starting sphere count (scoring.autoStarPointsPerBall), so a new level is playable
+   * before its thresholds are tuned.
+   */
+  getStarThresholds() {
     const levelDef = this.levelsConfig.levels.find((l) => l.id === this.currentLevelId);
-    const thresholds = levelDef?.starThresholds || this.gameConfig.scoring.starThresholds;
+    if (levelDef?.starThresholds) {
+      return levelDef.starThresholds;
+    }
+    const perBall = this.gameConfig.scoring.autoStarPointsPerBall;
+    if (levelDef && perBall && this.levelStartBallCount > 0) {
+      return perBall.map((points) => Math.round(points * this.levelStartBallCount));
+    }
+    return this.gameConfig.scoring.starThresholds;
+  }
+
+  computeStars(score) {
+    const thresholds = this.getStarThresholds();
     let stars = this.gameConfig.scoring.minVictoryStars;
     for (let i = 0; i < thresholds.length; i++) {
       if (score >= thresholds[i]) {
