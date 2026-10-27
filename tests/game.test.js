@@ -118,9 +118,13 @@ test('SpatialHashGrid finds all close neighbor pairs accurately', () => {
   assert.deepEqual(pairs[0], [balls[0].id, balls[1].id]);
 });
 
-test('All 16 Campaign levels initialize, step physics, and compute trajectories', () => {
+test('Every campaign level initializes, steps physics, and computes trajectories', () => {
   const engine = createTestEngine();
-  assert.equal(levelsConfig.levels.length, 16);
+  assert.deepEqual(
+    levelsConfig.levels.map((l) => l.id),
+    levelsConfig.levels.map((_, index) => index + 1),
+    'level ids run from 1 to the level count'
+  );
   for (const lvl of levelsConfig.levels) {
     engine.startCampaignLevel(lvl.id);
     for (let i = 0; i < 8; i++) {
@@ -286,17 +290,18 @@ test('SpatialHashGrid hashCoords has zero collisions across negative and positiv
   assert.equal(visitCount, 1);
 });
 
-test('Campaign victory on final level (16) caps unlockedLevel at 16 and awards stars and coins', () => {
+test('Campaign victory on the final level caps unlockedLevel at that level and awards stars and coins', () => {
   const engine = createTestEngine();
-  engine.startCampaignLevel(16);
+  const finalLevel = levelsConfig.levels.at(-1);
+  engine.startCampaignLevel(finalLevel.id);
   const initialCoins = engine.storageManager.getCoins();
-  engine.score = 16000;
+  engine.score = finalLevel.starThresholds.at(-1);
   engine.shotsRemaining = 14;
   engine.physicsWorld.clear();
   engine.evaluateRoundEnd();
 
   assert.equal(engine.state, 'victory');
-  assert.equal(engine.storageManager.getUnlockedLevel(), 16);
+  assert.equal(engine.storageManager.getUnlockedLevel(), finalLevel.id);
   assert.ok(engine.storageManager.getCoins() > initialCoins);
   assert.equal(engine.storageManager.getUnlockedAchievements().sharpshooter, true);
 });

@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
-import { OBSTACLE_TYPES, SPECIAL_TYPES, MATH_CONSTANTS, SEPARATION_FALLBACK_AXIS } from '../core/Constants.js';
+import { OBSTACLE_TYPES, SPECIAL_TYPES, CLUSTER_MODIFIERS, MATH_CONSTANTS, SEPARATION_FALLBACK_AXIS } from '../core/Constants.js';
 import { SpatialHashGrid } from './SpatialHashGrid.js';
 
 const NOT_FOUND_INDEX = -1;
+
+/** A bond touching a chained ball is a chain link: stretching never breaks it. */
+export function isChainLink(a, b) {
+  return a.clusterModifier === CLUSTER_MODIFIERS.CHAINED || b.clusterModifier === CLUSTER_MODIFIERS.CHAINED;
+}
 
 /**
  * Core 2D physics simulation world managing magnetic clusters, anchor/rotor constraints,
@@ -597,7 +602,7 @@ export class PhysicsWorld {
           const dy = b.y - a.y;
           const dist = Math.hypot(dx, dy) || MATH_CONSTANTS.EPSILON;
 
-          if (this.allowTensionBreak && dist > breakDist && !a.isAnchor && !b.isAnchor) {
+          if (this.allowTensionBreak && dist > breakDist && !a.isAnchor && !b.isAnchor && !isChainLink(a, b)) {
             a.bonds.delete(b.id);
             b.bonds.delete(a.id);
             this.hasBrokenBondThisStep = true;
@@ -1071,9 +1076,13 @@ export class PhysicsWorld {
     }
   }
 
+  /**
+   * Same-color group connected to startBall through bonds. A ball in a bubble belongs to
+   * no group until its bubble pops: it neither starts nor joins one.
+   */
   findColorCluster(startBall) {
     const targetColor = startBall.colorId;
-    if (!targetColor) {
+    if (!targetColor || startBall.clusterModifier === CLUSTER_MODIFIERS.BUBBLE) {
       return [startBall];
     }
     const visited = new Set([startBall.id]);
@@ -1090,7 +1099,7 @@ export class PhysicsWorld {
           continue;
         }
         const neighbor = this.ballMap.get(neighborId);
-        if (neighbor && neighbor.colorId === targetColor) {
+        if (neighbor && neighbor.colorId === targetColor && neighbor.clusterModifier !== CLUSTER_MODIFIERS.BUBBLE) {
           visited.add(neighborId);
           queue.push(neighbor);
         }

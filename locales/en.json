@@ -219,6 +219,9 @@
       },
       "flux": {
         "stageCleared": "SHAPE {{stage}} CLEARED! +{{points}} • +{{shots}} shots"
+      },
+      "core": {
+        "paint": "PAINT SPLASH x{{count}}!"
       }
     },
     "mutators": {
@@ -255,7 +258,11 @@
       "portal": "Shoot into a Quantum Portal to teleport your projectile past moving barriers!",
       "boss": "Boss Cores (👑) have 3 shields and burst into a shower of coins when destroyed!",
       "laserLock": "Destroy all Lock Cores (🔒) to disable the energy barrier!",
-      "singularity": "Avalanche balls pulled into the Singularity Vortex grant bonus points & Overcharge!"
+      "singularity": "Avalanche balls pulled into the Singularity Vortex grant bonus points & Overcharge!",
+      "neutralAnchor": "Gray anchors (⚓) never break in a match: cut the spheres around them, and they crumble once nothing hangs from them!",
+      "chained": "Chained spheres (⛓) never snap loose when stretched: blast them with a bomb, or destroy the spheres they hold!",
+      "bubble": "Bubbled spheres (◌) cannot join a group: hit them, or clear a group next to them, to pop the bubble!",
+      "cores": "Colored cores go off when their group is destroyed: ❄ freezes, ⚡ strikes the row, 🎨 repaints the neighbors!"
     }
   },
   "modals": {
@@ -321,6 +328,30 @@
           "laserLock": {
             "name": "Quantum Lock",
             "description": "Destroy all Lock Cores in the level to disable energy barriers."
+          },
+          "neutralAnchor": {
+            "name": "Neutral Anchor",
+            "description": "A gray anchor no match can break. Bombs, lightning and the anvil remove it, and it crumbles once nothing hangs from it."
+          },
+          "chained": {
+            "name": "Chained Sphere",
+            "description": "Its links never snap when stretched. Only an explosion, or destroying a linked sphere, sets it free."
+          },
+          "bubble": {
+            "name": "Bubble Sphere",
+            "description": "Cannot join a group until its bubble pops: hit it, or destroy a group right next to it."
+          },
+          "freezeCore": {
+            "name": "Freeze Core",
+            "description": "Freezes the spheres around it for a few turns when destroyed."
+          },
+          "lightningCore": {
+            "name": "Lightning Core",
+            "description": "Strikes its whole row with lightning when destroyed."
+          },
+          "paintCore": {
+            "name": "Paint Core",
+            "description": "Repaints nearby spheres in its color when destroyed, setting up new groups."
           }
         },
         "obstacles": {
@@ -554,6 +585,22 @@
       "lvl16": {
         "name": "Absolute Nexus",
         "description": "Master the ultimate magnetic matrix of Boss Cores, portals, and twin singularities."
+      },
+      "lvl17": {
+        "name": "Gray Moorings",
+        "description": "Neutral anchors hold the cluster: work around what you cannot break."
+      },
+      "lvl18": {
+        "name": "Iron Links",
+        "description": "Chained spheres refuse to snap loose. Bring explosives."
+      },
+      "lvl19": {
+        "name": "Bubble Field",
+        "description": "Pop the bubbles before their spheres can join a match."
+      },
+      "lvl20": {
+        "name": "Core Reactor",
+        "description": "Freeze, lightning and paint cores turn one match into a chain reaction."
       }
     }
   }

@@ -91,7 +91,13 @@ export const CLUSTER_MODIFIERS = Object.freeze({
   CHAMELEON: 'chameleon',
   COIN_CORE: 'coinCore',
   BOSS_CORE: 'bossCore',
-  LASER_LOCK: 'laserLock'
+  LASER_LOCK: 'laserLock',
+  NEUTRAL_ANCHOR: 'neutralAnchor',
+  CHAINED: 'chained',
+  BUBBLE: 'bubble',
+  FREEZE_CORE: 'freezeCore',
+  LIGHTNING_CORE: 'lightningCore',
+  PAINT_CORE: 'paintCore'
 });
 
 export const OBSTACLE_TYPES = Object.freeze({

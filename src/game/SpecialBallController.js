@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { SPECIAL_TYPES } from '../core/Constants.js';
+import { SPECIAL_TYPES, CLUSTER_MODIFIERS } from '../core/Constants.js';
 import { t } from '../core/I18n.js';
 
 export class SpecialBallController {
@@ -74,6 +74,7 @@ export class SpecialBallController {
         destroyed.push(target);
       }
     }
+    this.breakChainsInBlast(ball.x, ball.y, shockwaveOuterRadius, physicsWorld, particleSystem);
 
     particleSystem.spawnShockwave(ball.x, ball.y, specs.highlight, blastRadius * specs.visualShockwaveFactor);
     particleSystem.spawnFloatingText(
@@ -90,6 +91,54 @@ export class SpecialBallController {
       scoreDelta: destroyed.length * specs.pointsPerBall,
       freezeTurns: 0
     };
+  }
+
+  /**
+   * An explosion is the only thing that breaks chains without destroying the ball: every
+   * chained ball that survives inside the blast loses its chains.
+   */
+  breakChainsInBlast(x, y, radius, physicsWorld, particleSystem) {
+    const chainSpec = this.ballsConfig.clusterModifiers.chained;
+    for (const target of physicsWorld.balls) {
+      if (target.clusterModifier === CLUSTER_MODIFIERS.CHAINED && Math.hypot(target.x - x, target.y - y) <= radius) {
+        target.clusterModifier = null;
+        particleSystem.spawnBurst(target.x, target.y, chainSpec.linkColor, chainSpec.breakBurstCount, chainSpec.breakBurstSpeed);
+      }
+    }
+  }
+
+  /**
+   * Repaints the colored balls around a Paint Core in the core's color. Nothing is
+   * destroyed: the repainted balls are queued for the delayed chain check, so the new
+   * groups they form go off on their own a moment later.
+   * @returns {{painted: Array, scoreDelta: number}}
+   */
+  triggerPaint(ball, specs, physicsWorld, particleSystem, audioManager) {
+    const paintRadius = ball.radius * specs.paintRadiusFactor;
+    const color = ball.colorId;
+    const painted = [];
+    if (color) {
+      for (const target of physicsWorld.balls) {
+        if (target.id === ball.id || !target.colorId || target.specialType || target.colorId === color) {
+          continue;
+        }
+        if (Math.hypot(target.x - ball.x, target.y - ball.y) <= paintRadius) {
+          target.colorId = color;
+          physicsWorld.pendingChainCandidateIds.add(target.id);
+          painted.push(target);
+        }
+      }
+    }
+    particleSystem.spawnShockwave(ball.x, ball.y, specs.highlight, paintRadius);
+    particleSystem.spawnBurst(ball.x, ball.y, specs.highlight, specs.burstCount, specs.burstSpeed);
+    particleSystem.spawnFloatingText(
+      ball.x,
+      ball.y + this.gameConfig.canvas.floatingTextOffsetY,
+      t('gameplay.feedback.core.paint', { count: painted.length }),
+      specs.highlight
+    );
+    audioManager.playEffect('snap');
+    return { painted, scoreDelta: painted.length * specs.pointsPerBall };
   }
 
   triggerLightning(ball, specs, physicsWorld, particleSystem, audioManager, radiusMultiplier, destroyBallFn) {

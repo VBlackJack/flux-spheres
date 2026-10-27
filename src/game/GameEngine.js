@@ -81,6 +81,7 @@ export class GameEngine {
     this.chainCooldown = 0;
     this.pendingRunCoins = 0;
     this.anvilCrushCount = 0;
+    this.isCoreFreezeApplied = false;
     this.outOfShotsGraceFrames = 0;
     this.victoryCelebrationFrames = 0;
     this.victorySummary = null;
@@ -287,6 +288,7 @@ export class GameEngine {
     this.chainCooldown = 0;
     this.pendingRunCoins = 0;
     this.anvilCrushCount = 0;
+    this.isCoreFreezeApplied = false;
     this.outOfShotsGraceFrames = 0;
     this.victoryCelebrationFrames = 0;
     this.victorySummary = null;
@@ -357,15 +359,22 @@ export class GameEngine {
     return lvl * spec.shotsPerLevel;
   }
 
+  /** Shield hits a ball starts with for its modifier (0 when it has no armor). */
+  getInitialArmor(mod) {
+    if (mod === CLUSTER_MODIFIERS.ARMORED) {
+      return this.ballsConfig.clusterModifiers.armored.initialArmor;
+    }
+    if (mod === CLUSTER_MODIFIERS.BOSS_CORE) {
+      return this.ballsConfig.clusterModifiers.bossCore.initialArmor;
+    }
+    return 0;
+  }
+
   createClusterBall(options) {
     const mod = options.clusterModifier || null;
-    let initialArmor = 0;
-    if (mod === CLUSTER_MODIFIERS.ARMORED) {
-      initialArmor = this.ballsConfig.clusterModifiers.armored.initialArmor;
-    } else if (mod === CLUSTER_MODIFIERS.BOSS_CORE) {
-      initialArmor = this.ballsConfig.clusterModifiers.bossCore.initialArmor;
-    }
-    const safeColorId = options.specialType
+    const initialArmor = this.getInitialArmor(mod);
+    const isColorless = Boolean(options.specialType) || mod === CLUSTER_MODIFIERS.NEUTRAL_ANCHOR;
+    const safeColorId = isColorless
       ? null
       : this.pickSpawnColorForPosition(options.x, options.y, options.colorId);
     return new Ball({
@@ -461,7 +470,7 @@ export class GameEngine {
       this.physicsWorld.obstacles.push(obs);
     }
 
-    this.buildLevelLayout(levelDef.layout, levelDef.modifierWeights || {});
+    this.buildLevelLayout(levelDef.layout, levelDef.modifierWeights || {}, levelDef.minModifierCounts || {});
     this.physicsWorld.rebuildInitialBonds();
 
     this.currentBall = this.createRandomLauncherBall();
@@ -795,8 +804,8 @@ export class GameEngine {
     return this.rollModifier(this.gameConfig.endless.modifierWeights);
   }
 
-  buildLevelLayout(layout, modifierWeights = {}) {
-    this.materializeLayout(generateLayout(layout), modifierWeights);
+  buildLevelLayout(layout, modifierWeights = {}, minModifierCounts = {}) {
+    this.materializeLayout(generateLayout(layout), modifierWeights, minModifierCounts);
   }
 
   /**
@@ -805,9 +814,11 @@ export class GameEngine {
    * without a pivot leaves the anchor fixed in place.
    * @param {{balls: object[], bonds: number[][]}} spec - Layout spec, in creation order.
    * @param {Object<string, number>} modifierWeights - Cluster modifier roll weights.
+   * @param {Object<string, number>} minModifierCounts - Modifiers the board must show at least
+   *   this many times; a level that introduces a mechanic cannot roll none of it.
    * @returns {Array<import('../entities/Ball.js').Ball>} The created balls, in spec order.
    */
-  materializeLayout(spec, modifierWeights = {}) {
+  materializeLayout(spec, modifierWeights = {}, minModifierCounts = {}) {
     const r = this.physicsConfig.ball.radius;
     const pivots = this.physicsWorld.obstacles.filter((o) => o.type === OBSTACLE_TYPES.PIVOT);
     const created = spec.balls.map((ballSpec) => {
@@ -816,7 +827,7 @@ export class GameEngine {
         y: ballSpec.y,
         radius: r,
         colorId: this.pickPaletteColor(),
-        clusterModifier: ballSpec.allowModifier ? this.rollModifier(modifierWeights) : null,
+        clusterModifier: this.pickSpecModifier(ballSpec, modifierWeights),
         isAnchor: ballSpec.isAnchor,
         pivotRef: ballSpec.pivotSlot === NO_PIVOT_SLOT ? null : pivots[ballSpec.pivotSlot] || null,
         pivotRadius: ballSpec.pivotRadius,
@@ -828,7 +839,41 @@ export class GameEngine {
     for (const [a, b] of spec.bonds) {
       this.physicsWorld.createBond(created[a], created[b], false);
     }
+    this.ensureMinimumModifiers(
+      created.filter((ball, index) => spec.balls[index].allowModifier),
+      minModifierCounts
+    );
     return created;
+  }
+
+  /** Modifier of a layout ball: neutral anchors are fixed, other free balls roll one. */
+  pickSpecModifier(ballSpec, modifierWeights) {
+    if (ballSpec.isNeutral) {
+      return CLUSTER_MODIFIERS.NEUTRAL_ANCHOR;
+    }
+    return ballSpec.allowModifier ? this.rollModifier(modifierWeights) : null;
+  }
+
+  /**
+   * Tops up each modifier to its minimum count by giving it to plain balls picked at
+   * random among those allowed to carry one.
+   * @param {Array<import('../entities/Ball.js').Ball>} candidates - Balls allowed a modifier.
+   * @param {Object<string, number>} minCounts - Minimum count per modifier id.
+   */
+  ensureMinimumModifiers(candidates, minCounts) {
+    for (const [modKey, minCount] of Object.entries(minCounts)) {
+      let missing = minCount - candidates.filter((ball) => ball.clusterModifier === modKey).length;
+      while (missing > 0) {
+        const plain = candidates.filter((ball) => !ball.clusterModifier);
+        if (plain.length === 0) {
+          return;
+        }
+        const ball = plain[Math.floor(this.random() * plain.length)];
+        ball.clusterModifier = modKey;
+        ball.armorHits = this.getInitialArmor(modKey);
+        missing--;
+      }
+    }
   }
 
   spawnConcentricRings(centerX, centerY, rings, pivotObstacle, modifierWeights = {}) {
@@ -1091,8 +1136,8 @@ export class GameEngine {
         }
         this.handlePostTurnCleanup(madeMatch);
       },
-      onProjectileSnapped: (snappedBall) => {
-        this.handleProjectileSnapped(snappedBall);
+      onProjectileSnapped: (snappedBall, hitTarget) => {
+        this.handleProjectileSnapped(snappedBall, hitTarget);
       },
       onProjectileMissed: () => {
         this.combo = 0;
@@ -1444,6 +1489,7 @@ export class GameEngine {
     }
 
     this.particleSystem.spawnBurst(ball.x, ball.y, burstColor, burstCount, burstSpeed);
+    this.popBubblesAround(ball);
     this.physicsWorld.removeBall(ball);
 
     if (ball.clusterModifier === CLUSTER_MODIFIERS.BOSS_CORE) {
@@ -1479,9 +1525,77 @@ export class GameEngine {
       this.addScore(lockSpec.pointsBonus);
       this.particleSystem.spawnShockwave(ball.x, ball.y, lockSpec.ringColor, lockSpec.shockwaveRadius);
       this.releaseBarriersWhenLocksCleared();
+    } else if (ball.clusterModifier === CLUSTER_MODIFIERS.FREEZE_CORE) {
+      this.triggerFreezeCore(ball);
+    } else if (ball.clusterModifier === CLUSTER_MODIFIERS.LIGHTNING_CORE) {
+      this.triggerLightningCore(ball);
+    } else if (ball.clusterModifier === CLUSTER_MODIFIERS.PAINT_CORE) {
+      const paintSpec = this.ballsConfig.clusterModifiers.paintCore;
+      const paintResult = this.specialController.triggerPaint(ball, paintSpec, this.physicsWorld, this.particleSystem, this.audioManager);
+      this.addScore(paintResult.scoreDelta);
     }
 
     return true;
+  }
+
+  /**
+   * Frees every bubbled ball bonded to a ball that is about to leave the board: a group
+   * going off next to a bubble bursts it, and the ball inside can then join groups.
+   * @param {Ball} ball - The ball being destroyed, still bonded to its neighbors.
+   */
+  popBubblesAround(ball) {
+    for (const neighborId of ball.bonds) {
+      const neighbor = this.physicsWorld.ballMap.get(neighborId);
+      if (neighbor && neighbor.clusterModifier === CLUSTER_MODIFIERS.BUBBLE) {
+        this.popBubble(neighbor);
+      }
+    }
+  }
+
+  /** Bursts a bubble; the freed ball is queued for the delayed chain check. */
+  popBubble(ball) {
+    const bubbleSpec = this.ballsConfig.clusterModifiers.bubble;
+    ball.clusterModifier = null;
+    this.addScore(bubbleSpec.pointsBonus);
+    this.particleSystem.spawnBurst(ball.x, ball.y, bubbleSpec.ringColor, bubbleSpec.popBurstCount, bubbleSpec.popBurstSpeed);
+    this.physicsWorld.pendingChainCandidateIds.add(ball.id);
+  }
+
+  /**
+   * A Freeze Core freezes the balls around it for a few turns. The turn it goes off does
+   * not count down the freeze, like a Freeze shot.
+   */
+  triggerFreezeCore(ball) {
+    const freezeSpec = this.ballsConfig.clusterModifiers.freezeCore;
+    const result = this.specialController.triggerFreeze(
+      ball,
+      freezeSpec,
+      this.physicsWorld,
+      this.particleSystem,
+      this.audioManager,
+      this.getBlastRadiusMultiplier()
+    );
+    this.addScore(result.scoreDelta);
+    this.freezeTurnsRemaining = Math.max(this.freezeTurnsRemaining, result.freezeTurns);
+    this.isCoreFreezeApplied = true;
+  }
+
+  /** A Lightning Core strikes the horizontal band it sits in, like a Lightning shot. */
+  triggerLightningCore(ball) {
+    const lightningSpec = this.ballsConfig.clusterModifiers.lightningCore;
+    const result = this.specialController.triggerLightning(
+      ball,
+      lightningSpec,
+      this.physicsWorld,
+      this.particleSystem,
+      this.audioManager,
+      this.getBlastRadiusMultiplier(),
+      (target, color, ignArmor, count, speed) => this.destroyClusterBall(target, color, ignArmor, count, speed)
+    );
+    this.addScore(result.scoreDelta);
+    if (result.destroyed.length > 0) {
+      this.addOvercharge(result.destroyed.length * this.gameConfig.scoring.overchargePerMatchedBall);
+    }
   }
 
   /**
@@ -1534,8 +1648,16 @@ export class GameEngine {
     }
   }
 
-  handleProjectileSnapped(snappedBall) {
+  handleProjectileSnapped(snappedBall, hitTarget = null) {
     this.audioManager.playEffect('snap');
+    // A shot that lands on a bubble bursts it before the match is checked.
+    if (
+      !snappedBall.specialType &&
+      hitTarget?.clusterModifier === CLUSTER_MODIFIERS.BUBBLE &&
+      this.physicsWorld.ballMap.has(hitTarget.id)
+    ) {
+      this.popBubble(hitTarget);
+    }
 
     if (snappedBall.specialType) {
       const result = this.specialController.resolveSpecialImpact(
@@ -1617,6 +1739,28 @@ export class GameEngine {
         this.grantRandomSpecialBall();
       }
     }
+    this.crumbleLooseNeutralAnchors();
+  }
+
+  /**
+   * A neutral anchor that no longer holds any ball crumbles away. Matches cannot break
+   * it, so without this a board could never be cleared without a bomb or the anvil.
+   */
+  crumbleLooseNeutralAnchors() {
+    const world = this.physicsWorld;
+    const neutralSpec = this.ballsConfig.clusterModifiers.neutralAnchor;
+    const loose = world.balls.filter(
+      (ball) =>
+        ball.clusterModifier === CLUSTER_MODIFIERS.NEUTRAL_ANCHOR &&
+        ![...ball.bonds].some((id) => {
+          const neighbor = world.ballMap.get(id);
+          return neighbor && !neighbor.isAnchor;
+        })
+    );
+    for (const ball of loose) {
+      this.particleSystem.spawnBurst(ball.x, ball.y, neutralSpec.ringColor, neutralSpec.crumbleBurstCount, neutralSpec.crumbleBurstSpeed);
+      world.removeBall(ball);
+    }
   }
 
   grantRandomSpecialBall() {
@@ -1681,13 +1825,16 @@ export class GameEngine {
   }
 
   handlePostTurnCleanup(madeMatch, appliedFreeze = false) {
+    // A Freeze Core that went off during this turn counts as a freeze applied this turn.
+    const freezeAppliedThisTurn = appliedFreeze || this.isCoreFreezeApplied;
+    this.isCoreFreezeApplied = false;
     this.detachAndRewardAvalanche();
     this.shiftChameleonBalls();
 
     this.refreshStaleLauncherColors();
 
-    const wasFrozen = this.freezeTurnsRemaining > 0 || appliedFreeze;
-    if (!appliedFreeze && this.freezeTurnsRemaining > 0) {
+    const wasFrozen = this.freezeTurnsRemaining > 0 || freezeAppliedThisTurn;
+    if (!freezeAppliedThisTurn && this.freezeTurnsRemaining > 0) {
       this.freezeTurnsRemaining--;
       if (this.freezeTurnsRemaining === 0) {
         for (const b of this.physicsWorld.balls) {

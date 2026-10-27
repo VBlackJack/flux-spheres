@@ -4,6 +4,13 @@ All notable changes to **FluxSpheres** are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Neutral Anchors**: Gray anchors that no match can break. Bombs, lightning and the anvil remove them, and they crumble on their own once no sphere hangs from them.
+- **Chained Spheres**: Their links never snap when stretched by a rotor. An explosion breaks the chains of the spheres that survive it.
+- **Bubbles**: A sphere in a bubble cannot join a group until the bubble pops, when a shot lands on it or a group next to it is destroyed.
+- **Freeze, Lightning and Paint Cores**: Like the Dormant Barrel, these cores go off when destroyed: the Freeze Core freezes its surroundings for a few turns, the Lightning Core strikes its row, and the Paint Core repaints its neighbors in its color, setting up new groups.
+- **Levels 17 to 20**: One level per new mechanic, each with its tutorial; star thresholds were calibrated by simulated play against the existing levels.
+
 ## [1.3.0] - 2026-10-27
 
 ### Added

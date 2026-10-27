@@ -19,7 +19,7 @@
   - Prévisualisation en temps réel de la zone d'effet des sphères spéciales (Bombe, Foudre, Prisme, Enclume, Cryo).
   - Prédiction de l'**avalanche magnétique** : les sphères qui tomberont une fois leurs liens supérieurs rompus sont mises en évidence.
 - **Modes de jeu** :
-  - **Campagne** : 16 niveaux conçus à la main, qui introduisent pendules, rotors à inertie, répulseurs, barrières oscillantes, verrous quantiques, portails liés et Noyaux Boss.
+  - **Campagne** : 20 niveaux conçus à la main, qui introduisent pendules, rotors à inertie, répulseurs, barrières oscillantes, verrous quantiques, portails liés, Noyaux Boss, ancres neutres qu'aucun groupe ne brise, sphères enchaînées, bulles, et coeurs de givre, de foudre et de peinture.
   - **Survie (sans fin)** : défense par vagues infinies, avec vagues de ruée vers l'or et anomalies Boss.
   - **Défi du jour** : graine quotidienne déterministe, mutateurs physiques tournants (*Hyper Gravité*, *Rotors Turbo*, *Super Magnétisme*, *Amas Volatil*) et récompense quotidienne en pièces.
   - **Mode Flux** : un enchaînement sans fin de formes générées, avec une réserve de tirs commune. Chaque forme est un rotor ou un pendule paramétré, une silhouette suspendue (coeur, couronne, sablier...) ou une paire de petites formes, jamais deux fois de suite la même famille. Un budget de difficulté ajoute bumpers, portails, répulseurs et singularités au fil de la partie, une forme sur cinq cache un Noyau Boss, et vider une forme rend des tirs. Chaque partie a sa graine : un rechargement reprend sur la même forme.

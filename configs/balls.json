@@ -176,7 +176,75 @@
       "badge": "🔒",
       "pointsBonus": 250,
       "shockwaveRadius": 95
+    },
+    "neutralAnchor": {
+      "id": "neutralAnchor",
+      "ringColor": "#94a3b8",
+      "badge": "⚓",
+      "crumbleBurstCount": 10,
+      "crumbleBurstSpeed": 3
+    },
+    "chained": {
+      "id": "chained",
+      "ringColor": "#a1a1aa",
+      "badge": "⛓",
+      "linkColor": "#d4d4d8",
+      "linkWidth": 4,
+      "linkDash": [7, 4],
+      "breakBurstCount": 8,
+      "breakBurstSpeed": 3.5
+    },
+    "bubble": {
+      "id": "bubble",
+      "ringColor": "#7dd3fc",
+      "badge": "◌",
+      "shellColor": "rgba(186, 230, 253, 0.22)",
+      "shellRadiusFactor": 1.18,
+      "shellLineWidth": 1.6,
+      "popBurstCount": 10,
+      "popBurstSpeed": 3.2,
+      "pointsBonus": 40
+    },
+    "freezeCore": {
+      "id": "freezeCore",
+      "ringColor": "#38bdf8",
+      "highlight": "#e0f2fe",
+      "badge": "❄",
+      "freezeRadiusFactor": 3,
+      "velocityDampingFactor": 0.1,
+      "freezeTurns": 2,
+      "scoreMultiplier": 2,
+      "burstCount": 14,
+      "burstSpeed": 4,
+      "pointsPerBall": 90
+    },
+    "lightningCore": {
+      "id": "lightningCore",
+      "ringColor": "#eab308",
+      "highlight": "#fef08a",
+      "badge": "⚡",
+      "bandHalfHeightFactor": 1.2,
+      "burstCount": 8,
+      "burstSpeed": 5,
+      "pointsPerBall": 110
+    },
+    "paintCore": {
+      "id": "paintCore",
+      "ringColor": "#ec4899",
+      "highlight": "#fbcfe8",
+      "badge": "🎨",
+      "paintRadiusFactor": 2.6,
+      "burstCount": 12,
+      "burstSpeed": 3.5,
+      "pointsPerBall": 30
     }
+  },
+  "neutralPalette": {
+    "id": "neutral",
+    "fill": "#64748b",
+    "highlight": "#cbd5e1",
+    "shadow": "#1e293b",
+    "glow": "rgba(148, 163, 184, 0.4)"
   },
   "render": {
     "gradientOffsetFactor": -0.35,

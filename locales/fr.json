@@ -219,6 +219,9 @@
       },
       "flux": {
         "stageCleared": "FORME {{stage}} VIDÉE ! +{{points}} • +{{shots}} tirs"
+      },
+      "core": {
+        "paint": "PEINTURE x{{count}} !"
       }
     },
     "mutators": {
@@ -255,7 +258,11 @@
       "portal": "Tirez dans un Portail Quantique pour téléporter votre bille derrière les barrières !",
       "boss": "Les Noyaux Boss (👑) possèdent 3 boucliers et libèrent une pluie de pièces à leur destruction !",
       "laserLock": "Détruisez tous les Verrous (🔒) pour désactiver la barrière énergétique !",
-      "singularity": "Les billes d'avalanche aspirées par la Singularité donnent un bonus de score et de Surcharge !"
+      "singularity": "Les billes d'avalanche aspirées par la Singularité donnent un bonus de score et de Surcharge !",
+      "neutralAnchor": "Les ancres grises (⚓) ne cassent jamais dans un groupe : coupez les sphères autour, elles s'effritent dès que plus rien n'y pend !",
+      "chained": "Les sphères enchaînées (⛓) ne cèdent jamais à l'étirement : faites-les sauter à la bombe, ou détruisez les sphères qu'elles retiennent !",
+      "bubble": "Les sphères en bulle (◌) ne rejoignent aucun groupe : touchez-les, ou videz un groupe à côté, pour faire éclater la bulle !",
+      "cores": "Les coeurs colorés se déclenchent quand leur groupe est détruit : ❄ gèle, ⚡ foudroie la rangée, 🎨 repeint les voisines !"
     }
   },
   "modals": {
@@ -321,6 +328,30 @@
           "laserLock": {
             "name": "Verrou Quantique",
             "description": "Détruisez tous les verrous du niveau pour désactiver les barrières."
+          },
+          "neutralAnchor": {
+            "name": "Ancre Neutre",
+            "description": "Une ancre grise qu'aucun groupe ne peut briser. Bombes, foudre et enclume l'enlèvent, et elle s'effrite dès que plus rien n'y est accroché."
+          },
+          "chained": {
+            "name": "Sphère Enchaînée",
+            "description": "Ses liens ne cassent jamais à l'étirement. Seule une explosion, ou la destruction d'une sphère liée, la libère."
+          },
+          "bubble": {
+            "name": "Sphère Bulle",
+            "description": "Ne peut rejoindre aucun groupe tant que sa bulle n'a pas éclaté : touchez-la, ou détruisez un groupe juste à côté."
+          },
+          "freezeCore": {
+            "name": "Coeur de Givre",
+            "description": "Gèle les sphères voisines pendant quelques tours quand il est détruit."
+          },
+          "lightningCore": {
+            "name": "Coeur de Foudre",
+            "description": "Foudroie toute sa rangée quand il est détruit."
+          },
+          "paintCore": {
+            "name": "Coeur de Peinture",
+            "description": "Repeint les sphères voisines dans sa couleur quand il est détruit, et prépare de nouveaux groupes."
           }
         },
         "obstacles": {
@@ -554,6 +585,22 @@
       "lvl16": {
         "name": "Nexus Absolu",
         "description": "Maîtrisez la matrice ultime alliant Noyaux Boss, portails et singularités jumelles."
+      },
+      "lvl17": {
+        "name": "Amarres Grises",
+        "description": "Des ancres neutres tiennent l'amas : contournez ce que vous ne pouvez pas briser."
+      },
+      "lvl18": {
+        "name": "Maillons de Fer",
+        "description": "Les sphères enchaînées refusent de céder. Prévoyez des explosifs."
+      },
+      "lvl19": {
+        "name": "Champ de Bulles",
+        "description": "Faites éclater les bulles avant que leurs sphères puissent rejoindre un groupe."
+      },
+      "lvl20": {
+        "name": "Réacteur à Coeurs",
+        "description": "Les coeurs de givre, de foudre et de peinture changent un seul groupe en réaction en chaîne."
       }
     }
   }
