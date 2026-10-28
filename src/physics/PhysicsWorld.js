@@ -496,13 +496,13 @@ export class PhysicsWorld {
       obstacle.update(sim.pivotAngularDamping);
     }
 
+    // The cluster runs every substep even once the shot has landed: the pivots above have
+    // already turned by a full step, and the spheres they carry must follow them all the way.
+    let hasLanded = false;
     for (let s = 0; s < substeps; s++) {
       this.stepCluster(1 / substeps);
-      if (this.projectile) {
-        const landed = this.stepProjectile(1 / substeps, callbacks);
-        if (landed) {
-          break;
-        }
+      if (this.projectile && !hasLanded) {
+        hasLanded = this.stepProjectile(1 / substeps, callbacks);
       }
     }
 
@@ -1518,7 +1518,9 @@ export class PhysicsWorld {
   /**
    * Prepares the predicted world used by the aim preview: obstacle proxies that inherit
    * from the real obstacles but own their motion state, the pivot gravity torques frozen
-   * at the current ball layout, and the list of rotor-anchored balls to rotate.
+   * at the current ball layout, and the list of balls to rotate. A rotor turns the balls it
+   * anchors and also the ones bonded under them: those have no pivot of their own, but
+   * hang from a rotor ball and travel with it.
    * @returns {object} The preview context passed to advanceProjectileMotion.
    */
   preparePreviewWorld() {
@@ -1527,6 +1529,8 @@ export class PhysicsWorld {
     ghosts.length = 0;
     obstacleIndex.clear();
     const torques = this.accumulateGravityTorques(this.pivotTorqueScratch);
+    // Filled by accumulateGravityTorques for the current layout: no second graph walk.
+    const rootPivots = this.ballRootPivots;
     for (let i = 0; i < this.obstacles.length; i++) {
       const obs = this.obstacles[i];
       let ghost = this.aimGhostCache.get(obs);
@@ -1550,8 +1554,9 @@ export class PhysicsWorld {
       const ball = balls[i];
       this.aimBallX[i] = ball.x;
       this.aimBallY[i] = ball.y;
-      const pivotIdx = ball.pivotRef && obstacleIndex.has(ball.pivotRef)
-        ? obstacleIndex.get(ball.pivotRef)
+      const rootPivot = ball.pivotRef || rootPivots.get(ball.id) || null;
+      const pivotIdx = rootPivot && obstacleIndex.has(rootPivot)
+        ? obstacleIndex.get(rootPivot)
         : NOT_FOUND_INDEX;
       if (pivotIdx !== NOT_FOUND_INDEX) {
         this.aimRotatingBalls.push(i);
@@ -1579,8 +1584,9 @@ export class PhysicsWorld {
   }
 
   /**
-   * Rotates rotor-anchored balls around their predicted pivot by one substep of the
-   * predicted angular velocity, mirroring the anchor motion in stepCluster().
+   * Rotates rotor-borne balls (anchored to a rotor or hanging from one) around their
+   * predicted pivot by one substep of the predicted angular velocity, mirroring the anchor
+   * motion in stepCluster().
    * @param {number} dt - Substep time fraction.
    */
   advancePreviewBalls(dt) {

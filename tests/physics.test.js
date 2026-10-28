@@ -54,6 +54,55 @@ const DT = 1 / physicsConfig.simulation.substeps;
 
 const createWorld = () => new PhysicsWorld(physicsConfig, gameConfig, ballsConfig);
 
+const REST_DISTANCE = RADIUS * physicsConfig.simulation.bondRestDistanceFactor;
+const ROTOR_Y = 300;
+const ROTOR_ARM = 60;
+
+/**
+ * Adds a rotor carrying two rigid arms on opposite sides, so their weights balance and the
+ * rotor turns at its motor speed. Each arm is two rotor-anchored balls and one ball bonded
+ * to both, which has no pivot of its own and only follows the rotor through its bonds.
+ * @returns {{pivot: Obstacle, carried: Ball[], hanging: Ball[]}}
+ */
+const addBalancedRotor = (world) => {
+  const pivot = new Obstacle({ type: OBSTACLE_TYPES.PIVOT, x: CENTER_X, y: ROTOR_Y }, obstaclesConfig);
+  world.obstacles.push(pivot);
+  const halfSpread = Math.asin(REST_DISTANCE / 2 / ROTOR_ARM);
+  const hangingReach = ROTOR_ARM * Math.cos(halfSpread) + REST_DISTANCE * Math.sqrt(3) / 2;
+  const carried = [];
+  const hanging = [];
+  for (const armAngle of [0, Math.PI]) {
+    const pair = [armAngle - halfSpread, armAngle + halfSpread].map((angle) =>
+      world.addBall(
+        new Ball({
+          x: CENTER_X + Math.cos(angle) * ROTOR_ARM,
+          y: ROTOR_Y + Math.sin(angle) * ROTOR_ARM,
+          radius: RADIUS,
+          colorId: 'crimson',
+          isAnchor: true,
+          pivotRef: pivot,
+          pivotRadius: ROTOR_ARM,
+          pivotAngle: angle
+        })
+      )
+    );
+    const hanger = world.addBall(
+      new Ball({
+        x: CENTER_X + Math.cos(armAngle) * hangingReach,
+        y: ROTOR_Y + Math.sin(armAngle) * hangingReach,
+        radius: RADIUS,
+        colorId: 'cobalt'
+      })
+    );
+    world.createBond(pair[0], pair[1], false);
+    world.createBond(pair[0], hanger, false);
+    world.createBond(pair[1], hanger, false);
+    carried.push(...pair);
+    hanging.push(hanger);
+  }
+  return { pivot, carried, hanging };
+};
+
 const createProjectile = (x, y, vx, vy) => {
   const ball = new Ball({ x, y, radius: RADIUS, colorId: 'crimson', isProjectile: true });
   ball.vx = vx;
@@ -319,4 +368,59 @@ test('Repulsor fields push hanging spheres away gently, without tearing the clus
   });
   assert.ok(inField > 0, 'level 14 hangs spheres inside its repulsor field');
   assert.ok(awayLean / inField > MIN_MEAN_LEAN, `spheres lean away from the repulsor by ${(awayLean / inField).toFixed(1)} px`);
+});
+
+test('A shot landing early in a step leaves the rotor spheres turning a full step', () => {
+  const world = createWorld();
+  const { pivot, carried } = addBalancedRotor(world);
+  const target = world.addBall(new Ball({ x: CENTER_X, y: 600, radius: RADIUS, colorId: 'cobalt', isAnchor: true }));
+  world.projectile = createProjectile(CENTER_X, target.y + REST_DISTANCE, 0, 0);
+  const anglesBefore = carried.map((b) => b.pivotAngle);
+  let snapCount = 0;
+
+  world.step({ onProjectileSnapped: () => snapCount++ });
+  assert.equal(snapCount, 1, 'the shot lands during the step');
+  assert.equal(world.projectile, null);
+  carried.forEach((ball, i) => {
+    assert.ok(
+      Math.abs(ball.pivotAngle - anglesBefore[i] - pivot.angularVelocity) < 1e-9,
+      'a carried sphere turns with its rotor by a whole step'
+    );
+  });
+});
+
+test('The aim preview turns the spheres hanging under a rotor along with it', () => {
+  const SETTLE_STEPS = 30;
+  const PREDICTED_STEPS = 30;
+  /** Largest gap, in logical px, between a predicted and a simulated sphere. */
+  const MAX_PREVIEW_GAP = 2;
+  /** Smallest travel, in logical px, for the rotation to be worth predicting at all. */
+  const MIN_TRAVEL = 20;
+  const world = createWorld();
+  const { hanging } = addBalancedRotor(world);
+  for (let i = 0; i < SETTLE_STEPS; i++) {
+    world.step({});
+  }
+
+  const substeps = physicsConfig.simulation.substeps;
+  world.preparePreviewWorld();
+  for (let s = 0; s < PREDICTED_STEPS * substeps; s++) {
+    if (s % substeps === 0) {
+      world.advancePreviewObstacles();
+    }
+    world.advancePreviewBalls(DT);
+  }
+  const predicted = world.balls.map((b, i) => ({ x: world.aimBallX[i], y: world.aimBallY[i] }));
+  const start = hanging.map((b) => ({ x: b.x, y: b.y }));
+  for (let i = 0; i < PREDICTED_STEPS; i++) {
+    world.step({});
+  }
+
+  hanging.forEach((ball, k) => {
+    assert.ok(Math.hypot(ball.x - start[k].x, ball.y - start[k].y) > MIN_TRAVEL, 'the hanging sphere travels with the rotor');
+  });
+  world.balls.forEach((ball, i) => {
+    const gap = Math.hypot(predicted[i].x - ball.x, predicted[i].y - ball.y);
+    assert.ok(gap < MAX_PREVIEW_GAP, `sphere ${i} predicted ${gap.toFixed(2)} px away from where it ends up`);
+  });
 });
