@@ -1,0 +1,63 @@
+{
+  "generated": {
+    "count": 800,
+    "seedPrefix": "campaign",
+    "chapterSize": 40,
+    "chapterSwing": 0.15,
+    "fluxStageRange": [4, 18],
+    "landmarkInterval": 10,
+    "landmarkFamilies": ["mask", "composite"],
+    "featuredMechanics": [
+      "armored",
+      "bubble",
+      "chained",
+      "rust",
+      "chameleon",
+      "dormantBomb",
+      "laserLock",
+      "tether",
+      "freezeCore",
+      "thruster",
+      "lightningCore",
+      "paintCore"
+    ],
+    "palette": [
+      { "fromDifficulty": 0, "count": 4 },
+      { "fromDifficulty": 0.2, "count": 5 },
+      { "fromDifficulty": 0.6, "count": 6 }
+    ],
+    "modifiers": {
+      "pool": {
+        "coinCore": [0.06, 0.04],
+        "armored": [0.02, 0.05],
+        "chameleon": [0.01, 0.04],
+        "dormantBomb": [0.01, 0.04],
+        "bubble": [0.01, 0.04],
+        "chained": [0.01, 0.04],
+        "freezeCore": [0.01, 0.03],
+        "lightningCore": [0.01, 0.03],
+        "paintCore": [0.01, 0.03],
+        "rust": [0.0, 0.03]
+      },
+      "featuredWeight": [0.06, 0.12],
+      "featuredMinCount": [2, 7],
+      "featuredMaxShare": 0.3
+    },
+    "shots": {
+      "perSphere": [1.15, 0.8],
+      "base": 6,
+      "min": 24,
+      "max": 70,
+      "landmarkBonus": 6
+    },
+    "stars": {
+      "pointsPerSphere": [300, 420],
+      "twoStarShare": 0.63,
+      "roundTo": 100
+    },
+    "specialInventory": {
+      "base": { "bomb": 2, "lightning": 1, "rainbow": 1, "anvil": 1, "freeze": 1, "rocket": 1 },
+      "landmarkBonus": { "bomb": 1, "rainbow": 1 }
+    }
+  }
+}

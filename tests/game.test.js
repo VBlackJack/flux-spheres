@@ -41,6 +41,8 @@ const physicsConfig = loadJson('./configs/physics.json');
 const ballsConfig = loadJson('./configs/balls.json');
 const obstaclesConfig = loadJson('./configs/obstacles.json');
 const levelsConfig = loadJson('./configs/levels.json');
+const campaignConfig = loadJson('./configs/campaign.json');
+const fluxConfig = loadJson('./configs/flux.json');
 const audioConfig = loadJson('./configs/audio.json');
 const enLocale = loadJson('./locales/en.json');
 const frLocale = loadJson('./locales/fr.json');
@@ -50,6 +52,7 @@ configRegistry.configs.set('physics', physicsConfig);
 configRegistry.configs.set('balls', ballsConfig);
 configRegistry.configs.set('obstacles', obstaclesConfig);
 configRegistry.configs.set('levels', levelsConfig);
+configRegistry.configs.set('campaign', campaignConfig);
 configRegistry.configs.set('audio', audioConfig);
 
 const collectLeafKeys = (obj, prefix = '') => {
@@ -84,6 +87,8 @@ const createTestEngine = (storageManager = createTestStorage()) => {
     ballsConfig,
     obstaclesConfig,
     levelsConfig,
+    campaignConfig,
+    fluxConfig,
     audioManager: dummyAudio,
     storageManager,
     onStateChange: () => {}
@@ -295,7 +300,7 @@ test('SpatialHashGrid hashCoords has zero collisions across negative and positiv
 
 test('Campaign victory on the final level caps unlockedLevel at that level and awards stars and coins', () => {
   const engine = createTestEngine();
-  const finalLevel = levelsConfig.levels.at(-1);
+  const finalLevel = engine.levelCatalog.get(engine.levelCatalog.lastId);
   engine.startCampaignLevel(finalLevel.id);
   const initialCoins = engine.storageManager.getCoins();
   engine.score = finalLevel.starThresholds.at(-1);
@@ -304,6 +309,7 @@ test('Campaign victory on the final level caps unlockedLevel at that level and a
   engine.evaluateRoundEnd();
 
   assert.equal(engine.state, 'victory');
+  assert.equal(finalLevel.id, levelsConfig.levels.length + campaignConfig.generated.count);
   assert.equal(engine.storageManager.getUnlockedLevel(), finalLevel.id);
   assert.ok(engine.storageManager.getCoins() > initialCoins);
   assert.equal(engine.storageManager.getUnlockedAchievements().sharpshooter, true);

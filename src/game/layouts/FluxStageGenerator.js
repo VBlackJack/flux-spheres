@@ -88,11 +88,22 @@ export function pickStageTableEntry(table, stage) {
  * @param {object} options.fluxConfig - configs/flux.json.
  * @param {object} options.obstaclesConfig - configs/obstacles.json (obstacle radii).
  * @param {number} options.ballRadius - Cluster ball radius.
+ * @param {string|null} [options.family] - Family to build instead of drawing one.
+ * @param {boolean|null} [options.isBoss] - Boss stage or not, instead of the stage interval.
  * @returns {{stage: number, family: string, shapeIds: string[], isBoss: boolean,
  *   paletteCount: number, modifierWeights: object, obstacles: object[],
  *   spec: {balls: object[], bonds: number[][]}, bossBallIndex: number|null}}
  */
-export function generateFluxStage({ seed, stage, previousFamily, fluxConfig, obstaclesConfig, ballRadius }) {
+export function generateFluxStage({
+  seed,
+  stage,
+  previousFamily,
+  fluxConfig,
+  obstaclesConfig,
+  ballRadius,
+  family: forcedFamily = null,
+  isBoss: forcedBoss = null
+}) {
   const rng = new SeededRandom(`${seed}${STAGE_SEED_SEPARATOR}${stage}`);
   const rand = () => rng.next();
   const difficulty = clamp01((stage - 1) / fluxConfig.difficultyRampStages);
@@ -110,7 +121,7 @@ export function generateFluxStage({ seed, stage, previousFamily, fluxConfig, obs
     angularSpeed: rand() < MATH_CONSTANTS.HALF ? rotorSpeed : -rotorSpeed
   });
 
-  const family = pickFamily(fluxConfig, stage, previousFamily, rand);
+  const family = forcedFamily ?? pickFamily(fluxConfig, stage, previousFamily, rand);
   const parts = buildFamilyParts(family, { fluxConfig, stage, pickInt, pickFloat, pickOne, pivotAt, rand });
 
   const pivots = parts.flatMap((part) => part.pivots);
@@ -124,7 +135,7 @@ export function generateFluxStage({ seed, stage, previousFamily, fluxConfig, obs
   );
 
   const extraObstacles = buyObstacles({ fluxConfig, obstaclesConfig, stage, parts, pivots, ballRadius, rand });
-  const isBoss = fluxConfig.bossStageInterval > 0 && stage % fluxConfig.bossStageInterval === 0;
+  const isBoss = forcedBoss ?? (fluxConfig.bossStageInterval > 0 && stage % fluxConfig.bossStageInterval === 0);
 
   return {
     stage,

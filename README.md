@@ -19,7 +19,7 @@
   - Real-time blast/effect radius preview for Special Balls (Bomb, Lightning, Prism, Anvil, Cryo).
   - Live **Magnetic Avalanche** prediction highlighting unanchored spheres that will drop when upper bonds are severed.
 - **Game Modes**:
-  - **Campaign**: 24 handcrafted levels introducing pendulums, inertia rotors, repulsors, oscillating barriers, quantum locks, linked portals, Boss Cores, neutral anchors no match can break, chained spheres, bubbles, freeze, lightning and paint cores, rail anchors, thrusters, long tethers and rust.
+  - **Campaign**: 24 handcrafted levels introducing pendulums, inertia rotors, repulsors, oscillating barriers, quantum locks, linked portals, Boss Cores, neutral anchors no match can break, chained spheres, bubbles, freeze, lightning and paint cores, rail anchors, thrusters, long tethers and rust. Then 800 generated levels (25 to 824), in 20 chapters of 40, each featuring one of those mechanics: more colors, spheres and modifiers, and a tighter shot margin as they go, with a landmark every 10 levels (a drawn shape or a pair, and a Boss Core). Each level is rebuilt from its number alone.
   - **Survival (Endless)**: Infinite wave defense with Gold Rush waves and Boss anomalies.
   - **Daily Challenge**: Deterministic daily seed with rotating physics mutators (*Hyper Gravity*, *Turbo Rotors*, *Super Magnetism*, *Volatile Cluster*) and a daily coin reward.
   - **Flux Mode**: An endless chain of procedurally generated shapes sharing one shot reserve. Three stages in four draw a generated silhouette among more than 1,200 distinct shapes: stars, flowers, gears, polygons, crescents and hearts, solid or hollow, of several sizes and proportions, named after their shape ("7-Point Star", "Hollow 5-Petal Flower"). The others draw a parametric rotor or pendulum, a hand-drawn silhouette (heart, crown, bell, lighthouse, ship anchor...), some held by neutral anchors, or a pair of small shapes, never the same family twice in a row. A difficulty budget adds bumpers, portals, repulsors and singularities as the run goes on, every fifth stage hides a Boss Core, later stages add chains, bubbles and freeze, lightning and paint cores, and clearing a shape refills shots. Runs are seeded, so a reload resumes on the same shape.
@@ -70,7 +70,7 @@
 The codebase follows a modular, zero-dependency ES module architecture with strict data/logic separation (`configs/*.json` and `locales/*.json`):
 
 ```text
-├── configs/                  # Externalized game, physics, ball, obstacle, audio, level & Flux data
+├── configs/                  # Externalized game, physics, ball, obstacle, audio, level, campaign & Flux data
 ├── icons/                    # PWA icons (SVG, maskable SVG, 192 px and 512 px PNG)
 ├── locales/                  # Bilingual translation dictionaries (fr.json, en.json)
 ├── src/
@@ -126,13 +126,14 @@ npm test
 npm run test:browser
 ```
 
-The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, and five repository guards:
+The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, and six repository guards:
 
 - `typography.test.js` rejects typographic look-alikes of ASCII characters (long dashes, curly quotes, ellipsis, special spaces, ligatures) in every text file.
 - `pwa.test.js` checks that every file under `src/`, `configs/`, `locales/` and `icons/` is precached by `sw.js`, and that the Service Worker cache version matches `package.json`.
 - `onboarding.test.js` checks that every mechanic has a hint in both languages, that a level whose tutorial teaches a mechanic always shows it, and that level 1 shows only the basics.
 - `fluxGenerator.test.js` checks that the shape generator yields at least 1,000 distinct shapes, each fitting the board and hanging from its anchors, named in both languages.
-- `world.test.js` checks that every campaign level, Flux stage (1 to 60) and the Survival grid fit between the walls, and that a world of the design width builds every level at its authored positions.
+- `campaign.test.js` checks that the 800 generated levels are playable boards rebuilt the same from their number, that difficulty climbs from chapter to chapter, that a landmark comes every 10 levels, and that each level is named in both languages.
+- `world.test.js` checks that every campaign level (generated ones included), Flux stage (1 to 60) and the Survival grid fit between the walls, and that a world of the design width builds every level at its authored positions.
 
 `tests/browser/smoke.test.js` opens the real page in headless Chromium at the four supported layouts (desktop, portrait tablet, landscape and portrait phones). It fails on any console error, sideways scrolling or clipped control label, checks the layout on level 1 (no special ball) and level 2 (special balls), checks that the Settings, Levels, Workshop and Pause dialogs pause and resume the run, walks through the victory, game over and reload-resume paths, and checks that a mouse tremor keeps a keyboard-tuned aim. CI runs it as a separate job.
 

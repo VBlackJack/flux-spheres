@@ -720,6 +720,25 @@
         "name": "Ceinture de Rouille",
         "description": "La rouille étouffe chaque groupe. Prévoyez fusées, bombes et peinture."
       }
+    },
+    "generated": {
+      "name": "{{theme}} {{index}}",
+      "description": "Chapitre {{chapter}} : niveau {{index}} sur {{size}}.",
+      "landmarkDescription": "Chapitre {{chapter}} : niveau marquant, {{index}} sur {{size}}, avec un Noyau Boss.",
+      "themes": {
+        "armored": "Blindage",
+        "bubble": "Bulles",
+        "chained": "Chaînes",
+        "rust": "Rouille",
+        "chameleon": "Caméléons",
+        "dormantBomb": "Barils",
+        "laserLock": "Verrous",
+        "tether": "Amarres",
+        "freezeCore": "Givre",
+        "thruster": "Propulsion",
+        "lightningCore": "Foudre",
+        "paintCore": "Peinture"
+      }
     }
   }
 }

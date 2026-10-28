@@ -32,6 +32,7 @@ const physicsConfig = loadJson('./configs/physics.json');
 const ballsConfig = loadJson('./configs/balls.json');
 const obstaclesConfig = loadJson('./configs/obstacles.json');
 const levelsConfig = loadJson('./configs/levels.json');
+const campaignConfig = loadJson('./configs/campaign.json');
 const audioConfig = loadJson('./configs/audio.json');
 const fluxConfig = loadJson('./configs/flux.json');
 
@@ -40,6 +41,7 @@ configRegistry.configs.set('physics', physicsConfig);
 configRegistry.configs.set('balls', ballsConfig);
 configRegistry.configs.set('obstacles', obstaclesConfig);
 configRegistry.configs.set('levels', levelsConfig);
+configRegistry.configs.set('campaign', campaignConfig);
 configRegistry.configs.set('audio', audioConfig);
 configRegistry.configs.set('flux', fluxConfig);
 
@@ -60,6 +62,7 @@ const createEngine = (config = gameConfig) => {
     ballsConfig,
     obstaclesConfig,
     levelsConfig,
+    campaignConfig,
     fluxConfig,
     audioManager: { playEffect: () => {}, stopAll: () => {}, isMuted: () => true, setMuted: () => {} },
     storageManager,
@@ -172,9 +175,9 @@ test('Content is centered in a narrower world and the launcher follows the width
   builtX.forEach((x, i) => assert.ok(Math.abs(x - authoredX[i]) < 1e-9));
 });
 
-test('Every campaign level fits between the walls', () => {
+test('Every campaign level fits between the walls, generated levels included', () => {
   const engine = createEngine();
-  for (const level of levelsConfig.levels) {
+  for (const level of engine.levelCatalog.list()) {
     engine.startCampaignLevel(level.id);
     assertFitsWorld(engine.physicsWorld, `level ${level.id}`);
   }

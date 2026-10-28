@@ -277,13 +277,12 @@ function setAttributeIfChanged(element, name, value) {
  * and keyboard/button event bindings.
  */
 export class UIManager {
-  constructor({ engine, renderer, storageManager, audioManager, gameConfig, levelsConfig, ballsConfig }) {
+  constructor({ engine, renderer, storageManager, audioManager, gameConfig, ballsConfig }) {
     this.engine = engine;
     this.renderer = renderer;
     this.storageManager = storageManager;
     this.audioManager = audioManager;
     this.gameConfig = gameConfig;
-    this.levelsConfig = levelsConfig;
     this.ballsConfig = ballsConfig;
 
     this.elements = {
@@ -979,7 +978,7 @@ export class UIManager {
     this.elements.btnNextLevel.addEventListener('click', () => {
       this.hideAllModals();
       const nextId = this.engine.currentLevelId + 1;
-      const exists = this.levelsConfig.levels.some((l) => l.id === nextId);
+      const exists = this.engine.levelCatalog.has(nextId);
       if (exists) {
         this.engine.startCampaignLevel(nextId);
       } else {
@@ -1416,6 +1415,30 @@ export class UIManager {
       return t('gameplay.flux.shapes.pairFormat', { left: names[0], right: names[1] });
     }
     return names[0] || '';
+  }
+
+  /**
+   * Display name of a campaign level: its own name when authored, else its chapter theme
+   * and its place in the chapter.
+   * @param {object} summary - A level summary from the level catalog.
+   */
+  formatLevelName(summary) {
+    if (!summary.isGenerated) {
+      return t(summary.nameKey);
+    }
+    return t('levels.generated.name', {
+      theme: t(`levels.generated.themes.${summary.featuredMechanic}`),
+      index: summary.chapterLevel
+    });
+  }
+
+  /** Description of a campaign level, from its summary in the level catalog. */
+  formatLevelDescription(summary) {
+    if (!summary.isGenerated) {
+      return t(summary.descriptionKey);
+    }
+    const key = summary.isLandmark ? 'levels.generated.landmarkDescription' : 'levels.generated.description';
+    return t(key, { chapter: summary.chapter, index: summary.chapterLevel, size: summary.chapterSize });
   }
 
   formatStars(stars, maxStars) {
@@ -1886,8 +1909,7 @@ export class UIManager {
     if (this.engine.mode === GAME_MODES.CAMPAIGN && this.engine.currentLevelId) {
       return this.engine.currentLevelId;
     }
-    const levelIds = this.levelsConfig.levels.map((lvl) => lvl.id);
-    return Math.min(this.storageManager.getUnlockedLevel(), Math.max(...levelIds));
+    return Math.min(this.storageManager.getUnlockedLevel(), this.engine.levelCatalog.lastId);
   }
 
   openLevelsModal() {
@@ -1900,14 +1922,14 @@ export class UIManager {
 
     if (this.elements.levelsStarsSummary) {
       const totalStars = this.storageManager.getTotalStars();
-      const maxCampaignStars = this.levelsConfig.levels.length * this.gameConfig.scoring.maxStars;
+      const maxCampaignStars = this.engine.levelCatalog.count * this.gameConfig.scoring.maxStars;
       this.elements.levelsStarsSummary.textContent = t('modals.levelSelect.starsTotal', {
         stars: totalStars,
         maxStars: maxCampaignStars
       });
     }
 
-    for (const lvl of this.levelsConfig.levels) {
+    for (const lvl of this.engine.levelCatalog.list()) {
       const isUnlocked = lvl.id <= unlocked;
       const lvlStat = stats[lvl.id] || { bestScore: 0, stars: 0 };
 
@@ -1929,11 +1951,11 @@ export class UIManager {
 
       const title = document.createElement('div');
       title.className = 'level-card-title';
-      title.textContent = t(lvl.nameKey);
+      title.textContent = this.formatLevelName(lvl);
 
       const desc = document.createElement('div');
       desc.className = 'level-card-desc';
-      desc.textContent = t(lvl.descriptionKey);
+      desc.textContent = this.formatLevelDescription(lvl);
 
       const footer = document.createElement('div');
       footer.className = 'level-card-footer';
@@ -2100,12 +2122,12 @@ export class UIManager {
     const warningShotsThreshold = this.gameConfig.canvas.survivalWaveWarningThreshold;
 
     if (engine.mode === GAME_MODES.CAMPAIGN) {
-      const lvl = this.levelsConfig.levels.find((l) => l.id === engine.currentLevelId);
+      const lvl = engine.levelCatalog.summarize(engine.currentLevelId);
       setTextIfChanged(
         this.elements.modeBanner,
         t('hud.stats.mode.campaign', {
           level: engine.currentLevelId,
-          name: lvl ? t(lvl.nameKey) : ''
+          name: lvl ? this.formatLevelName(lvl) : ''
         })
       );
       if (this.elements.shotsLabel) {
