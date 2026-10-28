@@ -16,6 +16,7 @@
 
 import { configRegistry } from './ConfigRegistry.js';
 import { SeededRandom } from './SeededRandom.js';
+import { countCampaignLevels } from '../game/LevelCatalog.js';
 
 /**
  * Manages persistent player progress, settings, currency, and upgrades
@@ -36,11 +37,12 @@ export class StorageManager {
   init() {
     const gameConfig = configRegistry.get('game');
     const levelsConfig = configRegistry.get('levels');
+    const campaignConfig = configRegistry.get('campaign');
     this.storageConfig = gameConfig.storage;
     this.defaultsConfig = gameConfig.defaults;
     this.upgradesConfig = gameConfig.upgrades;
     this.achievementsConfig = gameConfig.achievements || {};
-    this.maxCampaignLevel = levelsConfig.levels.length;
+    this.maxCampaignLevel = countCampaignLevels(levelsConfig, campaignConfig);
     this.upgradesCache = null;
     this.bindCrossTabSync();
   }

@@ -36,6 +36,7 @@ class Application {
       const ballsConfig = configRegistry.get('balls');
       const obstaclesConfig = configRegistry.get('obstacles');
       const levelsConfig = configRegistry.get('levels');
+      const campaignConfig = configRegistry.get('campaign');
       const fluxConfig = configRegistry.get('flux');
 
       const storageManager = new StorageManager();
@@ -63,6 +64,7 @@ class Application {
         ballsConfig,
         obstaclesConfig,
         levelsConfig,
+        campaignConfig,
         fluxConfig,
         audioManager,
         storageManager,
@@ -79,7 +81,6 @@ class Application {
         storageManager,
         audioManager,
         gameConfig,
-        levelsConfig,
         ballsConfig
       });
       uiManager.init();

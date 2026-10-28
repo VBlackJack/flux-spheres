@@ -20,6 +20,7 @@ export const CONFIG_PATHS = Object.freeze({
   BALLS: './configs/balls.json',
   OBSTACLES: './configs/obstacles.json',
   LEVELS: './configs/levels.json',
+  CAMPAIGN: './configs/campaign.json',
   AUDIO: './configs/audio.json',
   FLUX: './configs/flux.json'
 });

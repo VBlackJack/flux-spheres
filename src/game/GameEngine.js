@@ -35,6 +35,7 @@ import { SpecialBallController } from './SpecialBallController.js';
 import { captureRunSnapshot, isValidRunSnapshot, applyRunSnapshot, isRunSnapshotable } from './RunSnapshot.js';
 import { generateLayout, NO_PIVOT_SLOT } from './layouts/LayoutGenerators.js';
 import { generateFluxStage } from './layouts/FluxStageGenerator.js';
+import { LevelCatalog } from './LevelCatalog.js';
 import { shiftObstacleDefsX, shiftSpecX } from '../core/WorldGeometry.js';
 import {
   listBoardMechanics,
@@ -50,7 +51,8 @@ export class GameEngine {
     ballsConfig,
     obstaclesConfig,
     levelsConfig,
-    fluxConfig = null,
+    campaignConfig,
+    fluxConfig,
     audioManager,
     storageManager,
     onStateChange
@@ -61,6 +63,13 @@ export class GameEngine {
     this.obstaclesConfig = obstaclesConfig;
     this.levelsConfig = levelsConfig;
     this.fluxConfig = fluxConfig;
+    this.levelCatalog = new LevelCatalog({
+      levelsConfig,
+      campaignConfig,
+      fluxConfig,
+      obstaclesConfig,
+      ballRadius: physicsConfig.ball.radius
+    });
     this.audioManager = audioManager;
     this.storageManager = storageManager;
     this.onStateChange = onStateChange;
@@ -473,8 +482,8 @@ export class GameEngine {
   }
 
   startCampaignLevel(levelId) {
-    const levels = this.levelsConfig.levels;
-    const levelDef = levels.find((l) => l.id === levelId) || levels[0];
+    const catalog = this.levelCatalog;
+    const levelDef = catalog.get(levelId) || catalog.get(catalog.firstId);
 
     this.resetRunState(GAME_MODES.CAMPAIGN);
     this.currentLevelId = levelDef.id;
@@ -495,7 +504,13 @@ export class GameEngine {
       this.physicsWorld.obstacles.push(obs);
     }
 
-    this.buildLevelLayout(levelDef.layout, levelDef.modifierWeights || {}, levelDef.minModifierCounts || {});
+    if (levelDef.spec) {
+      const spec = shiftSpecX(levelDef.spec, this.gameConfig.canvas.contentOffsetX);
+      const balls = this.materializeLayout(spec, levelDef.modifierWeights, levelDef.minModifierCounts);
+      this.makeBossCore(balls, levelDef.bossBallIndex);
+    } else {
+      this.buildLevelLayout(levelDef.layout, levelDef.modifierWeights || {}, levelDef.minModifierCounts || {});
+    }
     this.physicsWorld.rebuildInitialBonds();
     this.levelStartBallCount = this.physicsWorld.balls.length;
 
@@ -615,11 +630,7 @@ export class GameEngine {
       this.physicsWorld.obstacles.push(new Obstacle(obsDef, this.obstaclesConfig));
     }
     const balls = this.materializeLayout(shiftSpecX(stageDef.spec, contentOffsetX), stageDef.modifierWeights);
-    if (stageDef.bossBallIndex !== null) {
-      const bossBall = balls[stageDef.bossBallIndex];
-      bossBall.clusterModifier = CLUSTER_MODIFIERS.BOSS_CORE;
-      bossBall.armorHits = this.ballsConfig.clusterModifiers.bossCore.initialArmor;
-    }
+    this.makeBossCore(balls, stageDef.bossBallIndex);
     this.physicsWorld.rebuildInitialBonds();
 
     this.fluxFamily = stageDef.family;
@@ -885,6 +896,20 @@ export class GameEngine {
     return created;
   }
 
+  /**
+   * Turns one ball of a freshly built board into the boss core.
+   * @param {Array<import('../entities/Ball.js').Ball>} balls - The board's balls, in spec order.
+   * @param {number|null} bossBallIndex - Index of the boss ball; null leaves the board as it is.
+   */
+  makeBossCore(balls, bossBallIndex) {
+    if (bossBallIndex === null || bossBallIndex === undefined) {
+      return;
+    }
+    const bossBall = balls[bossBallIndex];
+    bossBall.clusterModifier = CLUSTER_MODIFIERS.BOSS_CORE;
+    bossBall.armorHits = this.ballsConfig.clusterModifiers.bossCore.initialArmor;
+  }
+
   /** Modifier of a layout ball: neutral anchors are fixed, other free balls roll one. */
   pickSpecModifier(ballSpec, modifierWeights) {
     if (ballSpec.isNeutral) {
@@ -1067,7 +1092,7 @@ export class GameEngine {
     if (this.mode !== GAME_MODES.CAMPAIGN) {
       return new Set();
     }
-    const levelDef = this.levelsConfig.levels.find((l) => l.id === this.currentLevelId);
+    const levelDef = this.levelCatalog.get(this.currentLevelId);
     return levelDef ? listLevelMechanics(levelDef, { guaranteedOnly: true }) : new Set();
   }
 
@@ -1088,6 +1113,8 @@ export class GameEngine {
     const known = new Set();
     if (hasPlayedBefore) {
       known.add(BOARD_MECHANICS.BASICS);
+      // Authored levels only: they teach every mechanic, and building the generated levels
+      // behind a far-advanced player would cost hundreds of boards for nothing new.
       for (const level of this.levelsConfig.levels.filter((lvl) => lvl.id < unlockedLevel)) {
         for (const mechanicId of listLevelMechanics(level)) {
           known.add(mechanicId);
@@ -1110,7 +1137,7 @@ export class GameEngine {
     if (this.mode !== GAME_MODES.CAMPAIGN) {
       return true;
     }
-    const levelDef = this.levelsConfig.levels.find((l) => l.id === this.currentLevelId);
+    const levelDef = this.levelCatalog.get(this.currentLevelId);
     const grants = Object.values(levelDef?.specialInventory || {}).some((count) => count > 0);
     const holds = Object.values(this.specialInventory).some((count) => count > 0);
     return grants || holds || Boolean(this.currentBall?.specialType);
@@ -2318,8 +2345,7 @@ export class GameEngine {
         const earnedCoins = stars * this.gameConfig.scoring.coinsPerVictoryStar + firstStarBonus;
         this.storageManager.addCoins(earnedCoins);
         this.flushPendingRunCoins();
-        const maxCampaignLevel = this.levelsConfig.levels.length;
-        this.storageManager.unlockLevel(Math.min(this.currentLevelId + 1, maxCampaignLevel));
+        this.storageManager.unlockLevel(Math.min(this.currentLevelId + 1, this.levelCatalog.lastId));
         if (this.storageManager.getTotalStars() >= this.gameConfig.achievements.starCollector.threshold) {
           this.checkAndUnlockAchievement('starCollector');
         }
@@ -2380,7 +2406,7 @@ export class GameEngine {
    * before its thresholds are tuned.
    */
   getStarThresholds() {
-    const levelDef = this.levelsConfig.levels.find((l) => l.id === this.currentLevelId);
+    const levelDef = this.levelCatalog.get(this.currentLevelId);
     if (levelDef?.starThresholds) {
       return levelDef.starThresholds;
     }

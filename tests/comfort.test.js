@@ -33,6 +33,8 @@ const physicsConfig = loadJson('./configs/physics.json');
 const ballsConfig = loadJson('./configs/balls.json');
 const obstaclesConfig = loadJson('./configs/obstacles.json');
 const levelsConfig = loadJson('./configs/levels.json');
+const campaignConfig = loadJson('./configs/campaign.json');
+const fluxConfig = loadJson('./configs/flux.json');
 const audioConfig = loadJson('./configs/audio.json');
 
 configRegistry.configs.set('game', gameConfig);
@@ -40,6 +42,7 @@ configRegistry.configs.set('physics', physicsConfig);
 configRegistry.configs.set('balls', ballsConfig);
 configRegistry.configs.set('obstacles', obstaclesConfig);
 configRegistry.configs.set('levels', levelsConfig);
+configRegistry.configs.set('campaign', campaignConfig);
 configRegistry.configs.set('audio', audioConfig);
 
 const DAILY_KEY = '2026-10-27';
@@ -61,6 +64,8 @@ const createEngine = ({ levels = levelsConfig, storageManager } = {}) => {
     ballsConfig,
     obstaclesConfig,
     levelsConfig: levels,
+    campaignConfig,
+    fluxConfig,
     audioManager: dummyAudio,
     storageManager: storage,
     onStateChange: () => {}

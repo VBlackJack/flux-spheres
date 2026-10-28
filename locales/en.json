@@ -720,6 +720,25 @@
         "name": "Rust Belt",
         "description": "Rust chokes every group. Bring rockets, bombs and paint."
       }
+    },
+    "generated": {
+      "name": "{{theme}} {{index}}",
+      "description": "Chapter {{chapter}}: level {{index}} of {{size}}.",
+      "landmarkDescription": "Chapter {{chapter}}: landmark level, {{index}} of {{size}}, with a Boss Core.",
+      "themes": {
+        "armored": "Armor",
+        "bubble": "Bubbles",
+        "chained": "Chains",
+        "rust": "Rust",
+        "chameleon": "Chameleons",
+        "dormantBomb": "Barrels",
+        "laserLock": "Locks",
+        "tether": "Tethers",
+        "freezeCore": "Frost",
+        "thruster": "Thrust",
+        "lightningCore": "Lightning",
+        "paintCore": "Paint"
+      }
     }
   }
 }
