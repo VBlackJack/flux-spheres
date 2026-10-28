@@ -235,9 +235,12 @@ export class GameEngine {
    * Stores the run so it survives a reload or the tab being discarded. Only runs with at
    * least one shot are kept, and only between shots (see isRunSnapshotable): a run that
    * cannot be captured right now keeps its last stored snapshot.
+   * @param {{force?: boolean}} [options] - force also stores a run before its first shot:
+   *   a new Flux shape, a restored run (starting its board cleared the stored one) or a
+   *   purchase, which a reload must not lose.
    */
-  saveRunSnapshot() {
-    if (!this.hasFiredInRound) {
+  saveRunSnapshot({ force = false } = {}) {
+    if (!force && !this.hasFiredInRound) {
       return;
     }
     const snapshot = captureRunSnapshot(this, this.storageManager.getRunSnapshotVersion());
@@ -301,7 +304,7 @@ export class GameEngine {
       return false;
     }
     this.refreshDiscovery();
-    this.saveRunSnapshot();
+    this.saveRunSnapshot({ force: true });
     this.notifyUI();
     return true;
   }
@@ -409,11 +412,18 @@ export class GameEngine {
     return 0;
   }
 
+  /**
+   * True for a modifier whose ball never takes part in a color match (rust, neutral
+   * anchor): such a ball must carry no color, or it would still count in color checks.
+   */
+  isColorlessModifier(mod) {
+    return mod === CLUSTER_MODIFIERS.RUST || mod === CLUSTER_MODIFIERS.NEUTRAL_ANCHOR;
+  }
+
   createClusterBall(options) {
     const mod = options.clusterModifier || null;
     const initialArmor = this.getInitialArmor(mod);
-    const isColorless =
-      Boolean(options.specialType) || mod === CLUSTER_MODIFIERS.NEUTRAL_ANCHOR || mod === CLUSTER_MODIFIERS.RUST;
+    const isColorless = Boolean(options.specialType) || this.isColorlessModifier(mod);
     const safeColorId = isColorless
       ? null
       : this.pickSpawnColorForPosition(options.x, options.y, options.colorId);
@@ -657,11 +667,7 @@ export class GameEngine {
     }
     this.refreshDiscovery();
     if (persist) {
-      const snapshot = captureRunSnapshot(this, this.storageManager.getRunSnapshotVersion());
-      if (snapshot) {
-        this.storageManager.saveRunSnapshot(snapshot);
-        this.flushPendingRunCoins();
-      }
+      this.saveRunSnapshot({ force: true });
     }
   }
 
@@ -680,6 +686,10 @@ export class GameEngine {
     const clearedStage = this.fluxStage;
     const points = rewards.stageClearPointsBase + rewards.stageClearPointsPerStage * clearedStage;
     const refill = this.getFluxShotRefill(clearedStage);
+    // The transition starts first so the run is not capturable while it is paid: the coins
+    // are held until the next shape is stored, instead of being paid on top of a stored
+    // run that still shows this shape uncleared.
+    this.stageTransitionFrames = this.fluxConfig.transition.clearFrames;
     this.addScore(points);
     this.awardRunCoins(rewards.stageClearCoins);
     this.shotsRemaining += refill;
@@ -697,7 +707,6 @@ export class GameEngine {
     );
     this.fluxPreviousFamily = this.fluxFamily;
     this.fluxStage = clearedStage + 1;
-    this.stageTransitionFrames = this.fluxConfig.transition.clearFrames;
     this.notifyUI({ fluxStageCleared: clearedStage });
   }
 
@@ -940,6 +949,9 @@ export class GameEngine {
         const ball = plain[Math.floor(this.random() * plain.length)];
         ball.clusterModifier = modKey;
         ball.armorHits = this.getInitialArmor(modKey);
+        if (this.isColorlessModifier(modKey)) {
+          ball.colorId = null;
+        }
         missing--;
       }
     }
@@ -1168,6 +1180,9 @@ export class GameEngine {
     }
     this.storageManager.setCoins(coins - cost);
     this.specialInventory[specialType] = (this.specialInventory[specialType] || 0) + 1;
+    // Stored right away, even before the first shot: a reload must not keep the debit and
+    // lose the ball it paid for.
+    this.saveRunSnapshot({ force: true });
     this.audioManager.playEffect('overcharge');
     this.notifyUI();
     return true;
@@ -1521,6 +1536,7 @@ export class GameEngine {
       this.physicsWorld.hasBrokenBondThisStep = false;
       this.detachAndRewardAvalanche();
       this.evaluateRoundEnd();
+      this.saveRunSnapshot();
       this.notifyUI();
     }
 
@@ -1674,6 +1690,9 @@ export class GameEngine {
         this.outOfShotsGraceFrames = this.physicsConfig.simulation.outOfShotsGraceFrames;
       }
       this.evaluateRoundEnd();
+      // Paid between shots, so stored now: the stored run would otherwise still hold the
+      // candidates and pay this chain again after a reload.
+      this.saveRunSnapshot();
       this.notifyUI();
     }
   }
@@ -2339,6 +2358,7 @@ export class GameEngine {
         if (!anchoredSet.has(b.id)) {
           this.detachAndRewardAvalanche();
           this.evaluateRoundEnd();
+          this.saveRunSnapshot();
           this.notifyUI();
           return;
         }
