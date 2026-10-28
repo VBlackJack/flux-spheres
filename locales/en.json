@@ -583,7 +583,13 @@
       },
       "button": {
         "retry": "Try Again",
-        "levels": "Select Level"
+        "levels": "Select Level",
+        "share": "Share"
+      },
+      "share": {
+        "field": {
+          "label": "Share text, ready to copy"
+        }
       }
     },
     "pause": {
@@ -748,6 +754,20 @@
         "lightningCore": "Lightning",
         "paintCore": "Paint"
       }
+    }
+  },
+  "share": {
+    "daily": {
+      "header": "FluxSpheres - Daily #{{number}} ({{mutator}})",
+      "headerNoMutator": "FluxSpheres - Daily #{{number}}",
+      "stats": "Wave {{wave}} - {{score}} pts",
+      "overflow": "+{{count}}"
+    },
+    "feedback": {
+      "shared": "Result shared.",
+      "copied": "Result copied to the clipboard.",
+      "manual": "Copy the selected text to share your result.",
+      "failed": "Sharing failed. Copy the selected text instead."
     }
   }
 }

@@ -27,14 +27,18 @@ import {
 import { i18n, t, formatNumber } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
 import { resolveHintText } from '../game/Discovery.js';
+import { buildDailyShareText } from '../game/DailyShare.js';
 import { decodeGeneratedShapeId, isGeneratedShapeId } from '../game/layouts/ShapeGenerator.js';
 
 /** Elements a modal focus trap may cycle through (inactive tabs use tabindex="-1"). */
 export const MODAL_FOCUSABLE_SELECTOR =
-  'button:not(:disabled):not([tabindex="-1"]), [href]:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
+  'button:not(:disabled):not([tabindex="-1"]), textarea:not([tabindex="-1"]), [href]:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 
 /** Ancestors that remove an element from the interactive tree. */
 const NON_INTERACTIVE_ANCESTOR_SELECTOR = '.hidden, [hidden], [inert]';
+
+/** Error name of a share sheet the player dismissed: not a failure, nothing to report. */
+const SHARE_ABORT_ERROR_NAME = 'AbortError';
 
 /** Root class mirroring the in-app reduced motion setting for CSS. */
 export const REDUCED_MOTION_CLASS = 'reduced-motion';
@@ -372,6 +376,9 @@ export class UIManager {
       gameOverStage: document.getElementById('gameover-stage'),
       btnRetry: document.getElementById('btn-retry'),
       btnLevelsGameOver: document.getElementById('btn-levels-gameover'),
+      btnShareGameOver: document.getElementById('btn-share-gameover'),
+      gameOverShareFallback: document.getElementById('gameover-share-fallback'),
+      gameOverShareText: document.getElementById('gameover-share-text'),
       modalPause: document.getElementById('modal-pause'),
       pauseLevelTip: document.getElementById('pause-level-tip'),
       btnResume: document.getElementById('btn-resume'),
@@ -1008,6 +1015,10 @@ export class UIManager {
       this.openLevelsModal();
     });
 
+    this.elements.btnShareGameOver?.addEventListener('click', () => {
+      this.shareDailyResult();
+    });
+
     this.elements.btnResume.addEventListener('click', () => {
       this.engine.togglePause();
     });
@@ -1625,6 +1636,62 @@ export class UIManager {
       this.elements.btnDismissTutorial.setAttribute('aria-label', dismissLabel);
       this.elements.btnDismissTutorial.title = dismissLabel;
     }
+  }
+
+  /**
+   * Shares the finished Daily Challenge: the system share sheet when there is one, else the
+   * clipboard, else a read-only field with the text selected for a manual copy. The outcome
+   * is announced to screen readers.
+   */
+  async shareDailyResult() {
+    const engine = this.engine;
+    const shareConfig = this.gameConfig.share;
+    const text = buildDailyShareText(
+      {
+        dateKey: engine.dailySeedKey,
+        mutatorKey: engine.activeMutatorKey,
+        wave: engine.waveCount,
+        score: engine.score,
+        waveLog: engine.waveLog,
+        url: shareConfig.url
+      },
+      shareConfig
+    );
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ text });
+        this.announce(t('share.feedback.shared'));
+        return;
+      } catch (error) {
+        if (error?.name === SHARE_ABORT_ERROR_NAME) {
+          return;
+        }
+      }
+    }
+    let feedbackKey = 'share.feedback.manual';
+    if (typeof navigator.clipboard?.writeText === 'function') {
+      try {
+        await navigator.clipboard.writeText(text);
+        this.announce(t('share.feedback.copied'));
+        return;
+      } catch {
+        feedbackKey = 'share.feedback.failed';
+      }
+    }
+    this.showShareFallback(text);
+    this.announce(t(feedbackKey));
+  }
+
+  /** Shows the share text in the game over window, selected and focused, ready to copy. */
+  showShareFallback(text) {
+    const field = this.elements.gameOverShareText;
+    if (!field || !this.elements.gameOverShareFallback) {
+      return;
+    }
+    field.value = text;
+    this.elements.gameOverShareFallback.classList.remove('hidden');
+    field.focus();
+    field.select();
   }
 
   hideAllModals() {
@@ -2542,7 +2609,9 @@ export class UIManager {
         }
         this.elements.gameOverStage.classList.toggle('hidden', !isFlux);
       }
+      this.elements.btnShareGameOver?.classList.toggle('hidden', engine.mode !== GAME_MODES.DAILY);
       if (transitionedState) {
+        this.elements.gameOverShareFallback?.classList.add('hidden');
         this.saveLastFocusedElement();
         this.announce(t('hud.announcer.round.gameOver', { reason: t(reasonKey), score: scoreText }));
       }
