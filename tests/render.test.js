@@ -263,28 +263,43 @@ test('Game loop renders every frame while a victory is being celebrated', () => 
   assert.equal(renders, 3, 'once the celebration ends the static scene is throttled again');
 });
 
-/** Minimal Web Audio stub counting oscillators and recording the output chain. */
+/**
+ * Minimal Web Audio stub counting oscillators, recording the output chain and logging the
+ * gain ramps and stops it is asked to schedule, in call order.
+ */
 class StubAudioContext {
   constructor() {
     this.currentTime = 0;
     this.state = 'running';
     this.destination = { id: 'destination' };
     this.oscillatorsCreated = 0;
+    this.scheduled = [];
     StubAudioContext.last = this;
   }
 
   createParam() {
-    return { setValueAtTime() {}, exponentialRampToValueAtTime() {} };
+    const scheduled = this.scheduled;
+    return {
+      value: 1,
+      setValueAtTime() {},
+      cancelScheduledValues() {},
+      exponentialRampToValueAtTime(value, time) {
+        scheduled.push({ kind: 'ramp', value, time });
+      }
+    };
   }
 
   createOscillator() {
     this.oscillatorsCreated++;
+    const scheduled = this.scheduled;
     return {
       frequency: this.createParam(),
       connect() {},
       disconnect() {},
       start() {},
-      stop() {}
+      stop(time) {
+        scheduled.push({ kind: 'stop', time });
+      }
     };
   }
 
@@ -339,6 +354,28 @@ test('AudioManager caps simultaneous voices and routes them through a limiter', 
     assert.equal(ctx.state, 'suspended', 'muting suspends the context');
     audio.setMuted(false);
     assert.equal(ctx.state, 'running', 'unmuting resumes the context');
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+test('AudioManager fades every voice out before stopping it, so silencing does not click', () => {
+  globalThis.window = { AudioContext: StubAudioContext };
+  try {
+    const audio = new AudioManager();
+    audio.init(false, false);
+    audio.playTone('sine', 440, 220, 1);
+    const ctx = StubAudioContext.last;
+    ctx.currentTime = 0.5;
+    ctx.scheduled.length = 0;
+
+    audio.stopAll();
+    const stopTime = ctx.currentTime + audioConfig.stopRampSec;
+    const ramp = ctx.scheduled.findIndex((e) => e.kind === 'ramp' && e.value === audioConfig.minGain && e.time === stopTime);
+    const stop = ctx.scheduled.findIndex((e) => e.kind === 'stop' && e.time === stopTime);
+    assert.ok(ramp >= 0, 'the gain ramps down to the minimum gain');
+    assert.ok(stop > ramp, 'the oscillator stops once the ramp has ended');
+    assert.equal(audio.getActiveVoiceCount(), 0);
   } finally {
     delete globalThis.window;
   }

@@ -2,6 +2,7 @@
   "masterGain": 0.25,
   "minFrequency": 1,
   "minGain": 0.001,
+  "stopRampSec": 0.03,
   "arpeggioStepRatio": 0.8,
   "arpeggioWaveType": "triangle",
   "harmonicRatio": 1.5,

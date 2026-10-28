@@ -28,7 +28,9 @@ export class AudioManager {
     this.muted = false;
     this.reducedMotion = false;
     this.config = null;
-    this.activeOscillators = new Set();
+    // Each playing oscillator mapped to the gain node it plays through, so stopAll can
+    // fade the voice out instead of cutting it mid-wave.
+    this.activeOscillators = new Map();
     this.lastEffectTimes = new Map();
     this.lastHapticTime = -Infinity;
     this.visibilityBound = false;
@@ -57,6 +59,8 @@ export class AudioManager {
   /**
    * Suspends the audio context while muted or hidden and resumes it otherwise. A context
    * only exists once a sound was requested from a user gesture, so nothing starts here.
+   * A refused suspend or resume (a closed context, a browser blocking playback) leaves the
+   * context as it was; the next visibility or mute change tries again.
    */
   syncContextState() {
     if (!this.ctx) {
@@ -64,10 +68,10 @@ export class AudioManager {
     }
     if (this.muted || this.isDocumentHidden()) {
       if (this.ctx.state === CONTEXT_STATES.RUNNING) {
-        this.ctx.suspend();
+        Promise.resolve(this.ctx.suspend()).catch(() => {});
       }
     } else if (this.ctx.state === CONTEXT_STATES.SUSPENDED) {
-      this.ctx.resume();
+      Promise.resolve(this.ctx.resume()).catch(() => {});
     }
   }
 
@@ -120,13 +124,27 @@ export class AudioManager {
     return compressor;
   }
 
+  /**
+   * Silences every playing voice. Each one fades to the minimum gain over stopRampSec before
+   * it stops: cutting a wave mid-cycle clicks. The voice disconnects itself once it ends
+   * (see playTone), so the fade is heard in full.
+   */
   stopAll() {
-    for (const osc of this.activeOscillators) {
-      try {
-        osc.stop();
-        osc.disconnect();
-      } catch {
-        // Ignore already-stopped oscillators
+    if (this.ctx && this.activeOscillators.size > 0) {
+      const now = this.ctx.currentTime;
+      const stopTime = now + this.config.stopRampSec;
+      const minGain = this.config.minGain;
+      for (const [osc, gain] of this.activeOscillators) {
+        try {
+          const param = gain.gain;
+          const currentGain = Math.max(param.value, minGain);
+          param.cancelScheduledValues(now);
+          param.setValueAtTime(currentGain, now);
+          param.exponentialRampToValueAtTime(minGain, stopTime);
+          osc.stop(stopTime);
+        } catch {
+          // Ignore already-stopped oscillators
+        }
       }
     }
     this.activeOscillators.clear();
@@ -175,7 +193,7 @@ export class AudioManager {
     osc.connect(gain);
     gain.connect(this.output);
 
-    this.activeOscillators.add(osc);
+    this.activeOscillators.set(osc, gain);
     osc.onended = () => {
       this.activeOscillators.delete(osc);
       gain.disconnect();
