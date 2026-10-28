@@ -132,6 +132,34 @@ export class LevelCatalog {
     };
   }
 
+  /**
+   * The campaign's chapters, in order: the authored levels as one teaching chapter
+   * (index 0), then the chapters of generated levels.
+   * @returns {Array<{index: number, isTutorial: boolean, firstId: number, lastId: number,
+   *   featuredMechanic?: string}>}
+   */
+  listChapters() {
+    const lastAuthoredId = this.authored[this.authored.length - 1].id;
+    const chapters = [{ index: 0, isTutorial: true, firstId: this.firstId, lastId: lastAuthoredId }];
+    const size = this.generated.chapterSize;
+    for (let firstId = lastAuthoredId + 1, index = 1; firstId <= this.lastId; firstId += size, index++) {
+      chapters.push({
+        index,
+        isTutorial: false,
+        firstId,
+        lastId: Math.min(firstId + size - 1, this.lastId),
+        featuredMechanic: this.featuredMechanicOf(index)
+      });
+    }
+    return chapters;
+  }
+
+  /** Index in listChapters() of the chapter holding a level; the first one when out of range. */
+  chapterIndexOf(levelId) {
+    const chapter = this.listChapters().find((entry) => levelId >= entry.firstId && levelId <= entry.lastId);
+    return chapter ? chapter.index : 0;
+  }
+
   /** Summaries of every level, in order. */
   list() {
     return Array.from({ length: this.count }, (_, offset) => this.summarize(this.firstId + offset));

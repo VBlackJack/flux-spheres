@@ -360,6 +360,15 @@
         "close": "Fermer",
         "resume": "Reprendre le niveau {{level}}",
         "play": "Jouer le niveau {{level}}"
+      },
+      "chapters": {
+        "label": "Chapitres",
+        "tutorial": "Apprentissage",
+        "numbered": "Ch. {{chapter}} : {{theme}}",
+        "stars": "{{stars}} / {{maxStars}} ★",
+        "locked": "🔒 Verrouillé",
+        "aria": "{{name}}, niveaux {{first}} à {{last}}, {{stars}} étoiles sur {{maxStars}}",
+        "ariaLocked": "{{name}}, niveaux {{first}} à {{last}}, verrouillé"
       }
     },
     "shop": {

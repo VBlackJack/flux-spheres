@@ -360,6 +360,15 @@
         "close": "Close",
         "resume": "Resume level {{level}}",
         "play": "Play level {{level}}"
+      },
+      "chapters": {
+        "label": "Chapters",
+        "tutorial": "Basics",
+        "numbered": "Ch. {{chapter}}: {{theme}}",
+        "stars": "{{stars}} / {{maxStars}} ★",
+        "locked": "🔒 Locked",
+        "aria": "{{name}}, levels {{first}} to {{last}}, {{stars}} of {{maxStars}} stars",
+        "ariaLocked": "{{name}}, levels {{first}} to {{last}}, locked"
       }
     },
     "shop": {
