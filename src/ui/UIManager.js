@@ -20,7 +20,6 @@ import {
   GAME_STATES,
   INPUT_MODES,
   MATH_CONSTANTS,
-  SPECIAL_TYPES,
   SPECIAL_TYPES_ORDER,
   OBSTACLE_TYPES_ORDER
 } from '../core/Constants.js';
@@ -171,6 +170,29 @@ export function canOpenDrawer({ isOpen, isDrawerLayout, isModalOpen, isVictoryCe
 
 /** Generated level formats whose name and description say what sets them apart. */
 const LABELLED_LEVEL_FORMATS = new Set([LEVEL_FORMATS.TWIST, LEVEL_FORMATS.PRECISION, LEVEL_FORMATS.ARSENAL]);
+
+/** What the victory window's main button does: play the next level, or open the level select. */
+export const VICTORY_NEXT_ACTIONS = Object.freeze({
+  NEXT_LEVEL: 'nextLevel',
+  LEVEL_SELECT: 'levelSelect'
+});
+
+/** Label of the victory window's main button, per action. */
+export const VICTORY_NEXT_LABEL_KEYS = Object.freeze({
+  [VICTORY_NEXT_ACTIONS.NEXT_LEVEL]: 'modals.victory.button.nextLevel',
+  [VICTORY_NEXT_ACTIONS.LEVEL_SELECT]: 'modals.victory.button.backToLevels'
+});
+
+/**
+ * What the victory window's main button does once a campaign level is won: the next level
+ * when there is one, else the level select. A campaign victory never starts Survival.
+ * @param {number} currentLevelId - The level just won.
+ * @param {{has: (levelId: number) => boolean}} levelCatalog - The campaign's levels.
+ * @returns {string} One of VICTORY_NEXT_ACTIONS.
+ */
+export function resolveVictoryNextAction(currentLevelId, levelCatalog) {
+  return levelCatalog.has(currentLevelId + 1) ? VICTORY_NEXT_ACTIONS.NEXT_LEVEL : VICTORY_NEXT_ACTIONS.LEVEL_SELECT;
+}
 
 /** i18n key of the defeat explanation; an unknown reason reads as a crossed line. */
 export function gameOverReasonKey(reason) {
@@ -406,6 +428,8 @@ export class UIManager {
     this.isAnnouncementScheduled = false;
     this.lastExtra = {};
     this.pendingConfirmCallback = null;
+    this.confirmPausedRun = false;
+    this.isSharing = false;
     this.activeShopTab = SHOP_TABS.UPGRADES;
     this.levelsChapterIndex = 0;
     this.autoPausedByOverlay = false;
@@ -930,14 +954,14 @@ export class UIManager {
       this.elements.btnConfirmYes.addEventListener('click', () => {
         const cb = this.pendingConfirmCallback;
         this.pendingConfirmCallback = null;
+        this.confirmPausedRun = false;
         this.elements.modalConfirm.classList.add('hidden');
         if (cb) {
           cb();
         }
       });
       this.elements.btnConfirmNo.addEventListener('click', () => {
-        this.pendingConfirmCallback = null;
-        this.closeOverlayModal(this.elements.modalConfirm);
+        this.dismissConfirm();
       });
     }
 
@@ -967,8 +991,7 @@ export class UIManager {
       }
     });
     bindBackdropDismiss(this.elements.modalConfirm, () => {
-      this.pendingConfirmCallback = null;
-      this.closeOverlayModal(this.elements.modalConfirm);
+      this.dismissConfirm();
     });
 
     this.elements.btnCloseLevels.addEventListener('click', () => {
@@ -990,12 +1013,12 @@ export class UIManager {
 
     this.elements.btnNextLevel.addEventListener('click', () => {
       this.hideAllModals();
-      const nextId = this.engine.currentLevelId + 1;
-      const exists = this.engine.levelCatalog.has(nextId);
-      if (exists) {
-        this.engine.startCampaignLevel(nextId);
+      const currentLevelId = this.engine.currentLevelId;
+      if (resolveVictoryNextAction(currentLevelId, this.engine.levelCatalog) === VICTORY_NEXT_ACTIONS.NEXT_LEVEL) {
+        this.engine.startCampaignLevel(currentLevelId + 1);
       } else {
-        this.engine.startEndlessMode();
+        // The last level is behind: the level select opens on its chapter.
+        this.openLevelsModal();
       }
     });
 
@@ -1064,8 +1087,7 @@ export class UIManager {
           return;
         }
         if (this.elements.modalConfirm && !this.elements.modalConfirm.classList.contains('hidden')) {
-          this.pendingConfirmCallback = null;
-          this.closeOverlayModal(this.elements.modalConfirm);
+          this.dismissConfirm();
           return;
         }
         if (!this.elements.modalLevels.classList.contains('hidden')) {
@@ -1155,11 +1177,59 @@ export class UIManager {
     // Over another dialog, its opener is where focus returns when the Confirm closes.
     this.stackedModalOpener = this.isAnyModalOpen() ? document.activeElement : null;
     this.saveLastFocusedElement();
+    // The run holds still while the player decides, as under the menu dialogs.
+    if (this.engine.state === GAME_STATES.PLAYING) {
+      this.confirmPausedRun = true;
+      this.engine.state = GAME_STATES.PAUSED;
+    }
     this.elements.modalConfirm.classList.remove('hidden');
     this.syncModalInertState();
     if (this.elements.btnConfirmNo) {
       this.elements.btnConfirmNo.focus();
     }
+  }
+
+  /**
+   * Closes the Confirm without its action (No, backdrop or Escape) and resumes the run it
+   * paused. Yes does not come here: its action starts another run.
+   */
+  dismissConfirm() {
+    this.pendingConfirmCallback = null;
+    if (this.confirmPausedRun) {
+      this.confirmPausedRun = false;
+      if (this.engine.state === GAME_STATES.PAUSED) {
+        this.engine.state = GAME_STATES.PLAYING;
+      }
+    }
+    this.closeOverlayModal(this.elements.modalConfirm);
+  }
+
+  /** True when the run is paused by the menu, a menu dialog or the Confirm, not by the player. */
+  isRunHeldByUi() {
+    return this.autoPausedByOverlay || this.confirmPausedRun;
+  }
+
+  /**
+   * Focuses a control only when its dialog is the one on top: a Confirm still open over a
+   * window that just appeared keeps the focus, and the window gets it when the Confirm closes.
+   */
+  focusInTopModal(element) {
+    const topModal = this.getActiveTopModal();
+    if (element && topModal && topModal.contains(element)) {
+      element.focus();
+    }
+  }
+
+  /** The victory window's main button names what it does: the next level, or the level select. */
+  updateNextLevelButton(engine) {
+    const button = this.elements.btnNextLevel;
+    if (!button) {
+      return;
+    }
+    const labelKey = VICTORY_NEXT_LABEL_KEYS[resolveVictoryNextAction(engine.currentLevelId, engine.levelCatalog)];
+    // data-i18n follows, so a language switch keeps the right wording.
+    setAttributeIfChanged(button, 'data-i18n', labelKey);
+    setTextIfChanged(button, t(labelKey));
   }
 
   saveLastFocusedElement() {
@@ -1351,7 +1421,7 @@ export class UIManager {
       this.elements.modalVictory.classList.remove('hidden');
     } else if (this.engine.state === GAME_STATES.GAME_OVER) {
       this.elements.modalGameOver.classList.remove('hidden');
-    } else if (this.engine.state === GAME_STATES.PAUSED && !this.autoPausedByOverlay) {
+    } else if (this.engine.state === GAME_STATES.PAUSED && !this.isRunHeldByUi()) {
       this.elements.modalPause.classList.remove('hidden');
     }
     this.syncModalInertState();
@@ -1667,9 +1737,23 @@ export class UIManager {
   /**
    * Shares the finished Daily Challenge: the system share sheet when there is one, else the
    * clipboard, else a read-only field with the text selected for a manual copy. The outcome
-   * is announced to screen readers.
+   * is announced to screen readers. A tap while a share is under way is ignored: a second
+   * share sheet request would be refused and wrongly fall back to the clipboard.
    */
   async shareDailyResult() {
+    if (this.isSharing) {
+      return;
+    }
+    this.isSharing = true;
+    try {
+      await this.shareDailyResultOnce();
+    } finally {
+      this.isSharing = false;
+    }
+  }
+
+  /** One share attempt of shareDailyResult, without the in-progress guard. */
+  async shareDailyResultOnce() {
     const engine = this.engine;
     const shareConfig = this.gameConfig.share;
     const text = buildDailyShareText(
@@ -1722,6 +1806,7 @@ export class UIManager {
 
   hideAllModals() {
     this.autoPausedByOverlay = false;
+    this.confirmPausedRun = false;
     for (const modal of this.getModalsByPriority()) {
       modal.classList.add('hidden');
     }
@@ -2473,16 +2558,17 @@ export class UIManager {
       const equippedType = engine.currentBall?.specialType;
       if (equippedType && engine.state === GAME_STATES.PLAYING) {
         const spec = this.ballsConfig.specialTypes[equippedType];
-        setTextIfChanged(
-          this.elements.specialEquippedBanner,
-          t('hud.launcher.specialEquipped.hint', {
+        revealLiveRegion({
+          region: this.elements.specialEquippedBanner,
+          textElement: this.elements.specialEquippedBanner,
+          text: t('hud.launcher.specialEquipped.hint', {
             icon: spec?.icon || '',
             name: t(`hud.powerups.${equippedType}.name`),
             desc: t(`hud.powerups.${equippedType}.tooltip`),
             unequip: t(`hud.launcher.specialEquipped.unequip.${this.inputMode}`)
-          })
-        );
-        this.elements.specialEquippedBanner.classList.remove('hidden');
+          }),
+          schedule: scheduleNextFrame
+        });
       } else {
         this.elements.specialEquippedBanner.classList.add('hidden');
       }
@@ -2533,7 +2619,7 @@ export class UIManager {
       );
     }
 
-    if (engine.state === GAME_STATES.PAUSED && !this.autoPausedByOverlay) {
+    if (engine.state === GAME_STATES.PAUSED && !this.isRunHeldByUi()) {
       if (this.elements.pauseLevelTip) {
         if (engine.levelTutorialKey) {
           setTextIfChanged(
@@ -2600,13 +2686,14 @@ export class UIManager {
           coins: formatNumber(summary.earnedCoins || 0)
         })
       );
+      this.updateNextLevelButton(engine);
       if (isVictoryJustRevealed) {
         this.saveLastFocusedElement();
         this.announce(t('hud.announcer.round.victory', { score: scoreText, stars, maxStars }));
       }
       this.elements.modalVictory.classList.remove('hidden');
-      if (isVictoryJustRevealed && this.elements.btnNextLevel) {
-        this.elements.btnNextLevel.focus();
+      if (isVictoryJustRevealed) {
+        this.focusInTopModal(this.elements.btnNextLevel);
       }
     }
 
@@ -2642,8 +2729,8 @@ export class UIManager {
         this.announce(t('hud.announcer.round.gameOver', { reason: t(reasonKey), score: scoreText }));
       }
       this.elements.modalGameOver.classList.remove('hidden');
-      if (transitionedState && this.elements.btnRetry) {
-        this.elements.btnRetry.focus();
+      if (transitionedState) {
+        this.focusInTopModal(this.elements.btnRetry);
       }
     }
 

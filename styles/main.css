@@ -1985,6 +1985,36 @@ body {
 }
 
 /*
+ * Portrait phones keep their single control row over the touch minimum above: the eight
+ * buttons share the screen width, so none may ask for 44px of it, and the row keeps its
+ * own height, which is taller (room for a caption under each icon).
+ */
+@media (pointer: coarse) and (max-width: 680px) {
+  .polarity-floating-btn,
+  .swap-floating-btn,
+  .powerup-btn {
+    min-width: 0;
+    min-height: var(--control-row-height);
+  }
+}
+
+/*
+ * Narrow portrait phones (360px wide is common): the control row gives up most of its
+ * column gap and its side padding, so the longest captions keep their full width.
+ */
+@media (max-width: 389px) {
+  .stage-container {
+    column-gap: 2px;
+  }
+  .polarity-floating-btn,
+  .swap-floating-btn,
+  .powerup-btn {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/*
  * High contrast theme: the in-app setting (root class mirrored by the UI) and the
  * system preference raise the same tokens. Text shades move toward white, borders
  * and accents get brighter, translucent panels become nearly opaque.

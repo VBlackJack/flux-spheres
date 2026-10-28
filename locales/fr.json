@@ -565,7 +565,8 @@
       "button": {
         "nextLevel": "Niveau Suivant",
         "replay": "Rejouer",
-        "levels": "Carte des Niveaux"
+        "levels": "Carte des Niveaux",
+        "backToLevels": "Retour aux niveaux"
       }
     },
     "gameOver": {

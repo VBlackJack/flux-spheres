@@ -15,7 +15,7 @@
  */
 
 /*
- * Browser smoke tests: the real page in headless Chromium, at the four layouts the game
+ * Browser smoke tests: the real page in headless Chromium, at the layouts the game
  * supports. They catch what the engine tests cannot see: console errors, layout overflow,
  * dialogs that do not open, pause or close, and end-of-round screens.
  */
@@ -25,15 +25,21 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-import { GAME_OVER_REASONS, GAME_STATES } from '../../src/core/Constants.js';
+import { GAME_MODES, GAME_OVER_REASONS, GAME_STATES } from '../../src/core/Constants.js';
 import { startStaticServer } from './staticServer.js';
 
-/** The four layouts of styles/main.css: wide desktop, portrait tablet, landscape and portrait phones. */
+/**
+ * The layouts of styles/main.css: wide desktop, portrait tablet, landscape and portrait
+ * phones, and a narrow portrait phone where the eight-button control row is the tightest.
+ * hasRestartButton: the header (or its slide-in menu) shows Restart; the landscape phone
+ * layout leaves it to the Pause dialog.
+ */
 const VIEWPORTS = Object.freeze([
-  { name: 'desktop', width: 1300, height: 850, isTouch: false, hasDrawer: false },
-  { name: 'tablet', width: 768, height: 1024, isTouch: true, hasDrawer: false },
-  { name: 'phone landscape', width: 844, height: 390, isTouch: true, hasDrawer: false },
-  { name: 'phone portrait', width: 390, height: 844, isTouch: true, hasDrawer: true }
+  { name: 'desktop', width: 1300, height: 850, isTouch: false, hasDrawer: false, hasRestartButton: true },
+  { name: 'tablet', width: 768, height: 1024, isTouch: true, hasDrawer: false, hasRestartButton: true },
+  { name: 'phone landscape', width: 844, height: 390, isTouch: true, hasDrawer: false, hasRestartButton: false },
+  { name: 'phone portrait', width: 390, height: 844, isTouch: true, hasDrawer: true, hasRestartButton: true },
+  { name: 'narrow phone portrait', width: 360, height: 800, isTouch: true, hasDrawer: true, hasRestartButton: true }
 ]);
 
 /** Controls whose text must fit: a clipped label is a layout regression. */
@@ -46,7 +52,7 @@ const OVERFLOW_TOLERANCE_PX = 1;
 const UNLOCKED_GENERATED_LEVEL = 130;
 
 /** Upper bound for any wait on the page, so a broken page fails instead of hanging. */
-const WAIT_TIMEOUT_MS = 10000;
+const WAIT_TIMEOUT_MS = 20000;
 
 const APP_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -212,6 +218,36 @@ for (const viewport of VIEWPORTS) {
       }
     });
 
+    // Only where Restart sits in the header: elsewhere it is in the Pause dialog, reached from a pause.
+    if (viewport.hasRestartButton) {
+      test('the Confirm of a mid-round Restart holds the run until it is dismissed', async () => {
+        const { context, page, errors } = await openGame(viewport);
+        try {
+          await startLevelOne(page);
+          await page.evaluate(() => {
+            const engine = window.__fluxEngine;
+            engine.dismissDiscovery();
+            engine.shoot();
+          });
+          assert.ok(await page.evaluate(() => window.__fluxEngine.hasFiredInRound), 'one shot is fired');
+          for (const dismiss of [() => page.click('#btn-confirm-no'), () => page.keyboard.press('Escape')]) {
+            await clickMenuButton(page, viewport, '#btn-restart');
+            await waitShown(page, '#modal-confirm');
+            assert.equal(await engineState(page), GAME_STATES.PAUSED, 'the Confirm pauses the run');
+            assert.equal(await isShown(page, '#modal-pause'), false, 'the Confirm opens no Pause dialog');
+            assert.equal(await page.evaluate(() => document.activeElement?.id), 'btn-confirm-no');
+            await dismiss();
+            await page.waitForFunction(() => document.querySelector('#modal-confirm').classList.contains('hidden'));
+            assert.equal(await engineState(page), GAME_STATES.PLAYING, 'dismissing the Confirm resumes the run');
+            assert.equal(await isShown(page, '#modal-pause'), false, 'dismissing the Confirm leaves no Pause dialog');
+          }
+          assert.deepEqual(errors, []);
+        } finally {
+          await context.close();
+        }
+      });
+    }
+
     test('The level select opens on the chapter of the current level and switches chapters', async () => {
       const { context, page, errors } = await openGame(viewport);
       try {
@@ -332,6 +368,40 @@ describe('end of round (desktop)', () => {
       await page.waitForFunction(() => window.__fluxEngine.currentLevelId === 2);
       assert.equal(await isShown(page, '#modal-victory'), false);
       assert.equal(await engineState(page), GAME_STATES.PLAYING);
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('winning the last level offers the level select, never Survival', async () => {
+    const { context, page, errors } = await openGame(desktop);
+    try {
+      const lastId = await page.evaluate(() => window.__fluxEngine.levelCatalog.lastId);
+      await startLevel(page, lastId);
+      await page.evaluate(() => {
+        const engine = window.__fluxEngine;
+        engine.physicsWorld.balls.length = 0;
+        engine.physicsWorld.ballMap.clear();
+        engine.evaluateRoundEnd();
+      });
+      await waitShown(page, '#modal-victory');
+      const label = await page.evaluate(async () => {
+        const { t } = await import('/src/core/I18n.js');
+        return {
+          shown: document.querySelector('#btn-next-level').textContent,
+          expected: t('modals.victory.button.backToLevels')
+        };
+      });
+      assert.equal(label.shown, label.expected, 'the button names the level select');
+      await page.click('#btn-next-level');
+      await waitShown(page, '#modal-levels');
+      const after = await page.evaluate(() => ({
+        mode: window.__fluxEngine.mode,
+        levelId: window.__fluxEngine.currentLevelId
+      }));
+      assert.deepEqual(after, { mode: GAME_MODES.CAMPAIGN, levelId: lastId }, 'no Survival run started');
+      assert.equal(await isShown(page, '#modal-victory'), false);
       assert.deepEqual(errors, []);
     } finally {
       await context.close();

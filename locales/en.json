@@ -565,7 +565,8 @@
       "button": {
         "nextLevel": "Next Level",
         "replay": "Replay",
-        "levels": "Level Select"
+        "levels": "Level Select",
+        "backToLevels": "Back to Levels"
       }
     },
     "gameOver": {
