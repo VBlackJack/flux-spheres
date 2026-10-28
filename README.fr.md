@@ -132,8 +132,16 @@ Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rend
 - `pwa.test.js` vérifie que chaque fichier de `src/`, `configs/`, `locales/` et `icons/` est mis en cache par `sw.js`, et que la version du cache du Service Worker correspond à `package.json`.
 - `onboarding.test.js` vérifie que chaque mécanique a un indice dans les deux langues, qu'un niveau dont le tutoriel enseigne une mécanique l'affiche toujours, et que le niveau 1 ne montre que les bases.
 - `fluxGenerator.test.js` vérifie que le générateur produit au moins 1 000 formes distinctes, chacune tenant entre les murs et suspendue à ses ancres, nommée dans les deux langues.
-- `campaign.test.js` vérifie que les 800 niveaux générés sont des plateaux jouables, reconstruits à l'identique depuis leur numéro, que la difficulté monte d'un chapitre à l'autre, qu'un niveau marquant revient tous les 10 niveaux, et que chaque niveau est nommé dans les deux langues.
+- `campaign.test.js` vérifie que les 800 niveaux générés sont des plateaux jouables, reconstruits à l'identique depuis leur numéro, que la difficulté monte d'un chapitre à l'autre, qu'un niveau marquant revient tous les 10 niveaux, que chaque niveau est nommé dans les deux langues, et que chacun est calibré pour le plateau qu'il est : un changement du générateur, des formes Flux ou de la courbe de la campagne le fait échouer tant que les niveaux ne sont pas mesurés à nouveau.
 - `world.test.js` vérifie que chaque niveau (niveaux générés compris), chaque étape Flux (1 à 60) et la grille de Survie tiennent entre les murs, et qu'un monde de la largeur de conception construit chaque niveau à ses positions d'origine.
+
+Les niveaux générés sont calibrés hors CI par un bot qui vise au plus pressé et n'utilise pas les balles spéciales :
+
+```bash
+node scripts/calibrate-campaign.mjs
+```
+
+Il joue chaque niveau 16 fois (`calibration` dans `configs/campaign.json`). Un niveau que le bot gagne moins d'une partie sur huit reçoit des tirs en plus, puis une autre graine, jusqu'à ce qu'une variante passe. Les trois étoiles sont fixées à 1,08 fois le score médian du bot, le rapport que montrent les niveaux dessinés, et les deux étoiles à 63 % des trois. Le résultat va dans `configs/campaignTuning.json` ; `--from` et `--to` ne mesurent qu'une plage.
 
 `tests/browser/smoke.test.js` ouvre la vraie page dans Chromium sans interface, aux quatre mises en page prises en charge (ordinateur, tablette en portrait, téléphone en paysage et en portrait). Il échoue sur toute erreur de console, tout défilement horizontal ou tout libellé de bouton coupé, vérifie la mise en page au niveau 1 (sans sphère spéciale) et au niveau 2 (avec), vérifie que la sélection des niveaux s'ouvre sur le chapitre du niveau en cours et change de chapitre, vérifie que les fenêtres Réglages, Niveaux, Atelier et Pause mettent la partie en pause puis la reprennent, parcourt la victoire, la défaite et la reprise après rechargement, et vérifie qu'un tremblement de souris garde une visée affinée au clavier. La CI le lance dans une tâche séparée.
 

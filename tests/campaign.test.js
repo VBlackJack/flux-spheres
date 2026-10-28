@@ -17,14 +17,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createHash } from 'node:crypto';
 
 import { configRegistry } from '../src/core/ConfigRegistry.js';
 import { applyWorldGeometry } from '../src/core/WorldGeometry.js';
 import { StorageManager } from '../src/core/StorageManager.js';
 import { CLUSTER_MODIFIERS, OBSTACLE_TYPES } from '../src/core/Constants.js';
 import { GameEngine } from '../src/game/GameEngine.js';
-import { LevelCatalog, placeGeneratedLevel } from '../src/game/LevelCatalog.js';
+import { LevelCatalog, fingerprintLevel, placeGeneratedLevel, starThresholdsFromMedian } from '../src/game/LevelCatalog.js';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const gameConfig = applyWorldGeometry(loadJson('./configs/game.json'));
@@ -33,6 +32,7 @@ const ballsConfig = loadJson('./configs/balls.json');
 const obstaclesConfig = loadJson('./configs/obstacles.json');
 const levelsConfig = loadJson('./configs/levels.json');
 const campaignConfig = loadJson('./configs/campaign.json');
+const campaignTuning = loadJson('./configs/campaignTuning.json');
 const fluxConfig = loadJson('./configs/flux.json');
 const audioConfig = loadJson('./configs/audio.json');
 const locales = { fr: loadJson('./locales/fr.json'), en: loadJson('./locales/en.json') };
@@ -50,22 +50,18 @@ const BALL_RADIUS = physicsConfig.ball.radius;
 const generated = campaignConfig.generated;
 const AUTHORED_COUNT = levelsConfig.levels.length;
 
-/**
- * Fingerprints of a few generated levels, frozen: a change to the generator, the Flux
- * shapes or the campaign curve that rebuilds these levels differently fails here, so the
- * change is made on purpose and the star thresholds get measured again.
- */
-const FROZEN_FINGERPRINTS = Object.freeze({
-  25: '41e4a903760825b8',
-  30: 'd66cdf3f7fcae7e8',
-  100: '5b6ddc65311478cb',
-  437: '45bbd843a78bed13',
-  824: 'c69941dfca227514'
-});
-const FINGERPRINT_LENGTH = 16;
+/** Command that measures the generated levels again, quoted when a calibration is stale. */
+const CALIBRATION_COMMAND = 'node scripts/calibrate-campaign.mjs';
 
-const createCatalog = () =>
-  new LevelCatalog({ levelsConfig, campaignConfig, fluxConfig, obstaclesConfig, ballRadius: BALL_RADIUS });
+const createCatalog = (tuning = campaignTuning) =>
+  new LevelCatalog({
+    levelsConfig,
+    campaignConfig,
+    campaignTuning: tuning,
+    fluxConfig,
+    obstaclesConfig,
+    ballRadius: BALL_RADIUS
+  });
 
 const createEngine = () => {
   const storageManager = new StorageManager();
@@ -77,32 +73,13 @@ const createEngine = () => {
     obstaclesConfig,
     levelsConfig,
     campaignConfig,
+    campaignTuning,
     fluxConfig,
     audioManager: { playEffect: () => {}, stopAll: () => {}, isMuted: () => true, setMuted: () => {} },
     storageManager,
     onStateChange: () => {}
   });
 };
-
-/** What makes a level the level it is, colors and modifier rolls aside. */
-const fingerprint = (levelDef) =>
-  createHash('sha256')
-    .update(
-      JSON.stringify({
-        family: levelDef.family,
-        shapeIds: levelDef.shapeIds,
-        spec: levelDef.spec,
-        obstacles: levelDef.obstacles,
-        maxShots: levelDef.maxShots,
-        paletteCount: levelDef.paletteCount,
-        modifierWeights: levelDef.modifierWeights,
-        minModifierCounts: levelDef.minModifierCounts,
-        starThresholds: levelDef.starThresholds,
-        specialInventory: levelDef.specialInventory
-      })
-    )
-    .digest('hex')
-    .slice(0, FINGERPRINT_LENGTH);
 
 const generatedIds = () => Array.from({ length: generated.count }, (_, i) => AUTHORED_COUNT + 1 + i);
 
@@ -126,16 +103,49 @@ test('A generated level depends only on its number', () => {
   const second = createCatalog();
   // Built in a different order, so nothing carries over from one level to the next.
   const ids = generatedIds();
-  const forward = ids.map((id) => fingerprint(first.get(id)));
-  const backward = [...ids].reverse().map((id) => fingerprint(second.get(id))).reverse();
+  const forward = ids.map((id) => fingerprintLevel(first.get(id)));
+  const backward = [...ids].reverse().map((id) => fingerprintLevel(second.get(id))).reverse();
   assert.deepEqual(forward, backward);
 });
 
-test('A few generated levels keep their frozen fingerprint', () => {
+test('Every generated level is calibrated for the board it is', () => {
   const catalog = createCatalog();
-  for (const [id, expected] of Object.entries(FROZEN_FINGERPRINTS)) {
-    assert.equal(fingerprint(catalog.get(Number(id))), expected, `level ${id}`);
+  const missing = [];
+  const stale = [];
+  for (const id of generatedIds()) {
+    const entry = campaignTuning.levels[id];
+    if (!entry) {
+      missing.push(id);
+    } else if (entry.fingerprint !== fingerprintLevel(catalog.get(id))) {
+      stale.push(id);
+    }
   }
+  const rerun = `measure them again with ${CALIBRATION_COMMAND}`;
+  assert.deepEqual(missing, [], `levels without a calibration, ${rerun}`);
+  assert.deepEqual(stale, [], `levels whose board changed since their calibration, ${rerun}`);
+});
+
+test('A calibration sets the level seed variant, extra shots and star thresholds', () => {
+  const id = AUTHORED_COUNT + 1;
+  const plain = createCatalog({ levels: {} }).get(id);
+  const thresholds = [0, 1000, 2000];
+  const tuned = createCatalog({ levels: { [id]: { variant: 1, extraShots: 6, starThresholds: thresholds } } }).get(id);
+  assert.notEqual(fingerprintLevel(tuned), fingerprintLevel(plain), 'another variant builds another board');
+  assert.deepEqual(tuned.starThresholds, thresholds);
+  const sameSeed = createCatalog({ levels: { [id]: { variant: 0, extraShots: 6 } } }).get(id);
+  assert.equal(sameSeed.maxShots, plain.maxShots + 6);
+  assert.deepEqual(sameSeed.spec, plain.spec);
+});
+
+test('Star thresholds follow the bot median the way the authored levels do', () => {
+  const [zero, two, three] = starThresholdsFromMedian(20000, generated);
+  const { stars, calibration } = generated;
+  assert.equal(zero, 0);
+  assert.ok(Math.abs(three - 20000 * calibration.threeStarMedianFactor) <= stars.roundTo / 2);
+  assert.ok(Math.abs(two - three * stars.twoStarShare) <= stars.roundTo / 2);
+  assert.ok(two > 0 && three > two, 'a tiny median still gives climbing thresholds');
+  const [, tinyTwo, tinyThree] = starThresholdsFromMedian(0, generated);
+  assert.ok(tinyTwo > 0 && tinyThree > tinyTwo);
 });
 
 test('Every generated level is a playable board', () => {

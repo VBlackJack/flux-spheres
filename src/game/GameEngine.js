@@ -52,6 +52,7 @@ export class GameEngine {
     obstaclesConfig,
     levelsConfig,
     campaignConfig,
+    campaignTuning = null,
     fluxConfig,
     audioManager,
     storageManager,
@@ -66,6 +67,7 @@ export class GameEngine {
     this.levelCatalog = new LevelCatalog({
       levelsConfig,
       campaignConfig,
+      campaignTuning,
       fluxConfig,
       obstaclesConfig,
       ballRadius: physicsConfig.ball.radius

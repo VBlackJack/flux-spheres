@@ -38,6 +38,7 @@ const ballsConfig = loadJson('./configs/balls.json');
 const obstaclesConfig = loadJson('./configs/obstacles.json');
 const levelsConfig = loadJson('./configs/levels.json');
 const campaignConfig = loadJson('./configs/campaign.json');
+const campaignTuning = loadJson('./configs/campaignTuning.json');
 const audioConfig = loadJson('./configs/audio.json');
 const fluxConfig = loadJson('./configs/flux.json');
 const locales = { fr: loadJson('./locales/fr.json'), en: loadJson('./locales/en.json') };
@@ -89,6 +90,7 @@ const createTestEngine = (storageManager = createTestStorage()) =>
     obstaclesConfig,
     levelsConfig,
     campaignConfig,
+    campaignTuning,
     fluxConfig,
     audioManager: { playEffect: () => {}, stopAll: () => {}, isMuted: () => true, setMuted: () => {} },
     storageManager,

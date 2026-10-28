@@ -33,6 +33,7 @@ const ballsConfig = loadJson('./configs/balls.json');
 const obstaclesConfig = loadJson('./configs/obstacles.json');
 const levelsConfig = loadJson('./configs/levels.json');
 const campaignConfig = loadJson('./configs/campaign.json');
+const campaignTuning = loadJson('./configs/campaignTuning.json');
 const fluxConfig = loadJson('./configs/flux.json');
 const audioConfig = loadJson('./configs/audio.json');
 
@@ -64,6 +65,7 @@ const createTestEngine = (configOverride = gameConfig) => {
     obstaclesConfig,
     levelsConfig,
     campaignConfig,
+    campaignTuning,
     fluxConfig,
     audioManager: dummyAudio,
     storageManager,

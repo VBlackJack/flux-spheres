@@ -16,8 +16,13 @@
 
 import { generateFluxStage } from './layouts/FluxStageGenerator.js';
 
-/** Separator between the seed prefix and the level number in a generated level's seed. */
+/** Separator between the seed prefix, the level number and the seed variant. */
 const LEVEL_SEED_SEPARATOR = '-';
+/** FNV-1a parameters of the level fingerprint, two 32-bit lanes for 64 bits. */
+const FNV_PRIME = 0x01000193;
+const FNV_OFFSETS = Object.freeze([0x811c9dc5, 0x050c5d1f]);
+const HEX_RADIX = 16;
+const LANE_HEX_DIGITS = 8;
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const lerp = ([min, max], ratio) => min + (max - min) * ratio;
@@ -65,6 +70,49 @@ function pickDifficultyEntry(table, difficulty) {
 const roundTo = (value, step) => Math.round(value / step) * step;
 
 /**
+ * Fingerprint of what makes a generated level the board it is (shape, obstacles, shots,
+ * colors, modifiers, special balls), star thresholds aside. A calibration is valid for
+ * as long as the level keeps the fingerprint it was measured with.
+ * @param {object} levelDef - A generated level definition from the catalog.
+ * @returns {string} 16 hex digits.
+ */
+export function fingerprintLevel(levelDef) {
+  const text = JSON.stringify({
+    family: levelDef.family,
+    shapeIds: levelDef.shapeIds,
+    spec: levelDef.spec,
+    obstacles: levelDef.obstacles,
+    maxShots: levelDef.maxShots,
+    paletteCount: levelDef.paletteCount,
+    modifierWeights: levelDef.modifierWeights,
+    minModifierCounts: levelDef.minModifierCounts,
+    specialInventory: levelDef.specialInventory,
+    bossBallIndex: levelDef.bossBallIndex
+  });
+  return FNV_OFFSETS.map((offset) => {
+    let hash = offset;
+    for (let i = 0; i < text.length; i++) {
+      hash = Math.imul(hash ^ text.charCodeAt(i), FNV_PRIME) >>> 0;
+    }
+    return hash.toString(HEX_RADIX).padStart(LANE_HEX_DIGITS, '0');
+  }).join('');
+}
+
+/**
+ * Star thresholds from a measured median score: three stars at the configured share of
+ * the bot's median, two stars at the usual share of three.
+ * @param {number} medianScore - Median score of the bot over all its games.
+ * @param {object} generated - campaignConfig.generated.
+ * @returns {number[]} [0, two stars, three stars].
+ */
+export function starThresholdsFromMedian(medianScore, generated) {
+  const { stars, calibration } = generated;
+  const threeStars = Math.max(stars.roundTo * 2, roundTo(medianScore * calibration.threeStarMedianFactor, stars.roundTo));
+  const twoStars = Math.max(stars.roundTo, roundTo(threeStars * stars.twoStarShare, stars.roundTo));
+  return [0, twoStars, threeStars];
+}
+
+/**
  * The campaign's levels by number: the authored levels first, then the generated ones,
  * each rebuilt from its number alone. The same number always gives the same board, so a
  * level needs no storage and a saved run rebuilds its level on reload.
@@ -74,13 +122,16 @@ export class LevelCatalog {
    * @param {object} options
    * @param {object} options.levelsConfig - configs/levels.json.
    * @param {object} options.campaignConfig - configs/campaign.json.
+   * @param {object} [options.campaignTuning] - configs/campaignTuning.json: per generated
+   *   level, the seed variant, extra shots and star thresholds set by the calibration.
    * @param {object} options.fluxConfig - configs/flux.json (the shapes and obstacles).
    * @param {object} options.obstaclesConfig - configs/obstacles.json.
    * @param {number} options.ballRadius - Cluster ball radius.
    */
-  constructor({ levelsConfig, campaignConfig, fluxConfig, obstaclesConfig, ballRadius }) {
+  constructor({ levelsConfig, campaignConfig, campaignTuning = null, fluxConfig, obstaclesConfig, ballRadius }) {
     this.authored = levelsConfig.levels;
     this.generated = campaignConfig.generated;
+    this.tuning = campaignTuning?.levels || {};
     this.fluxConfig = fluxConfig;
     this.obstaclesConfig = obstaclesConfig;
     this.ballRadius = ballRadius;
@@ -203,9 +254,13 @@ export class LevelCatalog {
     const { difficulty } = placeGeneratedLevel(this.generatedIndex(levelId), generated);
     const isLandmark = summary.isLandmark;
     const landmarkFamilies = generated.landmarkFamilies;
+    const tuning = this.tuning[levelId] || {};
+    const variant = tuning.variant || 0;
+    // Variant 0 keeps the plain seed; a calibration may swap a level for another variant.
+    const seedParts = [generated.seedPrefix, levelId, ...(variant > 0 ? [variant] : [])];
 
     const stageDef = generateFluxStage({
-      seed: `${generated.seedPrefix}${LEVEL_SEED_SEPARATOR}${levelId}`,
+      seed: seedParts.join(LEVEL_SEED_SEPARATOR),
       stage: Math.round(lerp(generated.fluxStageRange, difficulty)),
       previousFamily: null,
       fluxConfig: this.fluxConfig,
@@ -232,7 +287,8 @@ export class LevelCatalog {
 
     const shotsCfg = generated.shots;
     const shots = Math.ceil(sphereCount * lerp(shotsCfg.perSphere, difficulty)) + shotsCfg.base;
-    const maxShots = Math.min(shotsCfg.max, Math.max(shotsCfg.min, shots + (isLandmark ? shotsCfg.landmarkBonus : 0)));
+    const baseShots = Math.min(shotsCfg.max, Math.max(shotsCfg.min, shots + (isLandmark ? shotsCfg.landmarkBonus : 0)));
+    const maxShots = baseShots + (tuning.extraShots || 0);
 
     const starsCfg = generated.stars;
     const threeStars = roundTo(sphereCount * lerp(starsCfg.pointsPerSphere, difficulty), starsCfg.roundTo);
@@ -252,7 +308,7 @@ export class LevelCatalog {
       family: stageDef.family,
       shapeIds: stageDef.shapeIds,
       tutorialKey: null,
-      starThresholds: [0, twoStars, threeStars],
+      starThresholds: tuning.starThresholds || [0, twoStars, threeStars],
       maxShots,
       paletteCount: pickDifficultyEntry(generated.palette, difficulty).count,
       specialInventory,
