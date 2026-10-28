@@ -93,6 +93,7 @@ The codebase follows a modular, zero-dependency ES module architecture with stri
 │   ├── game/
 │   │   ├── GameEngine.js     # Game state machine, wave spawner, scoring & achievements
 │   │   ├── GameLoop.js       # Fixed-step loop with interpolation, idle throttling and fatal error stop
+│   │   ├── ImpactPreview.js  # What a shot would destroy, shared by the aim preview and the calibration bot
 │   │   ├── Renderer.js       # HiDPI Canvas 2D renderer with alpha interpolation & AOE preview
 │   │   ├── SpecialBallController.js # Bomb, Lightning, Prism, Anvil & Cryo impact resolution
 │   │   ├── Discovery.js      # First-encounter hints: mechanics on a board, next unknown one, hint text
@@ -135,13 +136,16 @@ The suites in `tests/` cover the game engine, physics, rendering loop, UI helper
 - `campaign.test.js` checks that the 800 generated levels are playable boards rebuilt the same from their number, that difficulty climbs from chapter to chapter, that a landmark comes every 10 levels, that each level is named in both languages, and that each one is calibrated for the board it is: a change to the generator, the Flux shapes or the campaign curve fails it until the levels are measured again.
 - `world.test.js` checks that every campaign level (generated ones included), Flux stage (1 to 60) and the Survival grid fit between the walls, and that a world of the design width builds every level at its authored positions.
 
-The generated levels are calibrated outside CI by a greedy aiming bot that does not use special balls:
+The generated levels are calibrated outside CI by two bots (`scripts/bot/CampaignBot.js`):
 
 ```bash
 node scripts/calibrate-campaign.mjs
 ```
 
-It plays each level 16 times (`calibration` in `configs/campaign.json`). A level the bot wins less than one game in eight gets extra shots, then another seed, until one passes. Three stars are set at 1.08 times the bot's median score, the ratio the authored levels show, and two stars at 63% of three. The result goes to `configs/campaignTuning.json`; `--from` and `--to` measure a range only.
+- the **greedy** bot aims the loaded color where most spheres of that color sit and never plays a special ball. It plays each level 16 times (`calibration` in `configs/campaign.json`); a level it wins less than one game in eight gets extra shots, then another seed, until one passes. A player who ignores special balls can always win.
+- the **arsenal** bot reads the aim preview the player sees (what a shot destroys and drops, `src/game/ImpactPreview.js`) for the loaded color and every special ball in stock, and plays a special when it takes off at least 6 spheres and 3 more than the best color shot, or once the shots left no longer outnumber the specials (`calibration.bot.arsenal`). It then plays the chosen board 16 times too.
+
+Star thresholds come from the median score of the bot named by `calibration.starPolicy`: three stars at the ratio the 24 authored levels show for that bot (`threeStarMedianFactors`: 1.08 for greedy, 0.79 for arsenal), two stars at 63% of three. The result, with both bots' measures, goes to `configs/campaignTuning.json`; `--from` and `--to` measure a range only, and `--dry-run` prints the measures without writing them.
 
 `tests/browser/smoke.test.js` opens the real page in headless Chromium at the four supported layouts (desktop, portrait tablet, landscape and portrait phones). It fails on any console error, sideways scrolling or clipped control label, checks the layout on level 1 (no special ball) and level 2 (special balls), checks that the level select opens on the chapter of the current level and switches chapters, checks that the Settings, Levels, Workshop and Pause dialogs pause and resume the run, walks through the victory, game over and reload-resume paths, and checks that a mouse tremor keeps a keyboard-tuned aim. CI runs it as a separate job.
 

@@ -17,6 +17,7 @@
 import { OBSTACLE_TYPES, SPECIAL_TYPES, CLUSTER_MODIFIERS, MATH_CONSTANTS } from '../core/Constants.js';
 import { isChainLink, isTetherLink } from '../physics/PhysicsWorld.js';
 import { Ball } from '../entities/Ball.js';
+import { predictImpact } from './ImpactPreview.js';
 
 const BOND_STYLE = Object.freeze({
   STRESSED: 0,
@@ -1240,89 +1241,23 @@ export class Renderer {
     const cache = this.aimPreview;
     const highlight = cache.highlightBalls;
     const destroyedIds = cache.destroyedIds;
-    highlight.length = 0;
-    destroyedIds.clear();
-    cache.highlightIsMatch = false;
     cache.avalancheBalls = [];
     this.aimPreviewComputeCount++;
 
-    if (currentBall.specialType) {
-      const specType = currentBall.specialType;
-      const specCfg = this.ballsConfig.specialTypes[specType];
-      if (specType === SPECIAL_TYPES.BOMB || specType === SPECIAL_TYPES.FREEZE) {
-        const radiusFactor = specType === SPECIAL_TYPES.BOMB
-          ? specCfg.blastRadiusFactor
-          : specCfg.freezeRadiusFactor;
-        const aoeRadius = currentBall.radius * radiusFactor * blastMult;
-        for (const b of physicsWorld.balls) {
-          if (Math.hypot(b.x - endX, b.y - endY) <= aoeRadius) {
-            highlight.push(b);
-            if (specType === SPECIAL_TYPES.BOMB) {
-              destroyedIds.add(b.id);
-            }
-          }
-        }
-      } else if (specType === SPECIAL_TYPES.LIGHTNING) {
-        const bandHalf = currentBall.radius * specCfg.bandHalfHeightFactor * blastMult;
-        for (const b of physicsWorld.balls) {
-          if (Math.abs(b.y - endY) <= bandHalf) {
-            highlight.push(b);
-            destroyedIds.add(b.id);
-          }
-        }
-      } else if (specType === SPECIAL_TYPES.RAINBOW) {
-        const neighborRadius = currentBall.radius * specCfg.neighborRadiusFactor;
-        const seen = new Set();
-        for (const other of physicsWorld.balls) {
-          if (seen.has(other.id) || !other.colorId || Math.hypot(other.x - endX, other.y - endY) > neighborRadius) {
-            continue;
-          }
-          for (const member of physicsWorld.findColorCluster(other)) {
-            if (!seen.has(member.id)) {
-              seen.add(member.id);
-              highlight.push(member);
-              if (member.armorHits <= 1) {
-                destroyedIds.add(member.id);
-              }
-            }
-          }
-        }
-      } else if (specType === SPECIAL_TYPES.ANVIL) {
-        const pierceRadius = currentBall.radius * specCfg.pierceRadiusFactor;
-        const pierceRadiusSq = pierceRadius * pierceRadius;
-        for (const b of physicsWorld.balls) {
-          for (const pt of points) {
-            const dx = b.x - pt.x;
-            const dy = b.y - pt.y;
-            if (dx * dx + dy * dy <= pierceRadiusSq) {
-              highlight.push(b);
-              destroyedIds.add(b.id);
-              break;
-            }
-          }
-        }
-      }
-      cache.highlightIsMatch = true;
-    } else if (points.snapTarget) {
-      const target = points.snapTarget;
-      const isMatchingColor = currentBall.colorId && currentBall.colorId === target.colorId;
-      if (isMatchingColor) {
-        for (const member of physicsWorld.findColorCluster(target)) {
-          highlight.push(member);
-        }
-      } else {
-        highlight.push(target);
-      }
-      const willMatch = isMatchingColor && highlight.length + 1 >= this.gameConfig.defaults.matchMinCount;
-      cache.highlightIsMatch = Boolean(willMatch);
-      if (willMatch) {
-        for (const member of highlight) {
-          if (member.armorHits <= 1) {
-            destroyedIds.add(member.id);
-          }
-        }
-      }
-    }
+    const { isMatch } = predictImpact(
+      {
+        points,
+        currentBall,
+        physicsWorld,
+        endX,
+        endY,
+        blastMult,
+        specialTypes: this.ballsConfig.specialTypes,
+        matchMinCount: this.gameConfig.defaults.matchMinCount
+      },
+      { highlight, destroyedIds }
+    );
+    cache.highlightIsMatch = isMatch;
 
     if (destroyedIds.size > 0) {
       cache.avalancheBalls = physicsWorld.findDetachedIfRemoved(destroyedIds);

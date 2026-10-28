@@ -17,6 +17,22 @@
 import { SPECIAL_TYPES, CLUSTER_MODIFIERS } from '../core/Constants.js';
 import { t } from '../core/I18n.js';
 
+/**
+ * The spheres a rocket strikes from where it lands: modifier spheres first, then
+ * anchors, then the rest, the nearest first in each group.
+ * @param {{x: number, y: number}} origin - Where the rocket lands.
+ * @param {Iterable<object>} balls - Spheres on the board.
+ * @param {number} count - Rockets fired.
+ * @returns {object[]}
+ */
+export function pickRocketTargets(origin, balls, count) {
+  const rank = (target) => (target.clusterModifier ? 0 : target.isAnchor ? 1 : 2);
+  const distance = (target) => Math.hypot(target.x - origin.x, target.y - origin.y);
+  return [...balls]
+    .sort((a, b) => rank(a) - rank(b) || distance(a) - distance(b))
+    .slice(0, count);
+}
+
 export class SpecialBallController {
   constructor(ballsConfig, gameConfig) {
     this.ballsConfig = ballsConfig;
@@ -105,11 +121,7 @@ export class SpecialBallController {
     if (physicsWorld.ballMap.has(ball.id)) {
       physicsWorld.removeBall(ball);
     }
-    const rank = (target) => (target.clusterModifier ? 0 : target.isAnchor ? 1 : 2);
-    const distance = (target) => Math.hypot(target.x - ball.x, target.y - ball.y);
-    const targets = [...physicsWorld.balls]
-      .sort((a, b) => rank(a) - rank(b) || distance(a) - distance(b))
-      .slice(0, specs.rocketCount);
+    const targets = pickRocketTargets(ball, physicsWorld.balls, specs.rocketCount);
     const destroyed = [];
     for (const target of targets) {
       particleSystem.spawnStreak(ball.x, ball.y, target.x, target.y, specs.highlight);

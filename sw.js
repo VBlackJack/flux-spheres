@@ -51,6 +51,7 @@ const PRECACHE_ASSETS = [
   './src/entities/ParticleSystem.js',
   './src/game/GameEngine.js',
   './src/game/GameLoop.js',
+  './src/game/ImpactPreview.js',
   './src/game/Renderer.js',
   './src/game/RunSnapshot.js',
   './src/game/Discovery.js',
