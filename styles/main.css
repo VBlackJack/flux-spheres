@@ -875,6 +875,29 @@ body {
   font-size: 0.9rem;
 }
 
+.share-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.share-fallback-text {
+  width: 100%;
+  min-height: 7.5em;
+  resize: none;
+  background: var(--surface-sunken);
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 .instructions-list {
   list-style: none;
   text-align: left;

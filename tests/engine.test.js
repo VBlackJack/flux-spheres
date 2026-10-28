@@ -22,7 +22,7 @@ import { configRegistry } from '../src/core/ConfigRegistry.js';
 import { StorageManager } from '../src/core/StorageManager.js';
 import { Ball } from '../src/entities/Ball.js';
 import { GameEngine } from '../src/game/GameEngine.js';
-import { GAME_MODES, GAME_STATES, SPECIAL_TYPES, CLUSTER_MODIFIERS, OBSTACLE_TYPES } from '../src/core/Constants.js';
+import { GAME_MODES, GAME_STATES, SPECIAL_TYPES, CLUSTER_MODIFIERS, OBSTACLE_TYPES, WAVE_TYPES } from '../src/core/Constants.js';
 import { applyWorldGeometry } from '../src/core/WorldGeometry.js';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -661,4 +661,48 @@ test('Every landing shakes the screen a little and starts a wave, unless motion 
   landBondedSphere(calm);
   assert.equal(calm.impactWave, null, 'reduced motion keeps the cluster still');
   assert.equal(calm.particleSystem.shakeIntensity, 0);
+});
+
+test('Survival waves log their kind, and a new run starts with an empty log', () => {
+  const engine = createTestEngine();
+  engine.startDailyChallenge(PAST_DAILY_SEED);
+  assert.deepEqual(engine.waveLog, []);
+  const lastWave = gameConfig.endless.bossWaveInterval + 1;
+  while (engine.waveCount < lastWave) {
+    engine.spawnEndlessWave();
+  }
+  const expected = [];
+  for (let wave = 2; wave <= lastWave; wave++) {
+    expected.push(engine.getWaveType(wave));
+  }
+  assert.deepEqual(engine.waveLog, expected);
+  assert.ok(engine.waveLog.includes(WAVE_TYPES.BOSS), 'the boss wave is logged');
+  assert.ok(engine.waveLog.includes(WAVE_TYPES.GOLD_RUSH), 'the gold rush wave is logged');
+
+  engine.restartCurrent();
+  assert.deepEqual(engine.waveLog, []);
+});
+
+test('A resumed Daily run keeps its wave log, and an older save rebuilds it', () => {
+  const engine = createTestEngine();
+  engine.startDailyChallenge(PAST_DAILY_SEED);
+  engine.spawnEndlessWave();
+  engine.spawnEndlessWave();
+  engine.spawnEndlessWave();
+  const log = [...engine.waveLog];
+  engine.hasFiredInRound = true;
+  engine.saveRunSnapshot();
+
+  const resumed = createTestEngine();
+  resumed.storageManager = engine.storageManager;
+  assert.equal(resumed.restoreSavedRun(), true);
+  assert.deepEqual(resumed.waveLog, log);
+
+  const snapshot = engine.storageManager.loadRunSnapshot();
+  delete snapshot.waveLog;
+  engine.storageManager.saveRunSnapshot(snapshot);
+  const older = createTestEngine();
+  older.storageManager = engine.storageManager;
+  assert.equal(older.restoreSavedRun(), true);
+  assert.deepEqual(older.waveLog, log);
 });

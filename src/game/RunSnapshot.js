@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { GAME_MODES, GAME_STATES } from '../core/Constants.js';
+import { GAME_MODES, GAME_STATES, WAVE_TYPES } from '../core/Constants.js';
 import { Ball } from '../entities/Ball.js';
 
 /** Sentinel stored in place of an obstacle index when a ball has no pivot. */
@@ -132,6 +132,27 @@ const restoreFields = (target, source, fields) => {
   }
 };
 
+const WAVE_TYPE_VALUES = new Set(Object.values(WAVE_TYPES));
+
+/** First wave a survival run spawns: wave 1 is the starting board, not a logged wave. */
+const FIRST_SPAWNED_WAVE = 2;
+
+/**
+ * The saved wave log when it is a list of known wave kinds; otherwise (a run saved before
+ * the log existed, or a damaged one) the log is rebuilt from the wave count, since a wave's
+ * kind depends on its number alone.
+ */
+const restoreWaveLog = (engine, savedLog) => {
+  if (Array.isArray(savedLog) && savedLog.every((type) => WAVE_TYPE_VALUES.has(type))) {
+    return [...savedLog];
+  }
+  const rebuilt = [];
+  for (let wave = FIRST_SPAWNED_WAVE; wave <= engine.waveCount; wave++) {
+    rebuilt.push(engine.getWaveType(wave));
+  }
+  return rebuilt;
+};
+
 const pickFields = (source, fields) => {
   const out = {};
   copyFields(out, source, fields);
@@ -177,6 +198,7 @@ export function captureRunSnapshot(engine, version) {
     upcomingColorIds: [...engine.upcomingColorIds],
     engine: pickFields(engine, ENGINE_SCALAR_FIELDS),
     specialInventory: { ...engine.specialInventory },
+    waveLog: [...engine.waveLog],
     currentBall: { colorId: engine.currentBall.colorId, specialType: engine.currentBall.specialType },
     nextBall: { colorId: engine.nextBall.colorId, specialType: engine.nextBall.specialType },
     allowTensionBreak: world.allowTensionBreak,
@@ -296,6 +318,7 @@ export function applyRunSnapshot(engine, snapshot) {
 
   restoreFields(engine, snapshot.engine, ENGINE_SCALAR_FIELDS);
   engine.specialInventory = { ...snapshot.specialInventory };
+  engine.waveLog = restoreWaveLog(engine, snapshot.waveLog);
   if (engine.seededRng && Number.isFinite(snapshot.rngState)) {
     engine.seededRng.state = snapshot.rngState;
   }

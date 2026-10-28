@@ -23,7 +23,8 @@ import {
   DAILY_MUTATORS,
   GAME_OVER_REASONS,
   MATH_CONSTANTS,
-  BOARD_MECHANICS
+  BOARD_MECHANICS,
+  WAVE_TYPES
 } from '../core/Constants.js';
 import { t } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
@@ -94,6 +95,7 @@ export class GameEngine {
     this.overcharge = 0;
     this.shotsRemaining = 0;
     this.waveCount = 1;
+    this.waveLog = [];
     this.endlessRowParity = 0;
     this.shotsUntilWave = 0;
     this.freezeTurnsRemaining = 0;
@@ -338,6 +340,7 @@ export class GameEngine {
     this.activeMutatorKey = null;
     this.dailySeedKey = null;
     this.seededRng = null;
+    this.waveLog = [];
     this.stashedRegularColorId = null;
     this.fluxSeed = null;
     this.fluxStage = 0;
@@ -2207,6 +2210,22 @@ export class GameEngine {
     return closest;
   }
 
+  /**
+   * Kind of a survival wave, decided by its number alone: a boss wave wins over a gold rush.
+   * @param {number} waveNumber - 1-based wave number.
+   * @returns {string} One of WAVE_TYPES.
+   */
+  getWaveType(waveNumber) {
+    const endlessCfg = this.gameConfig.endless;
+    if (endlessCfg.bossWaveInterval > 0 && waveNumber % endlessCfg.bossWaveInterval === 0) {
+      return WAVE_TYPES.BOSS;
+    }
+    if (endlessCfg.goldRushWaveInterval > 0 && waveNumber % endlessCfg.goldRushWaveInterval === 0) {
+      return WAVE_TYPES.GOLD_RUSH;
+    }
+    return WAVE_TYPES.NORMAL;
+  }
+
   spawnEndlessWave() {
     const endlessCfg = this.gameConfig.endless;
     this.waveCount++;
@@ -2236,8 +2255,10 @@ export class GameEngine {
     }
 
     const cols = endlessCfg.columns;
-    const isBossWave = endlessCfg.bossWaveInterval > 0 && this.waveCount % endlessCfg.bossWaveInterval === 0;
-    const isGoldRushWave = !isBossWave && endlessCfg.goldRushWaveInterval > 0 && this.waveCount % endlessCfg.goldRushWaveInterval === 0;
+    const waveType = this.getWaveType(this.waveCount);
+    this.waveLog.push(waveType);
+    const isBossWave = waveType === WAVE_TYPES.BOSS;
+    const isGoldRushWave = waveType === WAVE_TYPES.GOLD_RUSH;
     let remainingGoldCores = isGoldRushWave ? endlessCfg.goldRushCoinCoreCount : 0;
     let bossCorePlaced = false;
 

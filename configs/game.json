@@ -279,6 +279,16 @@
       }
     }
   },
+  "share": {
+    "url": "https://vblackjack.github.io/flux-spheres/",
+    "epochDateKey": "2026-10-26",
+    "maxWaveSymbols": 20,
+    "waveEmoji": {
+      "normal": "🟦",
+      "goldRush": "🟨",
+      "boss": "🟥"
+    }
+  },
   "achievements": {
     "firstAvalanche": {
       "id": "firstAvalanche",

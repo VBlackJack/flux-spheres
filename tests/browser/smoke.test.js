@@ -355,6 +355,46 @@ describe('end of round (desktop)', () => {
     }
   });
 
+  test('only a Daily game over offers Share, and Share copies the result when no share sheet exists', async () => {
+    const { context, page, errors } = await openGame(desktop);
+    try {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: server.origin });
+      await startLevelOne(page);
+      await page.evaluate((reason) => window.__fluxEngine.triggerGameOver(reason), GAME_OVER_REASONS.OUT_OF_SHOTS);
+      await waitShown(page, '#modal-gameover');
+      assert.equal(await isShown(page, '#btn-share-gameover'), false, 'a campaign run has nothing to share');
+      await page.click('#btn-retry');
+      await page.waitForFunction((playing) => window.__fluxEngine.state === playing, GAME_STATES.PLAYING);
+
+      // Desktop browsers may offer a share sheet; removing it exercises the clipboard path.
+      await page.evaluate(() => {
+        delete Navigator.prototype.share;
+        const engine = window.__fluxEngine;
+        engine.startDailyChallenge();
+        engine.spawnEndlessWave();
+        engine.spawnEndlessWave();
+        engine.notifyUI();
+      });
+      await page.waitForFunction((playing) => window.__fluxEngine.state === playing, GAME_STATES.PLAYING);
+      await page.evaluate((reason) => window.__fluxEngine.triggerGameOver(reason), GAME_OVER_REASONS.LINE_CROSSED);
+      await waitShown(page, '#btn-share-gameover');
+      await page.click('#btn-share-gameover');
+      const config = await page.evaluate(() => window.__fluxEngine.gameConfig.share);
+      await page.waitForFunction((url) => navigator.clipboard.readText().then((text) => text.endsWith(url)), config.url);
+      const lines = (await page.evaluate(() => navigator.clipboard.readText())).split(/\r?\n/);
+      assert.equal(lines.length, 4, 'header, stats, wave row and address');
+      assert.equal(lines[2], config.waveEmoji.normal + config.waveEmoji.goldRush);
+      await page.waitForFunction(async () => {
+        const { t } = await import('/src/core/I18n.js');
+        return document.querySelector('#sr-announcer').textContent.includes(t('share.feedback.copied'));
+      });
+      assert.equal(await isShown(page, '#gameover-share-fallback'), false);
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  });
+
   test('a run saved after its discovery hint was dismissed resumes, paused, after a reload', async () => {
     const { context, page, errors } = await openGame(desktop);
     try {

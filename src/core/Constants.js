@@ -51,6 +51,13 @@ export const DAILY_MUTATORS = Object.freeze({
   VOLATILE_CLUSTER: 'volatileCluster'
 });
 
+/** Kind of each row a survival run spawns, as recorded in the engine's wave log. */
+export const WAVE_TYPES = Object.freeze({
+  NORMAL: 'normal',
+  GOLD_RUSH: 'goldRush',
+  BOSS: 'boss'
+});
+
 export const GAME_STATES = Object.freeze({
   READY: 'ready',
   PLAYING: 'playing',
