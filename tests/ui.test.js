@@ -29,6 +29,7 @@ import {
   filterFocusTrapCandidates,
   gameOverReasonKey,
   isBrowserShortcut,
+  isIosBrowserTab,
   UIManager,
   VICTORY_NEXT_ACTIONS,
   VICTORY_NEXT_LABEL_KEYS,
@@ -206,6 +207,27 @@ test('coarse pointers get 44px controls whatever the viewport size', () => {
     assert.ok(coarse.includes(selector), `${selector} must be enlarged on touch screens`);
   }
   assert.match(coarse, /min-height:\s*var\(--touch-target\)/);
+});
+
+test('landscape phones move the board overlays to the left column and pack the nav', () => {
+  const phone = cssBlock(mainCss, '@media (orientation: landscape) and (max-height: 500px) {');
+  assert.match(phone, /\.tutorial-banner[^{]*\{[^}]*position:\s*fixed/, 'the hint leaves the board');
+  assert.match(phone, /\.special-equipped-banner[^{]*\{[^}]*position:\s*fixed/, 'the equipped banner leaves the board');
+  assert.match(phone, /\.special-equipped-banner\s*\{[^}]*white-space:\s*normal/, 'the equipped banner wraps');
+  assert.match(phone, /\.nav-modes\s*\{[^}]*repeat\(4/, 'the four modes share one row');
+  // A size container would become the containing block of the fixed overlays.
+  const landscape = cssBlock(mainCss, '@media (orientation: landscape) and (max-height: 500px),');
+  assert.match(landscape, /\.stage-container\s*\{[^}]*container-type:\s*normal/);
+  assert.match(landscape, /\.stage-column\s*\{[^}]*container-type:\s*normal/);
+  assert.doesNotMatch(phone, /container-type:\s*(?:size|inline-size)/);
+});
+
+test('portrait phones hide the hint while the finger is on the board, without motion when reduced', () => {
+  const portrait = cssBlock(mainCss, '@media (max-width: 680px) {');
+  assert.match(portrait, /#game-canvas:active\)\s*\.tutorial-banner\s*\{[^}]*opacity:\s*0/);
+  assert.match(mainCss, /\.tutorial-banner\s*\{[^}]*transition:\s*opacity var\(--tutorial-fade\)/);
+  const reduced = cssBlock(mainCss, '@media (prefers-reduced-motion: reduce)');
+  assert.match(reduced, /\.tutorial-banner\s*\{[^}]*transition:\s*none/);
 });
 
 test('the menu cannot open during the victory celebration or over a dialog', () => {
@@ -400,20 +422,20 @@ test('a share tap while a share is under way is ignored, and the next one goes t
   let attempts = 0;
   const ui = {
     isSharing: false,
-    shareDailyResultOnce: () => {
+    shareRunResultOnce: () => {
       attempts++;
       return new Promise((resolve, reject) => {
         release = { resolve, reject };
       });
     }
   };
-  const first = UIManager.prototype.shareDailyResult.call(ui);
-  await UIManager.prototype.shareDailyResult.call(ui);
+  const first = UIManager.prototype.shareRunResult.call(ui);
+  await UIManager.prototype.shareRunResult.call(ui);
   assert.equal(attempts, 1, 'the second tap does not share again');
   release.reject(new Error('share sheet failed'));
   await assert.rejects(first);
   assert.equal(ui.isSharing, false, 'a failed share releases the guard');
-  const next = UIManager.prototype.shareDailyResult.call(ui);
+  const next = UIManager.prototype.shareRunResult.call(ui);
   release.resolve();
   await next;
   assert.equal(attempts, 2);
@@ -426,6 +448,13 @@ test('the drawer breakpoint of configs/game.json is the one styles/main.css uses
   const query = gameConfig.defaults.drawerMediaQuery;
   const uses = mainCss.split(query).length - 1;
   assert.ok(uses >= MIN_DRAWER_QUERY_USES, `${query} appears ${uses} times in styles/main.css`);
+});
+
+test('the install hint is for iOS browser tabs only, not for the installed app', () => {
+  assert.equal(isIosBrowserTab({ standalone: false }, false), true, 'iOS Safari tab');
+  assert.equal(isIosBrowserTab({}, false), false, 'no navigator.standalone: not iOS');
+  assert.equal(isIosBrowserTab({ standalone: true }, false), false, 'launched from the home screen');
+  assert.equal(isIosBrowserTab({ standalone: false }, true), false, 'display-mode standalone');
 });
 
 test('the star gauge runs from the last star earned to the next one', () => {
