@@ -347,26 +347,52 @@ test('No chapter repeats the mechanics of an earlier one', () => {
 
 test('A twist level adds a mechanic from another chapter, and the board shows it', () => {
   const catalog = createCatalog();
-  let shown = 0;
-  let twists = 0;
   for (const id of generatedIds()) {
     const levelDef = catalog.get(id);
     if (levelDef.format !== LEVEL_FORMATS.TWIST) {
       assert.equal(levelDef.twistMechanic, null, `level ${id} is no twist`);
       continue;
     }
-    twists++;
     const twist = levelDef.twistMechanic;
     assert.ok(generated.featuredMechanics.includes(twist), `level ${id}: ${twist} is a featured mechanic`);
     assert.ok(!levelDef.featuredMechanics.includes(twist), `level ${id}: ${twist} is not the chapter's own`);
-    // A board too small to carry one sphere of each mechanic keeps the chapter's own first.
-    const budget = Math.floor(levelDef.spec.balls.filter((ball) => ball.allowModifier).length * generated.modifiers.featuredMaxShare);
-    if (budget > levelDef.featuredMechanics.length) {
-      assert.ok(levelDef.minModifierCounts[twist] > 0, `level ${id} guarantees ${twist}`);
-      shown++;
+    // The twist format picks a board with room for one sphere of each mechanic it announces.
+    for (const mechanic of [...levelDef.featuredMechanics, twist]) {
+      assert.ok(levelDef.minModifierCounts[mechanic] > 0, `level ${id} (${levelDef.shapeIds.join('+')}) guarantees ${mechanic}`);
     }
   }
-  assert.ok(shown > twists * 0.9, `${shown} of ${twists} twist levels show their second mechanic`);
+});
+
+test('The twist levels of a chapter show as many different mechanics as the pool allows', () => {
+  const { pattern } = generated.formats;
+  const { TWIST, STANDARD } = LEVEL_FORMATS;
+  // The shipped pattern, then a shorter and a longer one, so the pick holds whatever the length.
+  const patterns = [pattern, pattern.slice(0, -2), [...pattern, STANDARD, TWIST]];
+  for (const candidatePattern of patterns) {
+    const catalog = new LevelCatalog({
+      levelsConfig,
+      campaignConfig: { generated: { ...generated, formats: { ...generated.formats, pattern: candidatePattern } } },
+      fluxConfig,
+      obstaclesConfig,
+      ballRadius: BALL_RADIUS
+    });
+    const twistsByChapter = new Map();
+    for (const id of generatedIds()) {
+      const summary = catalog.summarize(id);
+      if (summary.format === TWIST) {
+        twistsByChapter.set(summary.chapter, [...(twistsByChapter.get(summary.chapter) || []), summary]);
+      }
+    }
+    for (const [chapter, twists] of twistsByChapter) {
+      const poolSize = generated.featuredMechanics.length - twists[0].featuredMechanics.length;
+      const distinct = new Set(twists.map((summary) => summary.twistMechanic)).size;
+      assert.equal(
+        distinct,
+        Math.min(twists.length, poolSize),
+        `pattern of ${candidatePattern.length}, chapter ${chapter}: ${distinct} mechanics over ${twists.length} twists`
+      );
+    }
+  }
 });
 
 test('Precision levels are small with one bomb, arsenal levels big with twice the specials', () => {

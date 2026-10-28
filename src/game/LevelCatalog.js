@@ -28,7 +28,7 @@ const LANE_HEX_DIGITS = 8;
  * Kinds of generated level, set by the level's place in each block of ten
  * (`formats.pattern` in configs/campaign.json).
  * - standard: the chapter's featured mechanics.
- * - twist: a second mechanic from another chapter joins them.
+ * - twist: a second mechanic from another chapter joins them, on a board that can carry both.
  * - precision: a smaller board, a tight shot count and a single bomb.
  * - arsenal: a bigger board, fewer shots and twice the special balls.
  * - landmark: a drawn shape or a pair, a Boss Core and a few more shots and specials.
@@ -43,6 +43,13 @@ export const LEVEL_FORMATS = Object.freeze({
 
 /** Which board a format keeps among its candidates (`boardPick.prefer`). */
 const BOARD_PICKS = Object.freeze({ SMALLEST: 'smallest', LARGEST: 'largest' });
+/**
+ * What a format needs from its board (`boardPick.require`, instead of `prefer`): the first
+ * candidate that has it is kept, and when none has it, the one that comes closest.
+ * - everyMechanic: enough spheres that can carry a modifier to guarantee at least one
+ *   sphere of every mechanic the level announces.
+ */
+const BOARD_REQUIREMENTS = Object.freeze({ EVERY_MECHANIC: 'everyMechanic' });
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const lerp = ([min, max], ratio) => min + (max - min) * ratio;
@@ -288,12 +295,20 @@ export class LevelCatalog {
 
   /**
    * The second mechanic of a twist level: one of the other featured mechanics, all taught
-   * by the authored levels, picked from the level number so it changes from one twist to
-   * the next.
+   * by the authored levels. The pick follows the twist's rank, its place among all the
+   * twist slots of `formats.pattern` counted along the level numbers, so consecutive twists
+   * walk through the pool and a chapter repeats a mechanic only once it has shown them all,
+   * whatever the length of the pattern and of the pool.
+   * @param {number} levelId - A twist level.
+   * @param {string[]} featuredMechanics - The chapter's own mechanics, left out of the pool.
+   * @returns {string}
    */
   twistMechanicOf(levelId, featuredMechanics) {
     const pool = this.generated.featuredMechanics.filter((mechanic) => !featuredMechanics.includes(mechanic));
-    return pool[levelId % pool.length];
+    const pattern = this.generated.formats.pattern;
+    const twistSlots = pattern.flatMap((format, slot) => (format === LEVEL_FORMATS.TWIST ? [slot] : []));
+    const rank = Math.floor(levelId / pattern.length) * twistSlots.length + twistSlots.indexOf(levelId % pattern.length);
+    return pool[rank % pool.length];
   }
 
   buildGenerated(levelId) {
@@ -318,31 +333,46 @@ export class LevelCatalog {
       family: isLandmark ? landmarkFamilies[(levelId / generated.landmarkInterval) % landmarkFamilies.length] : null,
       isBoss: isLandmark
     });
-    // A format that wants a small or a big board draws several and keeps the one it wants.
+    const featuredMechanics = summary.featuredMechanics;
+    const twist = summary.twistMechanic;
+    const modifierCfg = generated.modifiers;
+    // A shape made mostly of anchors has few spheres that can carry a modifier.
+    const modifierBudgetOf = (stage) =>
+      Math.floor(stage.spec.balls.filter((ball) => ball.allowModifier).length * modifierCfg.featuredMaxShare);
+    const mechanicCount = featuredMechanics.length + (twist ? 1 : 0);
+
+    // A format that wants a small or a big board, or a board able to carry what the level
+    // announces, draws several candidates and keeps the one it wants.
     const boardPick = formatCfg.boardPick;
+    const meetsRequirement = (stage) =>
+      boardPick.require === BOARD_REQUIREMENTS.EVERY_MECHANIC && modifierBudgetOf(stage) >= mechanicCount;
+    const isBetterBoard = (other, kept) => {
+      if (boardPick.require) {
+        return modifierBudgetOf(other) > modifierBudgetOf(kept);
+      }
+      const size = other.spec.balls.length - kept.spec.balls.length;
+      return boardPick.prefer === BOARD_PICKS.SMALLEST ? size < 0 : size > 0;
+    };
     let stageDef = buildStage(0);
     for (let candidate = 1; boardPick && candidate < boardPick.candidates; candidate++) {
+      if (boardPick.require && meetsRequirement(stageDef)) {
+        break;
+      }
       const other = buildStage(candidate);
-      const size = other.spec.balls.length - stageDef.spec.balls.length;
-      if (boardPick.prefer === BOARD_PICKS.SMALLEST ? size < 0 : size > 0) {
+      if (isBetterBoard(other, stageDef)) {
         stageDef = other;
       }
     }
 
     const sphereCount = stageDef.spec.balls.length;
-    const featuredMechanics = summary.featuredMechanics;
-    const modifierCfg = generated.modifiers;
     const modifierWeights = {};
     for (const [modKey, range] of Object.entries(modifierCfg.pool)) {
       modifierWeights[modKey] = lerp(range, difficulty);
     }
     // A pair shares the featured spheres: each mechanic gets a share of a single one's count.
     const featuredShare = featuredMechanics.length > 1 ? generated.pairedCountShare : 1;
-    // A shape made mostly of anchors has few spheres that can carry a modifier.
-    const freeSphereCount = stageDef.spec.balls.filter((ball) => ball.allowModifier).length;
-    const modifierBudget = Math.floor(freeSphereCount * modifierCfg.featuredMaxShare);
+    const modifierBudget = modifierBudgetOf(stageDef);
     // A twist keeps its share of the budget, so a small board still shows it.
-    const twist = summary.twistMechanic;
     const twistCount = twist
       ? Math.min(Math.round(lerp(formatCfg.minCount, difficulty)), Math.floor(modifierBudget / (featuredMechanics.length + 1)))
       : 0;
