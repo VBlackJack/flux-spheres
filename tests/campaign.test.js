@@ -141,7 +141,8 @@ test('Star thresholds follow the bot median the way the authored levels do', () 
   const [zero, two, three] = starThresholdsFromMedian(20000, generated);
   const { stars, calibration } = generated;
   assert.equal(zero, 0);
-  assert.ok(Math.abs(three - 20000 * calibration.threeStarMedianFactor) <= stars.roundTo / 2);
+  const factor = calibration.threeStarMedianFactors[calibration.starPolicy];
+  assert.ok(Math.abs(three - 20000 * factor) <= stars.roundTo / 2);
   assert.ok(Math.abs(two - three * stars.twoStarShare) <= stars.roundTo / 2);
   assert.ok(two > 0 && three > two, 'a tiny median still gives climbing thresholds');
   const [, tinyTwo, tinyThree] = starThresholdsFromMedian(0, generated);

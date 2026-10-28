@@ -64,7 +64,8 @@
       "minWinRate": 0.125,
       "extraShotSteps": [6, 12, 18],
       "seedVariants": 3,
-      "threeStarMedianFactor": 1.08,
+      "starPolicy": "arsenal",
+      "threeStarMedianFactors": { "greedy": 1.08, "arsenal": 0.79 },
       "bot": {
         "aimSamples": 60,
         "aimArcStart": 0.06,
@@ -75,7 +76,14 @@
         "aimJitter": 0.5,
         "randomSeedBase": 12345,
         "maxFrames": 300000,
-        "maxCelebrationFrames": 5000
+        "maxCelebrationFrames": 5000,
+        "arsenal": {
+          "colorPreviewWeight": 1,
+          "avalancheWeight": 1,
+          "freezeValuePerSphere": 0.3,
+          "specialMinValue": 6,
+          "specialMinGain": 3
+        }
       }
     }
   }

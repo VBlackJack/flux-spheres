@@ -93,6 +93,7 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 │   ├── game/
 │   │   ├── GameEngine.js     # Machine à états, génération des vagues, score et succès
 │   │   ├── GameLoop.js       # Boucle à pas fixe avec interpolation, ralenti au repos et arrêt sur erreur fatale
+│   │   ├── ImpactPreview.js  # Ce qu'un tir détruirait, partagé par la prévisualisation et le bot de calibration
 │   │   ├── Renderer.js       # Rendu Canvas 2D HiDPI avec interpolation et prévisualisation de zone
 │   │   ├── SpecialBallController.js # Résolution des impacts Bombe, Éclair, Prisme, Enclume et Cryo
 │   │   ├── Discovery.js      # Indices de première rencontre : mécaniques du plateau, prochaine inconnue, texte
@@ -135,13 +136,16 @@ Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rend
 - `campaign.test.js` vérifie que les 800 niveaux générés sont des plateaux jouables, reconstruits à l'identique depuis leur numéro, que la difficulté monte d'un chapitre à l'autre, qu'un niveau marquant revient tous les 10 niveaux, que chaque niveau est nommé dans les deux langues, et que chacun est calibré pour le plateau qu'il est : un changement du générateur, des formes Flux ou de la courbe de la campagne le fait échouer tant que les niveaux ne sont pas mesurés à nouveau.
 - `world.test.js` vérifie que chaque niveau (niveaux générés compris), chaque étape Flux (1 à 60) et la grille de Survie tiennent entre les murs, et qu'un monde de la largeur de conception construit chaque niveau à ses positions d'origine.
 
-Les niveaux générés sont calibrés hors CI par un bot qui vise au plus pressé et n'utilise pas les balles spéciales :
+Les niveaux générés sont calibrés hors CI par deux bots (`scripts/bot/CampaignBot.js`) :
 
 ```bash
 node scripts/calibrate-campaign.mjs
 ```
 
-Il joue chaque niveau 16 fois (`calibration` dans `configs/campaign.json`). Un niveau que le bot gagne moins d'une partie sur huit reçoit des tirs en plus, puis une autre graine, jusqu'à ce qu'une variante passe. Les trois étoiles sont fixées à 1,08 fois le score médian du bot, le rapport que montrent les niveaux dessinés, et les deux étoiles à 63 % des trois. Le résultat va dans `configs/campaignTuning.json` ; `--from` et `--to` ne mesurent qu'une plage.
+- le bot **glouton** vise avec la couleur chargée là où se trouvent le plus de sphères de cette couleur, et ne joue jamais de balle spéciale. Il joue chaque niveau 16 fois (`calibration` dans `configs/campaign.json`) ; un niveau qu'il gagne moins d'une partie sur huit reçoit des tirs en plus, puis une autre graine, jusqu'à ce qu'une variante passe. Un joueur qui ignore les balles spéciales peut donc toujours gagner.
+- le bot **arsenal** lit la prévisualisation de visée que voit le joueur (ce qu'un tir détruit et fait tomber, `src/game/ImpactPreview.js`) pour la couleur chargée et pour chaque balle spéciale en stock. Il joue une spéciale quand elle retire au moins 6 sphères et 3 de plus que le meilleur tir de couleur, ou dès que les tirs restants ne dépassent plus le nombre de spéciales (`calibration.bot.arsenal`). Il joue ensuite 16 fois le plateau retenu.
+
+Les seuils d'étoiles viennent du score médian du bot désigné par `calibration.starPolicy` : trois étoiles au rapport que montrent les 24 niveaux dessinés pour ce bot (`threeStarMedianFactors` : 1,08 pour le glouton, 0,79 pour l'arsenal), deux étoiles à 63 % des trois. Le résultat, avec les mesures des deux bots, va dans `configs/campaignTuning.json` ; `--from` et `--to` ne mesurent qu'une plage, et `--dry-run` affiche les mesures sans les écrire.
 
 `tests/browser/smoke.test.js` ouvre la vraie page dans Chromium sans interface, aux quatre mises en page prises en charge (ordinateur, tablette en portrait, téléphone en paysage et en portrait). Il échoue sur toute erreur de console, tout défilement horizontal ou tout libellé de bouton coupé, vérifie la mise en page au niveau 1 (sans sphère spéciale) et au niveau 2 (avec), vérifie que la sélection des niveaux s'ouvre sur le chapitre du niveau en cours et change de chapitre, vérifie que les fenêtres Réglages, Niveaux, Atelier et Pause mettent la partie en pause puis la reprennent, parcourt la victoire, la défaite et la reprise après rechargement, et vérifie qu'un tremblement de souris garde une visée affinée au clavier. La CI le lance dans une tâche séparée.
 

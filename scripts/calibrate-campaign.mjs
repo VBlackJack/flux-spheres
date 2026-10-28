@@ -15,17 +15,20 @@
  */
 
 /*
- * Calibrates the generated campaign levels with a greedy aiming bot, outside CI.
+ * Calibrates the generated campaign levels with two bots, outside CI (scripts/bot).
  *
- * For each level the bot plays `calibration.runs` games. A level the bot wins less often
- * than `calibration.minWinRate` gets extra shots, then another seed variant, until one
- * passes; if none does, the most winnable candidate is kept. Star thresholds come from
- * the bot's median score over all its games. The result, with each level's fingerprint,
- * is written to configs/campaignTuning.json; tests/campaign.test.js fails on any level
- * whose board no longer matches the fingerprint it was measured with.
+ * For each level the greedy bot, which never plays a special ball, plays
+ * `calibration.runs` games. A level it wins less often than `calibration.minWinRate` gets
+ * extra shots, then another seed variant, until one passes; if none does, the most
+ * winnable candidate is kept. The bot named by `calibration.starPolicy` then plays the
+ * chosen candidate, and star thresholds come from its median score over all its games.
+ * The result, with each level's fingerprint, is written to configs/campaignTuning.json;
+ * tests/campaign.test.js fails on any level whose board no longer matches the fingerprint
+ * it was measured with.
  *
- * Usage: node scripts/calibrate-campaign.mjs [--from <id>] [--to <id>] [--workers <n>]
- * Levels outside the range keep their current entry.
+ * Usage: node scripts/calibrate-campaign.mjs [--from <id>] [--to <id>] [--workers <n>] [--dry-run]
+ * Levels outside the range keep their current entry. --dry-run prints the measures of
+ * both bots and writes nothing.
  */
 
 import fs from 'node:fs';
@@ -36,14 +39,15 @@ import { fileURLToPath } from 'node:url';
 import { configRegistry } from '../src/core/ConfigRegistry.js';
 import { applyWorldGeometry } from '../src/core/WorldGeometry.js';
 import { StorageManager } from '../src/core/StorageManager.js';
-import { GAME_STATES } from '../src/core/Constants.js';
 import { GameEngine } from '../src/game/GameEngine.js';
 import { LevelCatalog, fingerprintLevel, starThresholdsFromMedian } from '../src/game/LevelCatalog.js';
+import { BOT_POLICIES, playGame } from './bot/CampaignBot.js';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const TUNING_PATH = `${REPO_ROOT}configs/campaignTuning.json`;
 const WORKER_FLAG = '--worker';
+const DRY_RUN_FLAG = '--dry-run';
 /** Workers left free for the rest of the machine. */
 const SPARE_CORES = 2;
 /** Linear congruential generator (Numerical Recipes), so every measure can be replayed. */
@@ -93,61 +97,13 @@ function createEngine(configs, campaignTuning) {
   });
 }
 
-/** Aims where the most spheres of the loaded color sit around the end of the trajectory. */
-function pickAimAngle(engine, bot, reach) {
-  let bestAngle = null;
-  let bestScore = -Infinity;
-  for (let i = 0; i <= bot.aimSamples; i++) {
-    const angle = -Math.PI * (bot.aimArcStart + (bot.aimArcSpan * i) / bot.aimSamples);
-    engine.updateAimFromAngle(angle);
-    const end = engine.aimPoints.at(-1);
-    if (!end) {
-      continue;
-    }
-    const color = engine.currentBall.colorId;
-    let score = Math.random() * bot.aimJitter;
-    for (const ball of engine.physicsWorld.balls) {
-      if (Math.hypot(ball.x - end.x, ball.y - end.y) < reach) {
-        score += ball.colorId === color ? bot.sameColorScore : bot.otherColorScore;
-      }
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      bestAngle = angle;
-    }
-  }
-  return bestAngle;
-}
-
-/** Plays one game; returns its final score and whether it was won. */
-function playGame(engine, levelId, bot) {
-  const reach = engine.physicsConfig.ball.radius * bot.neighborhoodRadii;
-  engine.startCampaignLevel(levelId);
-  for (let frame = 0; engine.state === GAME_STATES.PLAYING && frame < bot.maxFrames; frame++) {
-    if (!engine.physicsWorld.projectile && engine.shotsRemaining > 0) {
-      const angle = pickAimAngle(engine, bot, reach);
-      if (angle !== null) {
-        engine.updateAimFromAngle(angle);
-        engine.shoot();
-      }
-    }
-    engine.update();
-  }
-  let celebrated = false;
-  for (let frame = 0; engine.isVictoryCelebrating() && frame < bot.maxCelebrationFrames; frame++) {
-    celebrated = true;
-    engine.update();
-  }
-  return { score: engine.score, won: celebrated || engine.state === GAME_STATES.VICTORY };
-}
-
 const median = (values) => {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)];
 };
 
-/** Plays one candidate (seed variant and extra shots) of a level `runs` times. */
-function measureCandidate(configs, levelId, candidate) {
+/** Plays one candidate (seed variant and extra shots) of a level `runs` times with a bot. */
+function measureCandidate(configs, levelId, candidate, policy = BOT_POLICIES.GREEDY) {
   const calibration = configs.campaign.generated.calibration;
   const tuning = { levels: { [levelId]: candidate } };
   let seed = calibration.bot.randomSeedBase + levelId + candidate.variant * VARIANT_SEED_STRIDE;
@@ -156,13 +112,20 @@ function measureCandidate(configs, levelId, candidate) {
     return seed / UINT32_RANGE;
   };
   const scores = [];
+  const specialsUsed = [];
   let wins = 0;
   for (let run = 0; run < calibration.runs; run++) {
-    const { score, won } = playGame(createEngine(configs, tuning), levelId, calibration.bot);
-    scores.push(score);
-    wins += won ? 1 : 0;
+    const game = playGame(createEngine(configs, tuning), levelId, calibration.bot, policy);
+    scores.push(game.score);
+    specialsUsed.push(game.specialsUsed);
+    wins += game.won ? 1 : 0;
   }
-  return { ...candidate, winRate: wins / calibration.runs, medianScore: median(scores) };
+  return {
+    ...candidate,
+    winRate: wins / calibration.runs,
+    medianScore: median(scores),
+    medianSpecialsUsed: median(specialsUsed)
+  };
 }
 
 /** Finds the first candidate the bot wins often enough, or else the most winnable one. */
@@ -181,10 +144,13 @@ function calibrateLevel(configs, levelId) {
   }
   const passing = tried.find((result) => result.winRate >= calibration.minWinRate);
   const chosen = passing || tried.reduce((best, result) => (result.winRate > best.winRate ? result : best));
+  const candidate = { variant: chosen.variant, extraShots: chosen.extraShots };
+  const arsenal = measureCandidate(configs, levelId, candidate, BOT_POLICIES.ARSENAL);
+  const starMedian = calibration.starPolicy === BOT_POLICIES.ARSENAL ? arsenal.medianScore : chosen.medianScore;
   const levelDef = new LevelCatalog({
     levelsConfig: configs.levels,
     campaignConfig: configs.campaign,
-    campaignTuning: { levels: { [levelId]: { variant: chosen.variant, extraShots: chosen.extraShots } } },
+    campaignTuning: { levels: { [levelId]: candidate } },
     fluxConfig: configs.flux,
     obstaclesConfig: configs.obstacles,
     ballRadius: configs.physics.ball.radius
@@ -194,9 +160,17 @@ function calibrateLevel(configs, levelId) {
     entry: {
       variant: chosen.variant,
       extraShots: chosen.extraShots,
-      starThresholds: starThresholdsFromMedian(chosen.medianScore, generated),
+      starThresholds: starThresholdsFromMedian(starMedian, generated),
       fingerprint: fingerprintLevel(levelDef),
-      measured: { winRate: chosen.winRate, medianScore: chosen.medianScore, candidates: tried.length }
+      measured: {
+        candidates: tried.length,
+        greedy: { winRate: chosen.winRate, medianScore: chosen.medianScore },
+        arsenal: {
+          winRate: arsenal.winRate,
+          medianScore: arsenal.medianScore,
+          medianSpecialsUsed: arsenal.medianSpecialsUsed
+        }
+      }
     }
   };
 }
@@ -212,6 +186,11 @@ function runWorker() {
 function parseArgs(argv, defaults) {
   const options = { ...defaults };
   for (let i = 0; i < argv.length; i += 2) {
+    if (argv[i] === DRY_RUN_FLAG) {
+      options.dryRun = true;
+      i--;
+      continue;
+    }
     const value = Number(argv[i + 1]);
     if (argv[i] === '--from') options.from = value;
     else if (argv[i] === '--to') options.to = value;
@@ -242,7 +221,8 @@ async function runMain() {
   const options = parseArgs(process.argv.slice(2), {
     from: firstGenerated,
     to: catalog.lastId,
-    workers: Math.max(1, os.cpus().length - SPARE_CORES)
+    workers: Math.max(1, os.cpus().length - SPARE_CORES),
+    dryRun: false
   });
   const queue = [];
   for (let id = Math.max(options.from, firstGenerated); id <= Math.min(options.to, catalog.lastId); id++) {
@@ -273,8 +253,12 @@ async function runMain() {
         }
         levels[message.levelId] = message.entry;
         done++;
-        const { winRate, candidates } = message.entry.measured;
-        console.log(`${done}/${total} level ${message.levelId}: win ${winRate.toFixed(2)} after ${candidates} candidate(s)`);
+        const { candidates, greedy, arsenal } = message.entry.measured;
+        console.log(
+          `${done}/${total} level ${message.levelId}: greedy win ${greedy.winRate.toFixed(2)} median ${greedy.medianScore}`
+          + ` after ${candidates} candidate(s), arsenal win ${arsenal.winRate.toFixed(2)} median ${arsenal.medianScore}`
+          + ` specials ${arsenal.medianSpecialsUsed}`
+        );
         next();
       });
       worker.on('error', reject);
@@ -293,6 +277,9 @@ async function runMain() {
     }
   });
 
+  if (options.dryRun) {
+    return;
+  }
   writeTuning(levels, configs.campaign.generated.calibration);
   console.log(`Wrote ${Object.keys(levels).length} levels to configs/campaignTuning.json`);
 }

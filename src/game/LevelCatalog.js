@@ -99,15 +99,17 @@ export function fingerprintLevel(levelDef) {
 }
 
 /**
- * Star thresholds from a measured median score: three stars at the configured share of
- * the bot's median, two stars at the usual share of three.
- * @param {number} medianScore - Median score of the bot over all its games.
+ * Star thresholds from a measured median score: three stars at the share of the bot's
+ * median that the authored levels show for the bot named by `calibration.starPolicy`,
+ * two stars at the usual share of three.
+ * @param {number} medianScore - Median score of that bot over all its games.
  * @param {object} generated - campaignConfig.generated.
  * @returns {number[]} [0, two stars, three stars].
  */
 export function starThresholdsFromMedian(medianScore, generated) {
   const { stars, calibration } = generated;
-  const threeStars = Math.max(stars.roundTo * 2, roundTo(medianScore * calibration.threeStarMedianFactor, stars.roundTo));
+  const factor = calibration.threeStarMedianFactors[calibration.starPolicy];
+  const threeStars = Math.max(stars.roundTo * 2, roundTo(medianScore * factor, stars.roundTo));
   const twoStars = Math.max(stars.roundTo, roundTo(threeStars * stars.twoStarShare, stars.roundTo));
   return [0, twoStars, threeStars];
 }
