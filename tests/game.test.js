@@ -25,7 +25,6 @@ import { SpatialHashGrid } from '../src/physics/SpatialHashGrid.js';
 import { Ball } from '../src/entities/Ball.js';
 import { Obstacle } from '../src/entities/Obstacle.js';
 import { GameEngine } from '../src/game/GameEngine.js';
-import { Renderer } from '../src/game/Renderer.js';
 import {
   GAME_MODES,
   SPECIAL_TYPES,

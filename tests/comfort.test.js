@@ -199,7 +199,7 @@ test('After a pattern, the sphere border is stroked on the sphere outline, not o
   // border stroke would redraw the pattern lines unclipped around the sphere.
   const calls = [];
   const ctx = new Proxy({}, {
-    get: (target, prop) => (prop in target ? target[prop] : (...args) => calls.push(prop)),
+    get: (target, prop) => (prop in target ? target[prop] : () => calls.push(prop)),
     set: (target, prop, value) => { target[prop] = value; return true; }
   });
   const renderer = Object.create(Renderer.prototype);
