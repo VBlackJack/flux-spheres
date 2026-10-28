@@ -1,5 +1,5 @@
 {
-  "calibration": {"runs":16,"minWinRate":0.125},
+  "calibration": {"runs":16,"minWinRate":0.125,"minArsenalWinRate":0.5},
   "levels": {
     "25": {"variant":0,"extraShots":0,"starThresholds":[0,3300,5300],"fingerprint":"04d11ce6dec6f010","measured":{"candidates":1,"skipped":0,"greedy":{"winRate":0.75,"medianScore":7240},"arsenal":{"winRate":0.875,"medianScore":6720,"medianSpecialsUsed":1}}},
     "26": {"variant":0,"extraShots":0,"starThresholds":[0,4500,7200],"fingerprint":"795dc85698f5accc","measured":{"candidates":1,"skipped":0,"greedy":{"winRate":0.8125,"medianScore":6940},"arsenal":{"winRate":1,"medianScore":9150,"medianSpecialsUsed":1}}},
@@ -141,7 +141,7 @@
     "162": {"variant":0,"extraShots":0,"starThresholds":[0,8800,13900],"fingerprint":"2ad9b81891ff5b96","measured":{"candidates":1,"skipped":0,"greedy":{"winRate":0.9375,"medianScore":21070},"arsenal":{"winRate":1,"medianScore":17600,"medianSpecialsUsed":3}}},
     "163": {"variant":0,"extraShots":0,"starThresholds":[0,7400,11800],"fingerprint":"528ebc82b4804c24","measured":{"candidates":1,"skipped":0,"greedy":{"winRate":0.625,"medianScore":12700},"arsenal":{"winRate":1,"medianScore":14920,"medianSpecialsUsed":2}}},
     "164": {"variant":0,"extraShots":0,"starThresholds":[0,5600,8900],"fingerprint":"40f224c73304d36d","measured":{"candidates":1,"skipped":0,"greedy":{"winRate":1,"medianScore":11080},"arsenal":{"winRate":1,"medianScore":11300,"medianSpecialsUsed":2}}},
-    "165": {"variant":0,"extraShots":12,"starThresholds":[0,3900,6200],"fingerprint":"2421a114be70620a","measured":{"candidates":3,"skipped":0,"greedy":{"winRate":0.125,"medianScore":6855},"arsenal":{"winRate":0.3125,"medianScore":7900,"medianSpecialsUsed":2}}},
+    "165": {"variant":2,"extraShots":0,"starThresholds":[0,5700,9000],"fingerprint":"9cb2cbf1403d994b","measured":{"candidates":5,"skipped":4,"greedy":{"winRate":0.375,"medianScore":6925},"arsenal":{"winRate":0.875,"medianScore":11330,"medianSpecialsUsed":2}}},
     "166": {"variant":1,"extraShots":0,"starThresholds":[0,10500,16600],"fingerprint":"c26f90c7103e1061","measured":{"candidates":5,"skipped":0,"greedy":{"winRate":0.6875,"medianScore":19530},"arsenal":{"winRate":1,"medianScore":20980,"medianSpecialsUsed":3}}},
     "167": {"variant":0,"extraShots":0,"starThresholds":[0,6300,10000],"fingerprint":"0cb4be832da2631d","measured":{"candidates":1,"skipped":0,"greedy":{"winRate":0.1875,"medianScore":8090},"arsenal":{"winRate":1,"medianScore":12670,"medianSpecialsUsed":3}}},
     "168": {"variant":0,"extraShots":0,"starThresholds":[0,10400,16500],"fingerprint":"8336e8b5a9a6990f","measured":{"candidates":1,"skipped":0,"greedy":{"winRate":0.3125,"medianScore":15010},"arsenal":{"winRate":1,"medianScore":20890,"medianSpecialsUsed":2}}},

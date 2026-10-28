@@ -25,7 +25,7 @@ import { SPECIAL_TYPES } from '../src/core/Constants.js';
 import { GameEngine } from '../src/game/GameEngine.js';
 import { predictImpact } from '../src/game/ImpactPreview.js';
 import { BOT_POLICIES, planArsenalShot, playGame, shotValue } from '../scripts/bot/CampaignBot.js';
-import { UsageError, parseArgs } from '../scripts/calibrate-campaign.mjs';
+import { UsageError, candidatePasses, failedFloors, parseArgs } from '../scripts/calibrate-campaign.mjs';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const configs = {
@@ -229,4 +229,33 @@ test('Only a dry run measures an authored level; a writing run starts on the gen
   assert.throws(() => parseArgs(['--from', String(LAST_AUTHORED_ID), '--to', String(LAST_AUTHORED_ID)], ARGS_BOUNDS), UsageError);
   const writing = parseArgs(['--from', String(LAST_AUTHORED_ID), '--to', String(ARGS_BOUNDS.firstGenerated)], ARGS_BOUNDS);
   assert.deepEqual([writing.from, writing.to], [ARGS_BOUNDS.firstGenerated, ARGS_BOUNDS.firstGenerated], 'clamped to the generated levels');
+});
+
+/** The shipped floors, with each measure placed relative to them. */
+const FLOORS = configs.campaign.generated.calibration;
+const ABOVE_FLOOR_STEP = 0.25;
+const measuredAt = (greedyRate, arsenalRate) => ({
+  greedy: { winRate: greedyRate },
+  ...(arsenalRate === undefined ? {} : { arsenal: { winRate: arsenalRate } })
+});
+
+test('Both calibration floors are win rates, the arsenal one the higher', () => {
+  for (const key of ['minWinRate', 'minArsenalWinRate']) {
+    assert.ok(FLOORS[key] > 0 && FLOORS[key] <= 1, `${key} is a win rate`);
+  }
+  assert.ok(FLOORS.minArsenalWinRate >= FLOORS.minWinRate, 'specials never make a level harder to win');
+});
+
+test('A candidate passes only on both floors, and a missing measure fails its floor', () => {
+  const greedyFloor = FLOORS.minWinRate;
+  const arsenalFloor = FLOORS.minArsenalWinRate;
+  assert.equal(candidatePasses(measuredAt(greedyFloor, arsenalFloor + ABOVE_FLOOR_STEP), FLOORS), true, 'greedy at its floor');
+  assert.equal(candidatePasses(measuredAt(greedyFloor, arsenalFloor), FLOORS), true, 'both at their floor');
+  const arsenalShort = measuredAt(greedyFloor + ABOVE_FLOOR_STEP, arsenalFloor - ABOVE_FLOOR_STEP);
+  assert.equal(candidatePasses(arsenalShort, FLOORS), false, 'arsenal below its floor');
+  assert.deepEqual(failedFloors(arsenalShort, FLOORS), [BOT_POLICIES.ARSENAL]);
+  const noArsenal = measuredAt(greedyFloor + ABOVE_FLOOR_STEP);
+  assert.equal(candidatePasses(noArsenal, FLOORS), false, 'no arsenal measure');
+  assert.deepEqual(failedFloors(noArsenal, FLOORS), [BOT_POLICIES.ARSENAL]);
+  assert.deepEqual(failedFloors(measuredAt(0, 0), FLOORS), [BOT_POLICIES.GREEDY, BOT_POLICIES.ARSENAL]);
 });

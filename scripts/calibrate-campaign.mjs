@@ -17,11 +17,14 @@
 /*
  * Calibrates the generated campaign levels with two bots, outside CI (scripts/bot).
  *
- * For each level the greedy bot, which never plays a special ball, plays
- * `calibration.runs` games. A level it wins less often than `calibration.minWinRate` gets
- * extra shots, then another seed variant, until one passes; if none does, the most
- * winnable candidate is kept. The bot named by `calibration.starPolicy` then plays the
- * chosen candidate, and star thresholds come from its median score over all its games.
+ * For each level both bots play `calibration.runs` games of a candidate: the greedy bot,
+ * which never plays a special ball, and the arsenal bot, which plays them as a player
+ * would. A candidate the greedy bot wins less often than `calibration.minWinRate`, or the
+ * arsenal bot less often than `calibration.minArsenalWinRate`, gives way to one with
+ * extra shots, then to another seed variant, until one passes both floors; if none does,
+ * the candidate that fails the fewest floors, then the most winnable for the greedy bot,
+ * is kept. Star thresholds come from the median score of the bot named by
+ * `calibration.starPolicy` over all its games on the chosen candidate.
  * The result, with each level's fingerprint, is written to configs/campaignTuning.json;
  * tests/campaign.test.js fails on any level whose board no longer matches the fingerprint
  * it was measured with.
@@ -150,10 +153,50 @@ function buildCandidateLevel(configs, levelId, candidate) {
   }).get(levelId);
 }
 
+/** The win-rate floor of each bot, by policy, as the calibration config names it. */
+const FLOOR_KEYS = Object.freeze({
+  [BOT_POLICIES.GREEDY]: 'minWinRate',
+  [BOT_POLICIES.ARSENAL]: 'minArsenalWinRate'
+});
+
 /**
- * Finds the first candidate the bot wins often enough, or else the most winnable one. A
- * candidate that builds the same board as one already tried (same fingerprint, as for an
- * authored level, which no tuning changes) is skipped and counted in `measured.skipped`.
+ * Names the bots whose win rate on a candidate lies below their floor. A bot with no
+ * measure fails its floor, so a candidate is never accepted on half its evidence.
+ * @param {object} measured - The candidate's measures, by policy: `{greedy: {winRate}, arsenal: {winRate}}`.
+ * @param {object} calibration - `campaign.generated.calibration`, which holds the floors.
+ * @returns {string[]} The failing policies, greedy first; empty when the candidate passes.
+ */
+export function failedFloors(measured, calibration) {
+  return Object.entries(FLOOR_KEYS)
+    .filter(([policy, floorKey]) => !(measured[policy]?.winRate >= calibration[floorKey]))
+    .map(([policy]) => policy);
+}
+
+/**
+ * True when a candidate meets the floor of both bots.
+ * @param {object} measured - The candidate's measures, by policy (see failedFloors).
+ * @param {object} calibration - `campaign.generated.calibration`.
+ * @returns {boolean}
+ */
+export function candidatePasses(measured, calibration) {
+  return failedFloors(measured, calibration).length === 0;
+}
+
+/**
+ * Orders two candidates for the fallback when none passes: fewer failed floors first, then
+ * the higher greedy win rate, then the higher arsenal win rate. Negative when `a` is better.
+ */
+function compareFallback(a, b, calibration) {
+  return failedFloors(a, calibration).length - failedFloors(b, calibration).length
+    || b.greedy.winRate - a.greedy.winRate
+    || b.arsenal.winRate - a.arsenal.winRate;
+}
+
+/**
+ * Finds the first candidate that passes both floors, or else the best fallback (see
+ * compareFallback; the first tried wins a tie). A candidate that builds the same board as
+ * one already tried (same fingerprint, as for an authored level, which no tuning changes)
+ * is skipped and counted in `measured.skipped`.
  */
 function calibrateLevel(configs, levelId) {
   const generated = configs.campaign.generated;
@@ -170,29 +213,33 @@ function calibrateLevel(configs, levelId) {
         continue;
       }
       seenFingerprints.add(fingerprint);
-      const result = measureCandidate(configs, levelId, candidate);
+      const result = {
+        ...candidate,
+        fingerprint,
+        greedy: measureCandidate(configs, levelId, candidate, BOT_POLICIES.GREEDY),
+        arsenal: measureCandidate(configs, levelId, candidate, BOT_POLICIES.ARSENAL)
+      };
       tried.push(result);
-      if (result.winRate >= calibration.minWinRate) {
+      if (candidatePasses(result, calibration)) {
         break search;
       }
     }
   }
-  const passing = tried.find((result) => result.winRate >= calibration.minWinRate);
-  const chosen = passing || tried.reduce((best, result) => (result.winRate > best.winRate ? result : best));
-  const candidate = { variant: chosen.variant, extraShots: chosen.extraShots };
-  const arsenal = measureCandidate(configs, levelId, candidate, BOT_POLICIES.ARSENAL);
-  const starMedian = calibration.starPolicy === BOT_POLICIES.ARSENAL ? arsenal.medianScore : chosen.medianScore;
+  const chosen = tried.find((result) => candidatePasses(result, calibration))
+    || tried.reduce((best, result) => (compareFallback(result, best, calibration) < 0 ? result : best));
+  const { greedy, arsenal } = chosen;
+  const starMedian = calibration.starPolicy === BOT_POLICIES.ARSENAL ? arsenal.medianScore : greedy.medianScore;
   return {
     levelId,
     entry: {
       variant: chosen.variant,
       extraShots: chosen.extraShots,
       starThresholds: starThresholdsFromMedian(starMedian, generated),
-      fingerprint: fingerprintLevel(buildCandidateLevel(configs, levelId, candidate)),
+      fingerprint: chosen.fingerprint,
       measured: {
         candidates: tried.length,
         skipped,
-        greedy: { winRate: chosen.winRate, medianScore: chosen.medianScore },
+        greedy: { winRate: greedy.winRate, medianScore: greedy.medianScore },
         arsenal: {
           winRate: arsenal.winRate,
           medianScore: arsenal.medianScore,
@@ -201,6 +248,16 @@ function calibrateLevel(configs, levelId) {
       }
     }
   };
+}
+
+/** The end of a progress line: which floors the chosen candidate failed, if any. */
+function describeFloors(measured, calibration) {
+  const failed = failedFloors(measured, calibration);
+  if (failed.length === 0) {
+    return 'both floors met';
+  }
+  const floors = failed.map((policy) => `${policy} ${calibration[FLOOR_KEYS[policy]]}`);
+  return `BELOW FLOOR (${floors.join(', ')}), best candidate kept`;
 }
 
 function runWorker() {
@@ -269,7 +326,11 @@ export function parseArgs(argv, { firstId, firstGenerated, lastId, workers }) {
 function writeTuning(levels, calibration) {
   const ids = Object.keys(levels).map(Number).sort((a, b) => a - b);
   const lines = ids.map((id) => `${JSON_INDENT}${JSON_INDENT}"${id}": ${JSON.stringify(levels[id])}`);
-  const header = { runs: calibration.runs, minWinRate: calibration.minWinRate };
+  const header = {
+    runs: calibration.runs,
+    minWinRate: calibration.minWinRate,
+    minArsenalWinRate: calibration.minArsenalWinRate
+  };
   const text = `{\n${JSON_INDENT}"calibration": ${JSON.stringify(header)},\n${JSON_INDENT}"levels": {\n${lines.join(',\n')}\n${JSON_INDENT}}\n}\n`;
   fs.writeFileSync(TUNING_PATH, text);
 }
@@ -306,7 +367,8 @@ async function runMain() {
   const existing = fs.existsSync(TUNING_PATH) ? JSON.parse(fs.readFileSync(TUNING_PATH, 'utf8')).levels : {};
   const levels = { ...existing };
   const total = queue.length;
-  const { maxLevelAttempts } = configs.campaign.generated.calibration;
+  const { calibration } = configs.campaign.generated;
+  const { maxLevelAttempts } = calibration;
   const measuredIds = new Set();
   const unmeasured = [];
   const attempts = new Map();
@@ -342,7 +404,8 @@ async function runMain() {
         console.log(
           `${measuredIds.size}/${total} level ${message.levelId}: greedy win ${greedy.winRate.toFixed(2)} median ${greedy.medianScore}`
           + ` after ${candidates} candidate(s) and ${skipped} skipped, arsenal win ${arsenal.winRate.toFixed(2)}`
-          + ` median ${arsenal.medianScore} specials ${arsenal.medianSpecialsUsed}`
+          + ` median ${arsenal.medianScore} specials ${arsenal.medianSpecialsUsed},`
+          + ` +${message.entry.extraShots} shots variant ${message.entry.variant}: ${describeFloors(message.entry.measured, calibration)}`
         );
         next();
       });
@@ -391,7 +454,7 @@ async function runMain() {
   if (options.dryRun) {
     return;
   }
-  writeTuning(levels, configs.campaign.generated.calibration);
+  writeTuning(levels, calibration);
   console.log(`Wrote ${Object.keys(levels).length} levels to configs/campaignTuning.json`);
 }
 

@@ -92,6 +92,7 @@
     "calibration": {
       "runs": 16,
       "minWinRate": 0.125,
+      "minArsenalWinRate": 0.5,
       "extraShotSteps": [6, 12, 18],
       "seedVariants": 3,
       "maxLevelAttempts": 2,
