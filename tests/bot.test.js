@@ -43,10 +43,12 @@ for (const [key, value] of Object.entries(configs)) {
 }
 
 const bot = configs.campaign.generated.calibration.bot;
-const FIRST_GENERATED_ID = configs.levels.levels.length + 1;
 const REACH = configs.physics.ball.radius * bot.neighborhoodRadii;
-/** A dense opening board: the first generated level. */
-const DENSE_LEVEL_ID = FIRST_GENERATED_ID;
+/**
+ * An authored level, so the board never changes with the generator: a full stock of
+ * special balls and a cluster a bomb takes 6 spheres off.
+ */
+const DENSE_LEVEL_ID = 11;
 /** Enough bombs that the endgame rule (shots left <= specials left) is in play from the start. */
 const ENDGAME_BOMB_COUNT = 1000;
 
@@ -87,7 +89,20 @@ test('A bomb shot is worth what its preview destroys, plus what drops after', ()
   const engine = createEngine();
   engine.startCampaignLevel(DENSE_LEVEL_ID);
   engine.currentBall = engine.createRandomLauncherBall(SPECIAL_TYPES.BOMB);
-  engine.updateAimFromAngle(-Math.PI / 2);
+  // Aim at the cluster: the first sampled angle whose blast reaches a sphere.
+  const blastRadius = engine.currentBall.radius * configs.balls.specialTypes.bomb.blastRadiusFactor;
+  const reaches = (angle) => {
+    engine.updateAimFromAngle(angle);
+    const tip = engine.aimPoints.at(-1);
+    return Boolean(tip) && engine.physicsWorld.balls.some((ball) => Math.hypot(ball.x - tip.x, ball.y - tip.y) <= blastRadius);
+  };
+  const angles = Array.from(
+    { length: bot.aimSamples + 1 },
+    (_, i) => -Math.PI * (bot.aimArcStart + (bot.aimArcSpan * i) / bot.aimSamples)
+  );
+  const angle = angles.find(reaches);
+  assert.notEqual(angle, undefined, 'some angle reaches the cluster');
+  engine.updateAimFromAngle(angle);
   const end = engine.aimPoints.at(-1);
   const { destroyedIds } = predictImpact({
     points: engine.aimPoints,
@@ -99,7 +114,7 @@ test('A bomb shot is worth what its preview destroys, plus what drops after', ()
     specialTypes: configs.balls.specialTypes,
     matchMinCount: configs.game.defaults.matchMinCount
   });
-  assert.ok(destroyedIds.size > 0, 'a bomb aimed straight up reaches the cluster');
+  assert.ok(destroyedIds.size > 0, 'the bomb destroys what it reaches');
   const dropped = engine.physicsWorld.findDetachedIfRemoved(destroyedIds).length;
   assert.equal(shotValue(engine, bot.arsenal), destroyedIds.size + dropped * bot.arsenal.avalancheWeight);
 });
