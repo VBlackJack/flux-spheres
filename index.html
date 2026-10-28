@@ -138,6 +138,7 @@
         </div>
         <div id="powerups-header" class="powerups-header" data-i18n="hud.powerups.title.label"></div>
         <div id="powerups-bar" class="powerups-bar"></div>
+        <p id="powerups-empty" class="powerups-empty hidden" data-i18n="hud.powerups.empty"></p>
       </aside>
     </main>
   </div>
@@ -207,6 +208,7 @@
       <p id="gameover-score" class="modal-stat-line"></p>
       <p id="gameover-best" class="modal-stat-line"></p>
       <p id="gameover-stage" class="modal-stat-line hidden"></p>
+      <p id="gameover-daily-next" class="modal-stat-line muted hidden"></p>
       <div class="modal-actions">
         <button id="btn-retry" type="button" class="modal-btn primary" data-i18n="modals.gameOver.button.retry"></button>
         <button id="btn-levels-gameover" type="button" class="modal-btn" data-i18n="modals.gameOver.button.levels"></button>
@@ -297,6 +299,10 @@
           <button id="btn-lang" type="button" class="nav-btn badge-btn"></button>
           <span class="pause-setting-caption" data-i18n="app.nav.button.languageCaption" aria-hidden="true"></span>
         </div>
+      </div>
+      <div class="settings-install-row">
+        <button id="btn-install" type="button" class="modal-btn hidden" data-i18n="modals.settings.install.button"></button>
+        <p id="install-ios-hint" class="install-hint hidden" data-i18n="modals.settings.install.iosHint"></p>
       </div>
       <div class="modal-actions">
         <button id="btn-close-settings" type="button" class="modal-btn primary" data-i18n="modals.settings.button.close"></button>

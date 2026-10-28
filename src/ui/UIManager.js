@@ -26,7 +26,7 @@ import {
 import { i18n, t, formatNumber } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
 import { resolveHintText } from '../game/Discovery.js';
-import { buildDailyShareText } from '../game/DailyShare.js';
+import { buildShareText, formatDailyCountdown, getMsUntilNextDaily } from '../game/DailyShare.js';
 import { decodeGeneratedShapeId, isGeneratedShapeId } from '../game/layouts/ShapeGenerator.js';
 import { LEVEL_FORMATS } from '../game/LevelCatalog.js';
 
@@ -39,6 +39,24 @@ const NON_INTERACTIVE_ANCESTOR_SELECTOR = '.hidden, [hidden], [inert]';
 
 /** Error name of a share sheet the player dismissed: not a failure, nothing to report. */
 const SHARE_ABORT_ERROR_NAME = 'AbortError';
+
+/**
+ * Media query matched once the game runs as an installed app, so the Settings install
+ * entry has nothing left to offer.
+ */
+const STANDALONE_DISPLAY_QUERY = '(display-mode: standalone)';
+
+/**
+ * True in Safari on iPhone and iPad outside the installed app. Only that browser exposes
+ * `navigator.standalone`, and it never fires `beforeinstallprompt`, so the install entry
+ * there is a hint naming the manual steps instead of a button.
+ * @param {object|undefined} nav - The navigator object.
+ * @param {boolean} matchesStandalone - Whether the standalone display mode query matches.
+ * @returns {boolean}
+ */
+export function isIosBrowserTab(nav, matchesStandalone) {
+  return Boolean(nav) && nav.standalone === false && !matchesStandalone;
+}
 
 /** Root class mirroring the in-app reduced motion setting for CSS. */
 export const REDUCED_MOTION_CLASS = 'reduced-motion';
@@ -337,6 +355,7 @@ export class UIManager {
       frozenBadge: document.getElementById('hud-frozen-badge'),
       powerupsContainer: document.getElementById('powerups-bar'),
       powerupsHeader: document.getElementById('powerups-header'),
+      powerupsEmpty: document.getElementById('powerups-empty'),
       btnLevels: document.getElementById('btn-levels'),
       btnEndless: document.getElementById('btn-endless'),
       btnDaily: document.getElementById('btn-daily'),
@@ -400,6 +419,7 @@ export class UIManager {
       gameOverScore: document.getElementById('gameover-score'),
       gameOverBest: document.getElementById('gameover-best'),
       gameOverStage: document.getElementById('gameover-stage'),
+      gameOverDailyNext: document.getElementById('gameover-daily-next'),
       btnRetry: document.getElementById('btn-retry'),
       btnLevelsGameOver: document.getElementById('btn-levels-gameover'),
       btnShareGameOver: document.getElementById('btn-share-gameover'),
@@ -418,6 +438,8 @@ export class UIManager {
       btnSettings: document.getElementById('btn-settings'),
       modalSettings: document.getElementById('modal-settings'),
       btnCloseSettings: document.getElementById('btn-close-settings'),
+      btnInstall: document.getElementById('btn-install'),
+      installIosHint: document.getElementById('install-ios-hint'),
       modalConfirm: document.getElementById('modal-confirm'),
       btnConfirmYes: document.getElementById('btn-confirm-yes'),
       btnConfirmNo: document.getElementById('btn-confirm-no'),
@@ -431,6 +453,8 @@ export class UIManager {
     this.confirmPausedRun = false;
     this.isSharing = false;
     this.activeShopTab = SHOP_TABS.UPGRADES;
+    // The deferred install prompt, kept until the player asks for it from Settings.
+    this.installPromptEvent = null;
     this.levelsChapterIndex = 0;
     this.autoPausedByOverlay = false;
     this.lastFocusedElement = null;
@@ -523,6 +547,8 @@ export class UIManager {
     this.setupTiltControl();
     this.updateMotionButton();
     this.updateLanguageButton();
+    this.bindInstallEvents();
+    this.syncInstallControls();
 
     i18n.onChange(() => {
       this.updateInputHints();
@@ -535,6 +561,60 @@ export class UIManager {
       this.updateLanguageButton();
       this.refresh(this.engine, this.lastExtra);
     });
+  }
+
+  /**
+   * Keeps the browser's install prompt for the Settings button instead of letting the
+   * browser show it at a moment the player did not choose.
+   */
+  bindInstallEvents() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.installPromptEvent = e;
+      this.syncInstallControls();
+    });
+    window.addEventListener('appinstalled', () => {
+      this.installPromptEvent = null;
+      this.syncInstallControls();
+      this.announce(t('modals.settings.install.installedAnnounce'));
+    });
+    this.elements.btnInstall?.addEventListener('click', () => {
+      this.promptInstall();
+    });
+  }
+
+  /** Shows the stored install prompt once: the browser refuses a second prompt() call. */
+  async promptInstall() {
+    const promptEvent = this.installPromptEvent;
+    if (!promptEvent) {
+      return;
+    }
+    this.installPromptEvent = null;
+    this.syncInstallControls();
+    await promptEvent.prompt();
+    try {
+      await promptEvent.userChoice;
+    } catch {
+      // A dismissed or failed choice leaves nothing to undo: the button is already gone,
+      // and the browser fires beforeinstallprompt again when it can offer the app anew.
+    }
+  }
+
+  /**
+   * The install button shows while the browser offers an install prompt; the manual
+   * steps show in Safari on iPhone and iPad, which has no such prompt.
+   */
+  syncInstallControls() {
+    const matchesStandalone =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia(STANDALONE_DISPLAY_QUERY).matches;
+    const nav = typeof navigator === 'undefined' ? undefined : navigator;
+    this.elements.btnInstall?.classList.toggle('hidden', !this.installPromptEvent);
+    this.elements.installIosHint?.classList.toggle('hidden', !isIosBrowserTab(nav, matchesStandalone));
   }
 
   /**
@@ -805,6 +885,7 @@ export class UIManager {
 
     if (this.elements.btnSettings) {
       this.elements.btnSettings.addEventListener('click', () => {
+        this.syncInstallControls();
         this.openOverlayModal(this.elements.modalSettings, this.elements.btnCloseSettings);
       });
     }
@@ -1043,7 +1124,7 @@ export class UIManager {
     });
 
     this.elements.btnShareGameOver?.addEventListener('click', () => {
-      this.shareDailyResult();
+      this.shareRunResult();
     });
 
     this.elements.btnResume.addEventListener('click', () => {
@@ -1735,34 +1816,37 @@ export class UIManager {
   }
 
   /**
-   * Shares the finished Daily Challenge: the system share sheet when there is one, else the
-   * clipboard, else a read-only field with the text selected for a manual copy. The outcome
-   * is announced to screen readers. A tap while a share is under way is ignored: a second
-   * share sheet request would be refused and wrongly fall back to the clipboard.
+   * Shares the finished run (Daily Challenge, Survival or Flux): the system share sheet when
+   * there is one, else the clipboard, else a read-only field with the text selected for a
+   * manual copy. The outcome is announced to screen readers. A tap while a share is under
+   * way is ignored: a second share sheet request would be refused and wrongly fall back to
+   * the clipboard.
    */
-  async shareDailyResult() {
+  async shareRunResult() {
     if (this.isSharing) {
       return;
     }
     this.isSharing = true;
     try {
-      await this.shareDailyResultOnce();
+      await this.shareRunResultOnce();
     } finally {
       this.isSharing = false;
     }
   }
 
-  /** One share attempt of shareDailyResult, without the in-progress guard. */
-  async shareDailyResultOnce() {
+  /** One share attempt of shareRunResult, without the in-progress guard. */
+  async shareRunResultOnce() {
     const engine = this.engine;
     const shareConfig = this.gameConfig.share;
-    const text = buildDailyShareText(
+    const text = buildShareText(
       {
+        mode: engine.mode,
         dateKey: engine.dailySeedKey,
         mutatorKey: engine.activeMutatorKey,
         wave: engine.waveCount,
         score: engine.score,
         waveLog: engine.waveLog,
+        stage: engine.fluxStage,
         url: shareConfig.url
       },
       shareConfig
@@ -1934,6 +2018,11 @@ export class UIManager {
         titleEl.className = 'ammo-card-title';
         titleEl.textContent = t(`hud.powerups.${type}.name`);
 
+        // What the ball does, so a purchase is not a guess on the name alone.
+        const descEl = document.createElement('div');
+        descEl.className = 'ammo-card-desc';
+        descEl.textContent = t(`hud.powerups.${type}.tooltip`);
+
         const stockEl = document.createElement('div');
         stockEl.className = 'ammo-card-stock';
         stockEl.textContent = t('modals.shop.specialAmmo.stock', { count: formatNumber(count) });
@@ -1957,7 +2046,7 @@ export class UIManager {
           }
         });
 
-        card.append(iconSpan, titleEl, stockEl, buyAmmoBtn);
+        card.append(iconSpan, titleEl, descEl, stockEl, buyAmmoBtn);
         ammoGrid.appendChild(card);
       }
     }
@@ -2392,13 +2481,14 @@ export class UIManager {
     if (this.elements.btnDaily) {
       const todayKey = SeededRandom.getTodayDateKey();
       const dailyBonusCoins = this.gameConfig.daily?.firstPlayBonusCoins || 0;
-      const canClaimDaily = dailyBonusCoins > 0 && !this.storageManager.hasPlayedDailyToday(todayKey);
-      setTextIfChanged(
-        this.elements.btnDaily,
-        canClaimDaily
-          ? t('app.nav.button.dailyBonusBadge', { coins: dailyBonusCoins })
-          : t('app.nav.button.daily')
-      );
+      let dailyLabel = t('app.nav.button.daily');
+      if (this.storageManager.hasPlayedDailyToday(todayKey)) {
+        // Today's challenge is done: say so rather than fall back to the plain label.
+        dailyLabel = t('app.nav.button.dailyPlayedBadge');
+      } else if (dailyBonusCoins > 0) {
+        dailyLabel = t('app.nav.button.dailyBonusBadge', { coins: dailyBonusCoins });
+      }
+      setTextIfChanged(this.elements.btnDaily, dailyLabel);
     }
 
     const overchargePct = Math.min(
@@ -2580,6 +2670,8 @@ export class UIManager {
     const offersSpecialBalls = engine.offersSpecialBalls();
     this.elements.powerupsContainer.classList.toggle('hidden', !offersSpecialBalls);
     this.elements.powerupsHeader?.classList.toggle('hidden', !offersSpecialBalls);
+    // The panel keeps its place in the layout, so it says why it is empty.
+    this.elements.powerupsEmpty?.classList.toggle('hidden', offersSpecialBalls);
 
     const buttons = this.elements.powerupsContainer.querySelectorAll('.powerup-btn');
     const canBuyAmmo = this.isRunActive();
@@ -2722,7 +2814,20 @@ export class UIManager {
         }
         this.elements.gameOverStage.classList.toggle('hidden', !isFlux);
       }
-      this.elements.btnShareGameOver?.classList.toggle('hidden', engine.mode !== GAME_MODES.DAILY);
+      if (this.elements.gameOverDailyNext) {
+        const isDaily = engine.mode === GAME_MODES.DAILY;
+        if (isDaily) {
+          // The Daily seed is the UTC date, so the next challenge starts at UTC midnight.
+          const { hours, minutes } = formatDailyCountdown(getMsUntilNextDaily(Date.now()));
+          setTextIfChanged(
+            this.elements.gameOverDailyNext,
+            t('modals.gameOver.daily.nextIn', { hours: formatNumber(hours), minutes: formatNumber(minutes) })
+          );
+        }
+        this.elements.gameOverDailyNext.classList.toggle('hidden', !isDaily);
+      }
+      // Every mode but the campaign has a result worth sharing.
+      this.elements.btnShareGameOver?.classList.toggle('hidden', engine.mode === GAME_MODES.CAMPAIGN);
       if (transitionedState) {
         this.elements.gameOverShareFallback?.classList.add('hidden');
         this.saveLastFocusedElement();

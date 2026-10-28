@@ -15,6 +15,7 @@
         "endless": "Survie",
         "daily": "Défi du Jour",
         "dailyBonusBadge": "Défi du Jour (+{{coins}} ⬡)",
+        "dailyPlayedBadge": "Défi du Jour ✓",
         "flux": "Mode Flux",
         "shop": "Atelier",
         "shopBadge": "Atelier ({{count}})",
@@ -174,7 +175,8 @@
         "aria": "{{name}} : {{count}} en stock",
         "buyAria": "{{name}} : aucune en stock. Ouvrir l'Atelier pour en acheter",
         "emptyMark": "+"
-      }
+      },
+      "empty": "Aucune bille spéciale dans ce niveau."
     },
     "canvas": {
       "aria": {
@@ -591,6 +593,9 @@
         "field": {
           "label": "Texte à partager, prêt à copier"
         }
+      },
+      "daily": {
+        "nextIn": "Prochain défi dans {{hours}} h {{minutes}} min"
       }
     },
     "pause": {
@@ -635,6 +640,11 @@
       },
       "button": {
         "close": "Fermer"
+      },
+      "install": {
+        "button": "Installer l'application",
+        "iosHint": "Sur iPhone et iPad : Partager, puis Sur l'écran d'accueil.",
+        "installedAnnounce": "Application installée. Lancez-la depuis votre écran d'accueil."
       }
     }
   },
@@ -779,6 +789,14 @@
       "headerNoMutator": "FluxSpheres - Défi #{{number}}",
       "stats": "Vague {{wave}} - {{score}} pts",
       "overflow": "+{{count}}"
+    },
+    "survival": {
+      "header": "FluxSpheres - Survie",
+      "stats": "Vague {{wave}} - {{score}} pts"
+    },
+    "flux": {
+      "header": "FluxSpheres - Mode Flux",
+      "stats": "Forme {{stage}} - {{score}} pts"
     },
     "feedback": {
       "shared": "Résultat partagé.",
