@@ -132,8 +132,16 @@ The suites in `tests/` cover the game engine, physics, rendering loop, UI helper
 - `pwa.test.js` checks that every file under `src/`, `configs/`, `locales/` and `icons/` is precached by `sw.js`, and that the Service Worker cache version matches `package.json`.
 - `onboarding.test.js` checks that every mechanic has a hint in both languages, that a level whose tutorial teaches a mechanic always shows it, and that level 1 shows only the basics.
 - `fluxGenerator.test.js` checks that the shape generator yields at least 1,000 distinct shapes, each fitting the board and hanging from its anchors, named in both languages.
-- `campaign.test.js` checks that the 800 generated levels are playable boards rebuilt the same from their number, that difficulty climbs from chapter to chapter, that a landmark comes every 10 levels, and that each level is named in both languages.
+- `campaign.test.js` checks that the 800 generated levels are playable boards rebuilt the same from their number, that difficulty climbs from chapter to chapter, that a landmark comes every 10 levels, that each level is named in both languages, and that each one is calibrated for the board it is: a change to the generator, the Flux shapes or the campaign curve fails it until the levels are measured again.
 - `world.test.js` checks that every campaign level (generated ones included), Flux stage (1 to 60) and the Survival grid fit between the walls, and that a world of the design width builds every level at its authored positions.
+
+The generated levels are calibrated outside CI by a greedy aiming bot that does not use special balls:
+
+```bash
+node scripts/calibrate-campaign.mjs
+```
+
+It plays each level 16 times (`calibration` in `configs/campaign.json`). A level the bot wins less than one game in eight gets extra shots, then another seed, until one passes. Three stars are set at 1.08 times the bot's median score, the ratio the authored levels show, and two stars at 63% of three. The result goes to `configs/campaignTuning.json`; `--from` and `--to` measure a range only.
 
 `tests/browser/smoke.test.js` opens the real page in headless Chromium at the four supported layouts (desktop, portrait tablet, landscape and portrait phones). It fails on any console error, sideways scrolling or clipped control label, checks the layout on level 1 (no special ball) and level 2 (special balls), checks that the level select opens on the chapter of the current level and switches chapters, checks that the Settings, Levels, Workshop and Pause dialogs pause and resume the run, walks through the victory, game over and reload-resume paths, and checks that a mouse tremor keeps a keyboard-tuned aim. CI runs it as a separate job.
 

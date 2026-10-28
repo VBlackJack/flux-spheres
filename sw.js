@@ -65,6 +65,7 @@ const PRECACHE_ASSETS = [
   './configs/audio.json',
   './configs/balls.json',
   './configs/campaign.json',
+  './configs/campaignTuning.json',
   './configs/flux.json',
   './configs/game.json',
   './configs/levels.json',

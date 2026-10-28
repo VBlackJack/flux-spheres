@@ -58,6 +58,25 @@
     "specialInventory": {
       "base": { "bomb": 2, "lightning": 1, "rainbow": 1, "anvil": 1, "freeze": 1, "rocket": 1 },
       "landmarkBonus": { "bomb": 1, "rainbow": 1 }
+    },
+    "calibration": {
+      "runs": 16,
+      "minWinRate": 0.125,
+      "extraShotSteps": [6, 12, 18],
+      "seedVariants": 3,
+      "threeStarMedianFactor": 1.08,
+      "bot": {
+        "aimSamples": 60,
+        "aimArcStart": 0.06,
+        "aimArcSpan": 0.88,
+        "neighborhoodRadii": 2.6,
+        "sameColorScore": 3,
+        "otherColorScore": -1,
+        "aimJitter": 0.5,
+        "randomSeedBase": 12345,
+        "maxFrames": 300000,
+        "maxCelebrationFrames": 5000
+      }
     }
   }
 }

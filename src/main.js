@@ -37,6 +37,7 @@ class Application {
       const obstaclesConfig = configRegistry.get('obstacles');
       const levelsConfig = configRegistry.get('levels');
       const campaignConfig = configRegistry.get('campaign');
+      const campaignTuning = configRegistry.get('campaign_tuning');
       const fluxConfig = configRegistry.get('flux');
 
       const storageManager = new StorageManager();
@@ -65,6 +66,7 @@ class Application {
         obstaclesConfig,
         levelsConfig,
         campaignConfig,
+        campaignTuning,
         fluxConfig,
         audioManager,
         storageManager,
