@@ -95,7 +95,7 @@ The codebase follows a modular, zero-dependency ES module architecture with stri
 │   │   ├── GameLoop.js       # Fixed-step loop with interpolation, idle throttling and fatal error stop
 │   │   ├── ImpactPreview.js  # What a shot would destroy, shared by the aim preview and the calibration bot
 │   │   ├── Renderer.js       # HiDPI Canvas 2D renderer with alpha interpolation & AOE preview
-│   │   ├── SpecialBallController.js # Bomb, Lightning, Prism, Anvil & Cryo impact resolution
+│   │   ├── SpecialBallController.js # Bomb, Lightning, Prism, Anvil, Cryo & Rocket impact resolution
 │   │   ├── Discovery.js      # First-encounter hints: mechanics on a board, next unknown one, hint text
 │   │   ├── DailyShare.js     # Spoiler-free Daily Challenge result text for the Share button
 │   │   └── layouts/
@@ -124,11 +124,14 @@ npm start
 # Run the engine, UI helper and repository guard suites
 npm test
 
+# Lint the sources (first time: npm install)
+npm run lint
+
 # Run the browser smoke tests (first time: npm install, then npx playwright install chromium)
 npm run test:browser
 ```
 
-The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, and six repository guards:
+The suites in `tests/` cover the game engine, physics, rendering loop, UI helpers, the calibration tooling, and six repository guards:
 
 - `typography.test.js` rejects typographic look-alikes of ASCII characters (long dashes, curly quotes, ellipsis, special spaces, ligatures) in every text file.
 - `pwa.test.js` checks that every file under `src/`, `configs/`, `locales/` and `icons/` is precached by `sw.js`, and that the Service Worker cache version matches `package.json`.
@@ -136,6 +139,7 @@ The suites in `tests/` cover the game engine, physics, rendering loop, UI helper
 - `fluxGenerator.test.js` checks that the shape generator yields at least 1,000 distinct shapes, each fitting the board and hanging from its anchors, named in both languages.
 - `campaign.test.js` checks that the 800 generated levels are playable boards rebuilt the same from their number, that difficulty climbs from chapter to chapter, that a landmark comes every 10 levels, that each level is named in both languages, and that each one is calibrated for the board it is: a change to the generator, the Flux shapes or the campaign curve fails it until the levels are measured again.
 - `world.test.js` checks that every campaign level (generated ones included), Flux stage (1 to 60) and the Survival grid fit between the walls, and that a world of the design width builds every level at its authored positions.
+- `bot.test.js` checks the calibration bots (what a shot is worth, when the arsenal bot plays a special, that the greedy one never does) and the command line of `scripts/calibrate-campaign.mjs`.
 
 The generated levels are calibrated outside CI by two bots (`scripts/bot/CampaignBot.js`):
 
@@ -146,7 +150,7 @@ node scripts/calibrate-campaign.mjs
 - the **greedy** bot aims the loaded color where most spheres of that color sit and never plays a special ball. It plays each level 16 times (`calibration` in `configs/campaign.json`); a level it wins less than one game in eight gets extra shots, then another seed, until one passes. A player who ignores special balls can always win.
 - the **arsenal** bot reads the aim preview the player sees (what a shot destroys and drops, `src/game/ImpactPreview.js`) for the loaded color and every special ball in stock, and plays a special when it takes off at least 6 spheres and 3 more than the best color shot, or once the shots left no longer outnumber the specials (`calibration.bot.arsenal`). It then plays the chosen board 16 times too.
 
-Star thresholds come from the median score of the bot named by `calibration.starPolicy`: three stars at the ratio the 24 authored levels show for that bot (`threeStarMedianFactors`: 1.08 for greedy, 0.79 for arsenal), two stars at 63% of three. The result, with both bots' measures, goes to `configs/campaignTuning.json`; `--from` and `--to` measure a range only, and `--dry-run` prints the measures without writing them.
+Star thresholds come from the median score of the bot named by `calibration.starPolicy`: three stars at the ratio the 24 authored levels show for that bot (`threeStarMedianFactors`: 1.08 for greedy, 0.79 for arsenal), two stars at 63% of three. The result, with both bots' measures, goes to `configs/campaignTuning.json`; `--from` and `--to` measure a range only, `--workers` sets the number of parallel workers (by default all cores but two), and `--dry-run` prints the measures without writing them. Only a dry run measures an authored level, as it is (`--from 24 --to 24 --dry-run`); a writing run starts on the first generated level.
 
 `tests/browser/smoke.test.js` opens the real page in headless Chromium at the four supported layouts (desktop, portrait tablet, landscape and portrait phones). It fails on any console error, sideways scrolling or clipped control label, checks the layout on level 1 (no special ball) and level 2 (special balls), checks that the level select opens on the chapter of the current level and switches chapters, checks that the Settings, Levels, Workshop and Pause dialogs pause and resume the run, walks through the victory, game over and reload-resume paths, checks that only a Daily Challenge game over offers Share and that it fills the clipboard, and checks that a mouse tremor keeps a keyboard-tuned aim. CI runs it as a separate job.
 
