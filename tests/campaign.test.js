@@ -23,7 +23,13 @@ import { applyWorldGeometry } from '../src/core/WorldGeometry.js';
 import { StorageManager } from '../src/core/StorageManager.js';
 import { CLUSTER_MODIFIERS, OBSTACLE_TYPES } from '../src/core/Constants.js';
 import { GameEngine } from '../src/game/GameEngine.js';
-import { LevelCatalog, fingerprintLevel, placeGeneratedLevel, starThresholdsFromMedian } from '../src/game/LevelCatalog.js';
+import {
+  LEVEL_FORMATS,
+  LevelCatalog,
+  fingerprintLevel,
+  placeGeneratedLevel,
+  starThresholdsFromMedian
+} from '../src/game/LevelCatalog.js';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const gameConfig = applyWorldGeometry(loadJson('./configs/game.json'));
@@ -185,9 +191,10 @@ test('Every generated level is a playable board', () => {
     }
     assert.equal(counts[CLUSTER_MODIFIERS.BOSS_CORE] || 0, levelDef.isLandmark ? 1 : 0, `${label}: boss core`);
     // The boss core may take the place of one featured sphere.
-    const [featured, minCount] = Object.entries(levelDef.minModifierCounts)[0];
     const bossAllowance = levelDef.isLandmark ? 1 : 0;
-    assert.ok((counts[featured] || 0) >= minCount - bossAllowance, `${label}: too few ${featured}`);
+    for (const [featured, minCount] of Object.entries(levelDef.minModifierCounts)) {
+      assert.ok((counts[featured] || 0) >= minCount - bossAllowance, `${label}: too few ${featured}`);
+    }
   }
 });
 
@@ -245,7 +252,7 @@ test('Each chapter features a mechanic the authored levels already teach', () =>
       taught.add(modKey);
     }
   }
-  for (const mechanic of generated.featuredMechanics) {
+  for (const mechanic of [...generated.featuredMechanics, ...generated.pairedChapters.flat()]) {
     assert.ok(taught.has(mechanic), `${mechanic} is taught before it is featured`);
     assert.ok(ballsConfig.clusterModifiers[mechanic], `${mechanic} is a cluster modifier`);
   }
@@ -257,8 +264,13 @@ test('Each chapter features a mechanic the authored levels already teach', () =>
 test('Every generated level has a name and a description in both languages', () => {
   for (const [lang, dict] of Object.entries(locales)) {
     const texts = dict.levels.generated;
-    for (const key of ['name', 'description', 'landmarkDescription']) {
+    for (const key of ['name', 'description', 'landmarkDescription', 'themePair', 'formatName']) {
       assert.equal(typeof texts[key], 'string', `${lang}: levels.generated.${key}`);
+    }
+    for (const format of [LEVEL_FORMATS.TWIST, LEVEL_FORMATS.PRECISION, LEVEL_FORMATS.ARSENAL]) {
+      for (const key of ['label', 'description']) {
+        assert.equal(typeof texts.formats?.[format]?.[key], 'string', `${lang}: levels.generated.formats.${format}.${key}`);
+      }
     }
     for (const mechanic of generated.featuredMechanics) {
       assert.equal(typeof texts.themes[mechanic], 'string', `${lang}: levels.generated.themes.${mechanic}`);
@@ -275,7 +287,7 @@ test('The level select chapters cover every level once, the authored ones first'
     assert.equal(chapter.index, index);
     if (index > 0) {
       assert.equal(chapter.firstId, chapters[index - 1].lastId + 1, `chapter ${index} follows the previous one`);
-      assert.equal(chapter.featuredMechanic, catalog.summarize(chapter.firstId).featuredMechanic);
+      assert.deepEqual(chapter.featuredMechanics, catalog.summarize(chapter.firstId).featuredMechanics);
     }
   });
   assert.equal(chapters.at(-1).lastId, catalog.lastId);
@@ -305,4 +317,81 @@ test('Winning a generated level unlocks the next one, up to the last level', () 
     assert.equal(engine.state, 'victory', `level ${id} is won`);
     assert.equal(engine.storageManager.getUnlockedLevel(), Math.min(id + 1, catalog.lastId), `after level ${id}`);
   }
+});
+
+const totalSpecials = (inventory) => Object.values(inventory).reduce((sum, count) => sum + count, 0);
+
+test('Each block of ten levels follows the format pattern, its landmark first', () => {
+  const { pattern } = generated.formats;
+  assert.equal(pattern.length, generated.landmarkInterval, 'one format per level of a landmark block');
+  assert.equal(pattern[0], LEVEL_FORMATS.LANDMARK, 'the landmark closes each block');
+  for (const format of pattern) {
+    assert.ok(Object.values(LEVEL_FORMATS).includes(format), `unknown format ${format}`);
+  }
+  const catalog = createCatalog();
+  for (const id of generatedIds()) {
+    const summary = catalog.summarize(id);
+    assert.equal(summary.format, pattern[id % pattern.length], `level ${id}`);
+    assert.equal(summary.isLandmark, summary.format === LEVEL_FORMATS.LANDMARK, `level ${id}`);
+  }
+});
+
+test('No chapter repeats the mechanics of an earlier one', () => {
+  const seen = new Set();
+  for (const chapter of createCatalog().listChapters().filter((entry) => !entry.isTutorial)) {
+    const key = [...chapter.featuredMechanics].sort().join('+');
+    assert.ok(!seen.has(key), `chapter ${chapter.index} repeats ${key}`);
+    seen.add(key);
+  }
+});
+
+test('A twist level adds a mechanic from another chapter, and the board shows it', () => {
+  const catalog = createCatalog();
+  let shown = 0;
+  let twists = 0;
+  for (const id of generatedIds()) {
+    const levelDef = catalog.get(id);
+    if (levelDef.format !== LEVEL_FORMATS.TWIST) {
+      assert.equal(levelDef.twistMechanic, null, `level ${id} is no twist`);
+      continue;
+    }
+    twists++;
+    const twist = levelDef.twistMechanic;
+    assert.ok(generated.featuredMechanics.includes(twist), `level ${id}: ${twist} is a featured mechanic`);
+    assert.ok(!levelDef.featuredMechanics.includes(twist), `level ${id}: ${twist} is not the chapter's own`);
+    // A board too small to carry one sphere of each mechanic keeps the chapter's own first.
+    const budget = Math.floor(levelDef.spec.balls.filter((ball) => ball.allowModifier).length * generated.modifiers.featuredMaxShare);
+    if (budget > levelDef.featuredMechanics.length) {
+      assert.ok(levelDef.minModifierCounts[twist] > 0, `level ${id} guarantees ${twist}`);
+      shown++;
+    }
+  }
+  assert.ok(shown > twists * 0.9, `${shown} of ${twists} twist levels show their second mechanic`);
+});
+
+test('Precision levels are small with one bomb, arsenal levels big with twice the specials', () => {
+  const catalog = createCatalog();
+  const base = totalSpecials(generated.specialInventory.base);
+  const spheresByChapter = new Map();
+  for (const id of generatedIds()) {
+    const levelDef = catalog.get(id);
+    if (levelDef.format === LEVEL_FORMATS.PRECISION) {
+      assert.deepEqual(levelDef.specialInventory, generated.formats.precision.specialInventory, `level ${id}`);
+    } else if (levelDef.format === LEVEL_FORMATS.ARSENAL) {
+      assert.equal(totalSpecials(levelDef.specialInventory), base * generated.formats.arsenal.specialInventoryFactor, `level ${id}`);
+    }
+    const key = `${levelDef.chapter}:${levelDef.format}`;
+    spheresByChapter.set(key, [...(spheresByChapter.get(key) || []), levelDef.spec.balls.length]);
+  }
+  const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+  let smaller = 0;
+  let bigger = 0;
+  const chapterCount = Math.ceil(generated.count / generated.chapterSize);
+  for (let chapter = 1; chapter <= chapterCount; chapter++) {
+    const standard = mean(spheresByChapter.get(`${chapter}:${LEVEL_FORMATS.STANDARD}`));
+    smaller += mean(spheresByChapter.get(`${chapter}:${LEVEL_FORMATS.PRECISION}`)) < standard ? 1 : 0;
+    bigger += mean(spheresByChapter.get(`${chapter}:${LEVEL_FORMATS.ARSENAL}`)) > standard ? 1 : 0;
+  }
+  assert.equal(smaller, chapterCount, 'precision boards are smaller than the standard ones of their chapter');
+  assert.equal(bigger, chapterCount, 'arsenal boards are bigger than the standard ones of their chapter');
 });

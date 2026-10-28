@@ -740,6 +740,22 @@
       "name": "{{theme}} {{index}}",
       "description": "Chapter {{chapter}}: level {{index}} of {{size}}.",
       "landmarkDescription": "Chapter {{chapter}}: landmark level, {{index}} of {{size}}, with a Boss Core.",
+      "themePair": "{{first}} + {{second}}",
+      "formatName": "{{name}} ({{format}})",
+      "formats": {
+        "twist": {
+          "label": "+ {{mechanic}}",
+          "description": "Chapter {{chapter}}: level {{index}} of {{size}}, with {{mechanic}} on top of the chapter's mechanics."
+        },
+        "precision": {
+          "label": "Precision",
+          "description": "Chapter {{chapter}}: precision level, {{index}} of {{size}}. A small board, few shots and a single bomb: every shot counts."
+        },
+        "arsenal": {
+          "label": "Arsenal",
+          "description": "Chapter {{chapter}}: arsenal level, {{index}} of {{size}}. A big board, fewer shots and twice the special balls: use them."
+        }
+      },
       "themes": {
         "armored": "Armor",
         "bubble": "Bubbles",

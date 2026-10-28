@@ -29,6 +29,7 @@ import { SeededRandom } from '../core/SeededRandom.js';
 import { resolveHintText } from '../game/Discovery.js';
 import { buildDailyShareText } from '../game/DailyShare.js';
 import { decodeGeneratedShapeId, isGeneratedShapeId } from '../game/layouts/ShapeGenerator.js';
+import { LEVEL_FORMATS } from '../game/LevelCatalog.js';
 
 /** Elements a modal focus trap may cycle through (inactive tabs use tabindex="-1"). */
 export const MODAL_FOCUSABLE_SELECTOR =
@@ -167,6 +168,9 @@ export function isBrowserShortcut(event) {
 export function canOpenDrawer({ isOpen, isDrawerLayout, isModalOpen, isVictoryCelebrating }) {
   return !isOpen && isDrawerLayout && !isModalOpen && !isVictoryCelebrating;
 }
+
+/** Generated level formats whose name and description say what sets them apart. */
+const LABELLED_LEVEL_FORMATS = new Set([LEVEL_FORMATS.TWIST, LEVEL_FORMATS.PRECISION, LEVEL_FORMATS.ARSENAL]);
 
 /** i18n key of the defeat explanation; an unknown reason reads as a crossed line. */
 export function gameOverReasonKey(reason) {
@@ -1430,19 +1434,32 @@ export class UIManager {
     return names[0] || '';
   }
 
+  /** Theme of a generated chapter: its featured mechanic, or its pair of them. */
+  formatChapterTheme(featuredMechanics) {
+    const [first, second] = featuredMechanics.map((mechanic) => t(`levels.generated.themes.${mechanic}`));
+    return second ? t('levels.generated.themePair', { first, second }) : first;
+  }
+
   /**
    * Display name of a campaign level: its own name when authored, else its chapter theme
-   * and its place in the chapter.
+   * and its place in the chapter, then its format when it is not a standard level.
    * @param {object} summary - A level summary from the level catalog.
    */
   formatLevelName(summary) {
     if (!summary.isGenerated) {
       return t(summary.nameKey);
     }
-    return t('levels.generated.name', {
-      theme: t(`levels.generated.themes.${summary.featuredMechanic}`),
+    const name = t('levels.generated.name', {
+      theme: this.formatChapterTheme(summary.featuredMechanics),
       index: summary.chapterLevel
     });
+    if (!LABELLED_LEVEL_FORMATS.has(summary.format)) {
+      return name;
+    }
+    const format = t(`levels.generated.formats.${summary.format}.label`, {
+      mechanic: summary.twistMechanic ? t(`levels.generated.themes.${summary.twistMechanic}`) : ''
+    });
+    return t('levels.generated.formatName', { name, format });
   }
 
   /** Description of a campaign level, from its summary in the level catalog. */
@@ -1450,8 +1467,17 @@ export class UIManager {
     if (!summary.isGenerated) {
       return t(summary.descriptionKey);
     }
-    const key = summary.isLandmark ? 'levels.generated.landmarkDescription' : 'levels.generated.description';
-    return t(key, { chapter: summary.chapter, index: summary.chapterLevel, size: summary.chapterSize });
+    const params = { chapter: summary.chapter, index: summary.chapterLevel, size: summary.chapterSize };
+    if (summary.isLandmark) {
+      return t('levels.generated.landmarkDescription', params);
+    }
+    if (LABELLED_LEVEL_FORMATS.has(summary.format)) {
+      return t(`levels.generated.formats.${summary.format}.description`, {
+        ...params,
+        mechanic: summary.twistMechanic ? t(`levels.generated.themes.${summary.twistMechanic}`) : ''
+      });
+    }
+    return t('levels.generated.description', params);
   }
 
   formatStars(stars, maxStars) {
@@ -2023,7 +2049,7 @@ export class UIManager {
     }
     return t('modals.levelSelect.chapters.numbered', {
       chapter: chapter.index,
-      theme: t(`levels.generated.themes.${chapter.featuredMechanic}`)
+      theme: this.formatChapterTheme(chapter.featuredMechanics)
     });
   }
 

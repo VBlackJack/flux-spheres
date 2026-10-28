@@ -21,6 +21,32 @@
       "lightningCore",
       "paintCore"
     ],
+    "pairedChapters": [
+      ["armored", "chained"],
+      ["bubble", "thruster"],
+      ["rust", "freezeCore"],
+      ["chameleon", "paintCore"],
+      ["dormantBomb", "lightningCore"],
+      ["laserLock", "tether"],
+      ["chained", "bubble"],
+      ["paintCore", "armored"]
+    ],
+    "pairedCountShare": 0.6,
+    "formats": {
+      "pattern": ["landmark", "standard", "standard", "twist", "standard", "precision", "standard", "twist", "arsenal", "standard"],
+      "twist": { "weight": [0.03, 0.06], "minCount": [2, 4] },
+      "precision": {
+        "boardPick": { "candidates": 5, "prefer": "smallest" },
+        "shotsPerSphereFactor": 0.85,
+        "minShots": 12,
+        "specialInventory": { "bomb": 1 }
+      },
+      "arsenal": {
+        "boardPick": { "candidates": 5, "prefer": "largest" },
+        "shotsPerSphereFactor": 0.8,
+        "specialInventoryFactor": 2
+      }
+    },
     "palette": [
       { "fromDifficulty": 0, "count": 4 },
       { "fromDifficulty": 0.2, "count": 5 },

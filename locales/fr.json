@@ -740,6 +740,22 @@
       "name": "{{theme}} {{index}}",
       "description": "Chapitre {{chapter}} : niveau {{index}} sur {{size}}.",
       "landmarkDescription": "Chapitre {{chapter}} : niveau marquant, {{index}} sur {{size}}, avec un Noyau Boss.",
+      "themePair": "{{first}} + {{second}}",
+      "formatName": "{{name}} ({{format}})",
+      "formats": {
+        "twist": {
+          "label": "+ {{mechanic}}",
+          "description": "Chapitre {{chapter}} : niveau {{index}} sur {{size}}, avec {{mechanic}} en plus des mécaniques du chapitre."
+        },
+        "precision": {
+          "label": "Précision",
+          "description": "Chapitre {{chapter}} : niveau de précision, {{index}} sur {{size}}. Petit plateau, peu de tirs et une seule bombe : chaque tir compte."
+        },
+        "arsenal": {
+          "label": "Arsenal",
+          "description": "Chapitre {{chapter}} : niveau arsenal, {{index}} sur {{size}}. Grand plateau, moins de tirs et deux fois plus de balles spéciales : servez-vous-en."
+        }
+      },
       "themes": {
         "armored": "Blindage",
         "bubble": "Bulles",
