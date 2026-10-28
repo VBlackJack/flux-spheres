@@ -255,6 +255,24 @@ test('Every generated level has a name and a description in both languages', () 
   }
 });
 
+test('The level select chapters cover every level once, the authored ones first', () => {
+  const catalog = createCatalog();
+  const chapters = catalog.listChapters();
+  assert.equal(chapters.length, 1 + Math.ceil(generated.count / generated.chapterSize));
+  assert.deepEqual([chapters[0].isTutorial, chapters[0].firstId, chapters[0].lastId], [true, 1, AUTHORED_COUNT]);
+  chapters.forEach((chapter, index) => {
+    assert.equal(chapter.index, index);
+    if (index > 0) {
+      assert.equal(chapter.firstId, chapters[index - 1].lastId + 1, `chapter ${index} follows the previous one`);
+      assert.equal(chapter.featuredMechanic, catalog.summarize(chapter.firstId).featuredMechanic);
+    }
+  });
+  assert.equal(chapters.at(-1).lastId, catalog.lastId);
+  assert.equal(catalog.chapterIndexOf(1), 0);
+  assert.equal(catalog.chapterIndexOf(AUTHORED_COUNT + 1), 1);
+  assert.equal(catalog.chapterIndexOf(catalog.lastId), chapters.length - 1);
+});
+
 test('Chapters split the generated levels evenly and number them from 1', () => {
   const first = placeGeneratedLevel(0, generated);
   const last = placeGeneratedLevel(generated.count - 1, generated);

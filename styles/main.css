@@ -934,6 +934,55 @@ body {
   padding: 4px;
 }
 
+/* One tab per chapter; the strip scrolls sideways on its own, never the page. */
+.level-chapters {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 4px 4px 8px;
+  scrollbar-width: thin;
+}
+
+.level-chapter {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: var(--touch-target);
+  padding: 6px 12px;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.level-chapter-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.level-chapter-stars {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.level-chapter.active {
+  background: var(--accent-amber-alpha-20);
+  color: var(--text-gold-soft);
+  border-color: var(--accent-amber);
+}
+
+.level-chapter.locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 #levels-grid {
   flex: 1 1 auto;
   max-height: none;
@@ -2014,11 +2063,17 @@ body {
   .hud-menu-btn,
   .drawer-close-btn,
   .tutorial-dismiss-btn,
+  .level-chapter,
   .level-card.unlocked {
     border: 1px solid ButtonText;
   }
+  .level-chapter.locked {
+    color: GrayText;
+    border-color: GrayText;
+  }
   .nav-btn.active-mode,
   .modal-tab.active,
+  .level-chapter.active,
   .powerup-btn.equipped,
   .polarity-floating-btn.active {
     outline: 2px solid Highlight;

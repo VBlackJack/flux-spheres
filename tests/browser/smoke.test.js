@@ -42,6 +42,8 @@ const FITTED_TEXT_SELECTOR =
 
 /** Sub-pixel rounding tolerance when comparing scroll and client sizes. */
 const OVERFLOW_TOLERANCE_PX = 1;
+/** A generated level in a later chapter, for the level select test. */
+const UNLOCKED_GENERATED_LEVEL = 130;
 
 /** Upper bound for any wait on the page, so a broken page fails instead of hanging. */
 const WAIT_TIMEOUT_MS = 10000;
@@ -204,6 +206,36 @@ for (const viewport of VIEWPORTS) {
           assert.equal(await engineState(page), GAME_STATES.PLAYING, `closing ${dialog} resumes the run`);
           assert.equal(await isShown(page, '#modal-pause'), false, `closing ${dialog} leaves no Pause dialog`);
         }
+        assert.deepEqual(errors, []);
+      } finally {
+        await context.close();
+      }
+    });
+
+    test('The level select opens on the chapter of the current level and switches chapters', async () => {
+      const { context, page, errors } = await openGame(viewport);
+      try {
+        await page.waitForFunction(() => Boolean(window.__fluxEngine));
+        await page.evaluate((levelId) => window.__fluxEngine.storageManager.unlockLevel(levelId), UNLOCKED_GENERATED_LEVEL);
+        // The game opens on the furthest unlocked level, which the dialog then suggests.
+        await page.reload();
+        await captureEngine(page);
+        await clickMenuButton(page, viewport, '#btn-levels');
+        await waitShown(page, '#modal-levels');
+        const opened = await page.evaluate(() => ({
+          activeTabs: document.querySelectorAll('#levels-chapters [role="tab"][aria-selected="true"]').length,
+          currentCard: document.querySelector('#levels-grid .level-card.current .level-card-header')?.textContent || '',
+          cardCount: document.querySelectorAll('#levels-grid .level-card').length,
+          pageOverflow: document.documentElement.scrollWidth - window.innerWidth
+        }));
+        assert.equal(opened.activeTabs, 1, 'one chapter is selected');
+        assert.ok(opened.currentCard.includes(String(UNLOCKED_GENERATED_LEVEL)), `the dialog shows level ${UNLOCKED_GENERATED_LEVEL}`);
+        assert.ok(opened.cardCount < UNLOCKED_GENERATED_LEVEL, 'only the chapter is listed');
+        assert.ok(opened.pageOverflow <= OVERFLOW_TOLERANCE_PX, 'the chapter strip does not widen the page');
+
+        await page.click('#levels-chapters [role="tab"]:first-child');
+        const firstCard = await page.textContent('#levels-grid .level-card .level-card-header');
+        assert.match(firstCard, /\b1\b/, 'the first chapter starts at level 1');
         assert.deepEqual(errors, []);
       } finally {
         await context.close();

@@ -341,6 +341,7 @@ export class UIManager {
       cancelAimBanner: document.getElementById('cancel-aim-banner'),
       modalLevels: document.getElementById('modal-levels'),
       levelsStarsSummary: document.getElementById('levels-stars-summary'),
+      levelsChapters: document.getElementById('levels-chapters'),
       levelsGrid: document.getElementById('levels-grid'),
       btnCloseLevels: document.getElementById('btn-close-levels'),
       btnPlayLevelModal: document.getElementById('btn-play-level-modal'),
@@ -395,6 +396,7 @@ export class UIManager {
     this.lastExtra = {};
     this.pendingConfirmCallback = null;
     this.activeShopTab = SHOP_TABS.UPGRADES;
+    this.levelsChapterIndex = 0;
     this.autoPausedByOverlay = false;
     this.lastFocusedElement = null;
     this.stackedModalOpener = null;
@@ -1913,12 +1915,7 @@ export class UIManager {
   }
 
   openLevelsModal() {
-    const unlocked = this.storageManager.getUnlockedLevel();
     const suggestedLevelId = this.getSuggestedLevelId();
-    let suggestedCard = null;
-    const stats = this.storageManager.getLevelStats();
-    const grid = this.elements.levelsGrid;
-    grid.innerHTML = '';
 
     if (this.elements.levelsStarsSummary) {
       const totalStars = this.storageManager.getTotalStars();
@@ -1929,7 +1926,160 @@ export class UIManager {
       });
     }
 
-    for (const lvl of this.engine.levelCatalog.list()) {
+    // The dialog opens on the chapter of the suggested level.
+    this.levelsChapterIndex = this.engine.levelCatalog.chapterIndexOf(suggestedLevelId);
+    this.renderLevelChapters();
+    const suggestedCard = this.renderLevelCards(suggestedLevelId);
+    const grid = this.elements.levelsGrid;
+
+    const playButton = this.elements.btnPlayLevelModal;
+    setTextIfChanged(
+      playButton,
+      t(this.isCampaignRunActive() ? 'modals.levelSelect.button.resume' : 'modals.levelSelect.button.play', {
+        level: suggestedLevelId
+      })
+    );
+    this.openOverlayModal(this.elements.modalLevels, playButton);
+    this.centerActiveChapter();
+    if (suggestedCard) {
+      // Only the grid scrolls: scrollIntoView would also move the dialog inside its backdrop.
+      const gridRect = grid.getBoundingClientRect();
+      const cardRect = suggestedCard.getBoundingClientRect();
+      grid.scrollTop += cardRect.top - gridRect.top - (gridRect.height - cardRect.height) * MATH_CONSTANTS.HALF;
+    }
+  }
+
+  /** Display name of a chapter of the level select. */
+  formatChapterName(chapter) {
+    if (chapter.isTutorial) {
+      return t('modals.levelSelect.chapters.tutorial');
+    }
+    return t('modals.levelSelect.chapters.numbered', {
+      chapter: chapter.index,
+      theme: t(`levels.generated.themes.${chapter.featuredMechanic}`)
+    });
+  }
+
+  /**
+   * Fills the chapter strip of the level select: one tab per chapter with the stars won in
+   * it. A chapter whose first level is still locked cannot be opened.
+   */
+  renderLevelChapters() {
+    const strip = this.elements.levelsChapters;
+    if (!strip) {
+      return;
+    }
+    const unlocked = this.storageManager.getUnlockedLevel();
+    const stats = this.storageManager.getLevelStats();
+    const maxStarsPerLevel = this.gameConfig.scoring.maxStars;
+    const chapters = this.engine.levelCatalog.listChapters();
+    const openable = chapters.filter((chapter) => chapter.firstId <= unlocked);
+    strip.innerHTML = '';
+
+    for (const chapter of chapters) {
+      const isLocked = chapter.firstId > unlocked;
+      const isActive = chapter.index === this.levelsChapterIndex;
+      let stars = 0;
+      for (let id = chapter.firstId; id <= chapter.lastId; id++) {
+        stars += Math.max(0, Math.min(maxStarsPerLevel, stats[id]?.stars || 0));
+      }
+      const maxStars = (chapter.lastId - chapter.firstId + 1) * maxStarsPerLevel;
+      const name = this.formatChapterName(chapter);
+
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = `level-chapter${isActive ? ' active' : ''}${isLocked ? ' locked' : ''}`;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', String(isActive));
+      tab.setAttribute('aria-controls', 'levels-grid');
+      tab.tabIndex = isActive ? 0 : -1;
+      if (isLocked) {
+        tab.setAttribute('aria-disabled', 'true');
+      }
+      tab.setAttribute(
+        'aria-label',
+        t(isLocked ? 'modals.levelSelect.chapters.ariaLocked' : 'modals.levelSelect.chapters.aria', {
+          name,
+          first: chapter.firstId,
+          last: chapter.lastId,
+          stars,
+          maxStars
+        })
+      );
+
+      const titleEl = document.createElement('span');
+      titleEl.className = 'level-chapter-title';
+      titleEl.textContent = name;
+      const starsEl = document.createElement('span');
+      starsEl.className = 'level-chapter-stars';
+      starsEl.textContent = isLocked
+        ? t('modals.levelSelect.chapters.locked')
+        : t('modals.levelSelect.chapters.stars', { stars, maxStars });
+      tab.append(titleEl, starsEl);
+
+      tab.addEventListener('click', () => this.selectLevelChapter(chapter.index));
+      tab.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') {
+          return;
+        }
+        e.preventDefault();
+        const position = openable.findIndex((entry) => entry.index === this.levelsChapterIndex);
+        const step = e.key === 'ArrowRight' ? 1 : -1;
+        const next = openable[(position + step + openable.length) % openable.length];
+        this.selectLevelChapter(next.index, { focus: true });
+      });
+      strip.appendChild(tab);
+    }
+  }
+
+  /** Scrolls the chapter strip, and only it, so the active chapter sits in the middle. */
+  centerActiveChapter() {
+    const strip = this.elements.levelsChapters;
+    const active = strip?.querySelector('.level-chapter.active');
+    if (!active) {
+      return;
+    }
+    const stripRect = strip.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    strip.scrollLeft += activeRect.left - stripRect.left - (stripRect.width - activeRect.width) * MATH_CONSTANTS.HALF;
+  }
+
+  /**
+   * Shows the levels of another chapter. A locked chapter is left closed.
+   * @param {number} index - Chapter index from the level catalog.
+   * @param {{focus?: boolean}} options - focus moves the keyboard focus to the new tab.
+   */
+  selectLevelChapter(index, { focus = false } = {}) {
+    const chapter = this.engine.levelCatalog.listChapters()[index];
+    if (!chapter || chapter.firstId > this.storageManager.getUnlockedLevel()) {
+      return;
+    }
+    this.levelsChapterIndex = index;
+    this.renderLevelChapters();
+    this.renderLevelCards(this.getSuggestedLevelId());
+    this.elements.levelsGrid.scrollTop = 0;
+    this.centerActiveChapter();
+    if (focus) {
+      this.elements.levelsChapters.querySelector('.level-chapter.active')?.focus();
+    }
+  }
+
+  /**
+   * Fills the level grid with the cards of the selected chapter.
+   * @param {number} suggestedLevelId - Level marked as the current one.
+   * @returns {HTMLElement|null} The card of the suggested level, when it is in the chapter.
+   */
+  renderLevelCards(suggestedLevelId) {
+    const catalog = this.engine.levelCatalog;
+    const chapter = catalog.listChapters()[this.levelsChapterIndex];
+    const unlocked = this.storageManager.getUnlockedLevel();
+    const stats = this.storageManager.getLevelStats();
+    const grid = this.elements.levelsGrid;
+    let suggestedCard = null;
+    grid.innerHTML = '';
+
+    for (let levelId = chapter.firstId; levelId <= chapter.lastId; levelId++) {
+      const lvl = catalog.summarize(levelId);
       const isUnlocked = lvl.id <= unlocked;
       const lvlStat = stats[lvl.id] || { bestScore: 0, stars: 0 };
 
@@ -2014,21 +2164,7 @@ export class UIManager {
       card.append(header, title, desc, footer);
       grid.appendChild(card);
     }
-
-    const playButton = this.elements.btnPlayLevelModal;
-    setTextIfChanged(
-      playButton,
-      t(this.isCampaignRunActive() ? 'modals.levelSelect.button.resume' : 'modals.levelSelect.button.play', {
-        level: suggestedLevelId
-      })
-    );
-    this.openOverlayModal(this.elements.modalLevels, playButton);
-    if (suggestedCard) {
-      // Only the grid scrolls: scrollIntoView would also move the dialog inside its backdrop.
-      const gridRect = grid.getBoundingClientRect();
-      const cardRect = suggestedCard.getBoundingClientRect();
-      grid.scrollTop += cardRect.top - gridRect.top - (gridRect.height - cardRect.height) * MATH_CONSTANTS.HALF;
-    }
+    return suggestedCard;
   }
 
   /** Fills the gauge from the last star earned toward the next one. */
