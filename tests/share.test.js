@@ -18,9 +18,15 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { WAVE_TYPES } from '../src/core/Constants.js';
+import { GAME_MODES, WAVE_TYPES } from '../src/core/Constants.js';
 import { i18n, formatNumber } from '../src/core/I18n.js';
-import { buildDailyShareText, getDailyChallengeNumber } from '../src/game/DailyShare.js';
+import {
+  buildDailyShareText,
+  buildShareText,
+  formatDailyCountdown,
+  getDailyChallengeNumber,
+  getMsUntilNextDaily
+} from '../src/game/DailyShare.js';
 
 const loadJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
@@ -87,4 +93,95 @@ test('A long run shows the capped symbol row and counts the waves left out', () 
 test('A run lost before any wave has no symbol row, and a run without a mutator still gets a header', () => {
   const lines = buildDailyShareText({ ...RUN, mutatorKey: null, wave: 1, waveLog: [] }, shareConfig).split('\n');
   assert.deepEqual(lines, [`FluxSpheres - Daily #${DAYS_AFTER_EPOCH + 1}`, 'Wave 1 - 48,300 pts', shareConfig.url]);
+});
+
+const SURVIVAL_RUN = Object.freeze({
+  mode: GAME_MODES.ENDLESS,
+  wave: 12,
+  score: 48300,
+  waveLog: [WAVE_TYPES.NORMAL, WAVE_TYPES.BOSS, WAVE_TYPES.GOLD_RUSH],
+  url: shareConfig.url
+});
+
+const FLUX_RUN = Object.freeze({
+  mode: GAME_MODES.FLUX,
+  stage: 7,
+  score: 125400,
+  url: shareConfig.url
+});
+
+const formatFrench = (value) => new Intl.NumberFormat('fr').format(value);
+
+test('The Daily mode of buildShareText gives the Daily Challenge text', () => {
+  const run = { ...RUN, mode: GAME_MODES.DAILY };
+  assert.equal(buildShareText(run, shareConfig), buildDailyShareText(run, shareConfig));
+});
+
+test('The English Survival text lists header, wave and score, one symbol per wave, then the address', () => {
+  useLocale('en');
+  const lines = buildShareText(SURVIVAL_RUN, shareConfig).split('\n');
+  const emoji = shareConfig.waveEmoji;
+  assert.deepEqual(lines, [
+    locales.en.share.survival.header,
+    `Wave ${SURVIVAL_RUN.wave} - ${formatNumber(SURVIVAL_RUN.score)} pts`,
+    [emoji[WAVE_TYPES.NORMAL], emoji[WAVE_TYPES.BOSS], emoji[WAVE_TYPES.GOLD_RUSH]].join(''),
+    shareConfig.url
+  ]);
+});
+
+test('The French Survival text uses French words and number grouping', () => {
+  useLocale('fr');
+  const lines = buildShareText(SURVIVAL_RUN, shareConfig).split('\n');
+  assert.equal(lines.length, 4);
+  assert.equal(lines[0], locales.fr.share.survival.header);
+  assert.equal(lines[1], `Vague ${SURVIVAL_RUN.wave} - ${formatFrench(SURVIVAL_RUN.score)} pts`);
+  assert.equal(lines.at(-1), shareConfig.url);
+});
+
+test('A Survival run lost before any wave has no symbol row', () => {
+  const lines = buildShareText({ ...SURVIVAL_RUN, wave: 1, waveLog: [] }, shareConfig).split('\n');
+  assert.deepEqual(lines, [locales.en.share.survival.header, 'Wave 1 - 48,300 pts', shareConfig.url]);
+  const withoutLog = buildShareText({ ...SURVIVAL_RUN, waveLog: undefined }, shareConfig).split('\n');
+  assert.equal(withoutLog.length, 3);
+});
+
+test('The Flux text holds the shape reached and never a symbol row', () => {
+  useLocale('en');
+  const lines = buildShareText({ ...FLUX_RUN, waveLog: SURVIVAL_RUN.waveLog }, shareConfig).split('\n');
+  assert.deepEqual(lines, [
+    locales.en.share.flux.header,
+    `Shape ${FLUX_RUN.stage} - ${formatNumber(FLUX_RUN.score)} pts`,
+    shareConfig.url
+  ]);
+  useLocale('fr');
+  const frenchLines = buildShareText(FLUX_RUN, shareConfig).split('\n');
+  assert.deepEqual(frenchLines, [
+    locales.fr.share.flux.header,
+    `Forme ${FLUX_RUN.stage} - ${formatFrench(FLUX_RUN.score)} pts`,
+    shareConfig.url
+  ]);
+});
+
+test('A mode without a shareable result throws a RangeError naming it', () => {
+  assert.throws(() => buildShareText({ ...SURVIVAL_RUN, mode: GAME_MODES.CAMPAIGN }, shareConfig), {
+    name: 'RangeError',
+    message: new RegExp(GAME_MODES.CAMPAIGN)
+  });
+  assert.throws(() => buildShareText({ ...SURVIVAL_RUN, mode: 'unknown' }, shareConfig), RangeError);
+});
+
+const MS_PER_MINUTE = 60 * 1000;
+
+test('The next Daily starts at the next UTC midnight, a full day away on the boundary itself', () => {
+  const halfHourMinutes = 30;
+  assert.equal(getMsUntilNextDaily(Date.UTC(2026, 9, 28, 23, 30)), halfHourMinutes * MS_PER_MINUTE);
+  assert.equal(getMsUntilNextDaily(Date.UTC(2026, 9, 29)), MS_PER_DAY);
+});
+
+test('The Daily countdown rounds up to the minute and reads zero only when no time remains', () => {
+  const ninetyMinutes = 90 * MS_PER_MINUTE;
+  assert.deepEqual(formatDailyCountdown(ninetyMinutes + 1), { hours: 1, minutes: 31 });
+  assert.deepEqual(formatDailyCountdown(1), { hours: 0, minutes: 1 });
+  assert.deepEqual(formatDailyCountdown(0), { hours: 0, minutes: 0 });
+  assert.deepEqual(formatDailyCountdown(MS_PER_DAY), { hours: 24, minutes: 0 });
 });
