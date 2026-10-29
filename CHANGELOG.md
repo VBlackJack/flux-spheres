@@ -4,6 +4,8 @@ All notable changes to **FluxSpheres** are documented in this file.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-29
+
 ### Added
 - **Share for Survival and Flux**: The game over window of a Survival or Flux run has the Share button the Daily Challenge had: a Survival result gives the wave, the score and one symbol per wave passed, a Flux result the shape reached and the score, then the game address; the system share sheet, the clipboard or a read-only field, as before (`buildShareText` in `src/game/DailyShare.js`, texts under `share.survival` and `share.flux`).
 - **Install Button**: When the browser offers to install the game (Android, Chrome on desktop), **Settings** shows an Install button that opens the browser's own prompt; on iPhone and iPad a line explains the Share, then Add to Home Screen path. The installed app is announced to screen readers.
