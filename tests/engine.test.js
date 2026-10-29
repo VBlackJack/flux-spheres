@@ -463,6 +463,35 @@ test('An anvil that crushes nothing breaks the combo and counts toward the next 
   assert.equal(engine.shotsUntilWave, wavesBefore - 1);
 });
 
+test('A Survival wave on a cleared board leaves no launcher color missing from the new board', () => {
+  const engine = createTestEngine();
+  engine.startEndlessMode();
+  const world = engine.physicsWorld;
+  world.balls.length = 0;
+  world.ballMap.clear();
+  // No wave can spawn this color, so the assertion below cannot pass by luck.
+  const staleColor = 'stale-test-color';
+  engine.currentBall.specialType = null;
+  engine.currentBall.colorId = staleColor;
+  engine.nextBall.specialType = null;
+  engine.nextBall.colorId = staleColor;
+  engine.upcomingColorIds = engine.upcomingColorIds.map(() => staleColor);
+  assert.ok(engine.upcomingColorIds.length > 0, 'the upcoming queue is part of the check');
+  engine.freezeTurnsRemaining = 0;
+  engine.shotsUntilWave = 1;
+  const wavesBefore = engine.waveCount;
+
+  engine.handlePostTurnCleanup(false);
+
+  assert.equal(engine.waveCount, wavesBefore + 1, 'the cleanup spawned a wave');
+  assert.ok(world.balls.length > 0, 'the wave refilled the board');
+  const boardColors = new Set(world.balls.map((b) => b.colorId).filter(Boolean));
+  const launcherColors = [engine.currentBall.colorId, engine.nextBall.colorId, ...engine.upcomingColorIds];
+  for (const color of launcherColors) {
+    assert.ok(boardColors.has(color), `launcher color ${color} must be on the board`);
+  }
+});
+
 test('Coins earned while a shot is in flight are written only once the run is saved again', () => {
   const engine = createTestEngine();
   engine.startCampaignLevel(1);

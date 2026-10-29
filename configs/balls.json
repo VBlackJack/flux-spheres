@@ -186,7 +186,8 @@
       "badge": "👑",
       "coinReward": 35,
       "pointsBonus": 600,
-      "shockwaveRadius": 135
+      "shockwaveRadius": 135,
+      "crackShockwaveRadius": 67.5
     },
     "laserLock": {
       "id": "laserLock",

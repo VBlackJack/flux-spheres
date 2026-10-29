@@ -159,6 +159,41 @@ test('A level teaching a modifier sets its exact count: a minimum and no random 
   }
 });
 
+test('A generated level spec lists its neutral anchors and rails', () => {
+  const railHalfWidth = 40;
+  const levelDef = {
+    spec: {
+      balls: [
+        { isNeutral: true, railHalfWidth: 0 },
+        { isNeutral: false, railHalfWidth }
+      ]
+    }
+  };
+  const guaranteed = listLevelMechanics(levelDef, { guaranteedOnly: true });
+  assert.ok(guaranteed.has(CLUSTER_MODIFIERS.NEUTRAL_ANCHOR), 'a neutral spec ball is a neutral anchor');
+  assert.ok(guaranteed.has(BOARD_MECHANICS.RAIL), 'a spec ball with a rail width is a rail');
+});
+
+test('A real generated level with a neutral ball guarantees the neutral anchor hint', () => {
+  const catalog = createTestEngine().levelCatalog;
+  let generated = null;
+  for (let id = catalog.firstId; id <= catalog.lastId && !generated; id++) {
+    if (!catalog.isGenerated(id)) {
+      continue;
+    }
+    const levelDef = catalog.get(id);
+    if (levelDef.spec?.balls?.some((ball) => ball.isNeutral)) {
+      generated = levelDef;
+    }
+  }
+  assert.ok(generated, 'the catalog holds a generated level with a neutral ball');
+  assert.ok(!generated.layout, 'the level carries a spec, not an authored layout');
+  const withoutSpec = listLevelMechanics({ ...generated, spec: undefined }, { guaranteedOnly: true });
+  assert.ok(!withoutSpec.has(CLUSTER_MODIFIERS.NEUTRAL_ANCHOR), 'only the spec can list the neutral anchor here');
+  const guaranteed = listLevelMechanics(generated, { guaranteedOnly: true });
+  assert.ok(guaranteed.has(CLUSTER_MODIFIERS.NEUTRAL_ANCHOR), `level ${generated.id} lists its neutral anchors`);
+});
+
 test('Level 1 shows only the basics: no obstacle, modifier or special ball, few colors', () => {
   const first = levels[0];
   assert.deepEqual([...listLevelMechanics(first)], [BOARD_MECHANICS.BASICS]);

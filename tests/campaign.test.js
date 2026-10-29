@@ -131,6 +131,22 @@ test('Every generated level is calibrated for the board it is', () => {
   assert.deepEqual(stale, [], `levels whose board changed since their calibration, ${rerun}`);
 });
 
+test('The calibration header matches the settings it was measured with', () => {
+  // The fingerprints only cover the boards: changing how many games are played or the
+  // win-rate floors in campaign.json invalidates every measure without changing one.
+  const { calibration } = generated;
+  const expected = {
+    runs: calibration.runs,
+    minWinRate: calibration.minWinRate,
+    minArsenalWinRate: calibration.minArsenalWinRate
+  };
+  assert.deepEqual(
+    campaignTuning.calibration,
+    expected,
+    `the calibration settings changed since the last measure, measure again with ${CALIBRATION_COMMAND}`
+  );
+});
+
 test('A calibration sets the level seed variant, extra shots and star thresholds', () => {
   const id = AUTHORED_COUNT + 1;
   const plain = createCatalog({ levels: {} }).get(id);

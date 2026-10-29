@@ -50,8 +50,13 @@ export function listBoardMechanics(balls, obstacles) {
 }
 
 /**
- * Mechanics a campaign level can show.
- * @param {Object} levelDef - Level definition from configs/levels.json.
+ * Mechanics a campaign level can show. An authored level describes its neutral anchors and
+ * rails in `layout.anchors`; a generated level carries a ready layout spec instead, whose
+ * balls flag them with `isNeutral` and `railHalfWidth` (see GameEngine.materializeLayout).
+ * Both are read, so a generated level's neutral anchors and rails count as guaranteed and
+ * order its first-encounter hints like an authored level's.
+ * @param {Object} levelDef - Level definition from configs/levels.json, or a generated one
+ *   from the LevelCatalog.
  * @param {{guaranteedOnly?: boolean}} [options] - With guaranteedOnly, leaves out the
  *   modifiers that only have a weight, since a weighted roll may never land.
  * @returns {Set<string>} Mechanic ids.
@@ -66,6 +71,14 @@ export function listLevelMechanics(levelDef, { guaranteedOnly = false } = {}) {
       present.add(CLUSTER_MODIFIERS.NEUTRAL_ANCHOR);
     }
     if (anchor.rail > 0) {
+      present.add(BOARD_MECHANICS.RAIL);
+    }
+  }
+  for (const ballSpec of levelDef.spec?.balls || []) {
+    if (ballSpec.isNeutral) {
+      present.add(CLUSTER_MODIFIERS.NEUTRAL_ANCHOR);
+    }
+    if (ballSpec.railHalfWidth > 0) {
       present.add(BOARD_MECHANICS.RAIL);
     }
   }
