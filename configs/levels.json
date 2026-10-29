@@ -1182,7 +1182,7 @@
       "nameKey": "levels.items.lvl24.name",
       "descriptionKey": "levels.items.lvl24.description",
       "tutorialKey": "gameplay.tutorial.rust",
-      "starThresholds": [0, 14200, 22500],
+      "starThresholds": [0, 9600, 15300],
       "maxShots": 44,
       "paletteCount": 5,
       "specialInventory": {
