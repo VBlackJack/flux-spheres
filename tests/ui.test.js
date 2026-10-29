@@ -465,3 +465,110 @@ test('the star gauge runs from the last star earned to the next one', () => {
   assert.equal(computeStarProgressPct(3000, thresholds, 4000), 50);
   assert.equal(computeStarProgressPct(5000, thresholds, undefined), 100, 'all stars: full gauge');
 });
+
+const uiManagerSource = readFileSync('./src/ui/UIManager.js', 'utf8');
+const uiManagerCode = uiManagerSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+/** Custom property declarations of a CSS block, as a name -> value map. */
+function cssDeclarations(block) {
+  const declarations = new Map();
+  for (const match of block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+    declarations.set(match[1], match[2].trim());
+  }
+  return declarations;
+}
+
+/** Numeric value of a CSS length written in px, e.g. "5px" -> 5. */
+const pxValue = (text) => Number.parseFloat(String(text).trim().replace(/px$/, ''));
+
+test('the HUD stars are read as a count, not as glyphs', () => {
+  const progress = elementMarkup(indexHtml, 'hud-star-progress');
+  assert.match(progress, /<span id="hud-star-glyphs"[^>]*aria-hidden="true"/);
+  assert.match(progress, /<span id="hud-star-count" class="visually-hidden"><\/span>/);
+  assert.match(uiManagerCode, /starCount:\s*document\.getElementById\('hud-star-count'\)/);
+  assert.match(uiManagerCode, /this\.elements\.starCount,\s*t\('hud\.stats\.score\.starsAria'/);
+  for (const lang of SUPPORTED) {
+    const score = loadJson(`./locales/${lang}.json`).hud.stats.score;
+    assert.deepEqual(placeholdersOf(score.starsAria), ['maxStars', 'stars']);
+  }
+});
+
+test('the level grid is labelled by the active chapter tab', () => {
+  assert.match(uiManagerCode, /tab\.id = `\$\{LEVEL_CHAPTER_TAB_ID_PREFIX\}\$\{chapter\.index\}`/);
+  assert.match(
+    uiManagerCode,
+    /this\.elements\.levelsGrid,\s*'aria-labelledby',\s*`\$\{LEVEL_CHAPTER_TAB_ID_PREFIX\}\$\{this\.levelsChapterIndex\}`/
+  );
+  assert.match(uiManagerCode, /const LEVEL_CHAPTER_TAB_ID_PREFIX = 'levels-chapter-tab-';/);
+});
+
+test('a cleared Flux stage is announced once, not again on a refresh with the last extras', () => {
+  assert.match(uiManagerCode, /const \{[^}]*\bunlockedAchievementId\b[^}]*\bfluxStageCleared\b[^}]*\.\.\.persistentExtra \} = extra;/);
+  assert.doesNotMatch(uiManagerCode, /extra\.fluxStageCleared/);
+});
+
+test('UIManager keeps its numbers and icon gradient in named constants', () => {
+  const bareHundreds = uiManagerCode.split('\n').filter((line) => /\b100\b/.test(line));
+  assert.deepEqual(bareHundreds.map((line) => line.trim()), ['const FULL_PERCENT = 100;']);
+  assert.equal(uiManagerCode.split('radial-gradient(').length - 1, 1, 'one icon gradient builder');
+  assert.match(uiManagerCode, /radial-gradient\(circle at \$\{SPECIAL_ICON_HIGHLIGHT_POSITION\}/);
+  assert.match(
+    uiManagerCode,
+    /t\('modals\.levelSelect\.starsTotal', \{\s*stars: formatNumber\(totalStars\),\s*maxStars: formatNumber\(maxCampaignStars\)/
+  );
+});
+
+test('forced colors keep the star gauge visible', () => {
+  const forcedBlock = cssBlock(mainCss, '@media (forced-colors: active)');
+  assert.match(forcedBlock, /\.star-meter-fill\s*[,{][^}]*background:\s*Highlight/);
+  assert.match(forcedBlock, /\.overcharge-fill\s*[,{][^}]*background:\s*Highlight/);
+});
+
+/** Opacity under which the empty special ball name drops below the targeted contrast. */
+const MIN_EMPTY_POWERUP_NAME_OPACITY = 0.55;
+
+test('an empty special ball keeps a readable name', () => {
+  const nameRule = cssBlock(mainCss, '.powerup-btn.is-empty .powerup-name {');
+  const opacity = Number.parseFloat(nameRule.match(/opacity:\s*([\d.]+)/)[1]);
+  assert.ok(opacity >= MIN_EMPTY_POWERUP_NAME_OPACITY, `name opacity ${opacity}`);
+  assert.match(cssBlock(mainCss, '.powerup-btn.is-empty .powerup-icon {'), /opacity:\s*0\.45/);
+});
+
+test('the scroll containers of the level select leave room for the whole focus ring', () => {
+  const focusRule = mainCss.match(/(?:^|\n):focus-visible\s*\{([^}]*)\}/)[1];
+  const outlineWidth = pxValue(focusRule.match(/outline:\s*([\d.]+px)/)[1]);
+  const outlineOffset = pxValue(focusRule.match(/outline-offset:\s*([\d.]+px)/)[1]);
+  const ring = outlineWidth + outlineOffset;
+  const grid = cssBlock(mainCss, '.levels-grid {').match(/padding:\s*([^;]+);/)[1].split(/\s+/).map(pxValue);
+  assert.ok(grid.every((side) => side >= ring), `.levels-grid padding ${grid} under ${ring}px`);
+  const chapters = cssBlock(mainCss, '.level-chapters {').match(/padding:\s*([^;]+);/)[1].split(/\s+/).map(pxValue);
+  assert.ok(chapters.every((side) => side >= ring), `.level-chapters padding ${chapters} under ${ring}px`);
+});
+
+test('every custom property defined in main.css is used somewhere', () => {
+  const rawCss = readFileSync('./styles/main.css', 'utf8');
+  const consumers = [
+    rawCss,
+    uiManagerSource,
+    readFileSync('./src/game/Renderer.js', 'utf8'),
+    indexHtml
+  ].join('\n');
+  const defined = new Set([...mainCss.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
+  assert.ok(defined.size > 0, 'the scan must find definitions');
+  // Names hold only word characters and hyphens, so they need no escaping in a pattern.
+  const unused = [...defined].filter((name) => !new RegExp(`var\\(${name}\\s*[,)]`).test(consumers));
+  assert.deepEqual(unused, []);
+});
+
+test('the in-app and the system high contrast themes declare the same tokens', () => {
+  const classTokens = cssDeclarations(cssBlock(mainCss, `:root.${HIGH_CONTRAST_CLASS} {`));
+  const preferenceTokens = cssDeclarations(cssBlock(mainCss, '@media (prefers-contrast: more)'));
+  assert.ok(classTokens.size > 0, 'the scan must find declarations');
+  assert.deepEqual([...preferenceTokens].sort(), [...classTokens].sort());
+});
+
+test('the drawer duration is written once', () => {
+  assert.match(mainCss, /--drawer-duration:\s*0\.22s;/);
+  assert.equal(mainCss.split('0.22s').length - 1, 1, 'only the --drawer-duration definition holds 0.22s');
+  assert.match(mainCss, /visibility 0s linear var\(--drawer-duration\)/);
+});

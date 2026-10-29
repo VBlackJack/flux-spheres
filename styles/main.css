@@ -26,7 +26,6 @@
   --accent-danger: #ef4444;
   --accent-emerald: #10b981;
   /* Solid button fills darkened so white labels reach at least 4.5:1. */
-  --accent-purple-solid: #9333ea;
   --accent-danger-solid: #dc2626;
   --focus-ring: var(--text-gold-soft);
   /* Shared neutrals: surfaces, borders and text shades used across components. */
@@ -52,14 +51,11 @@
   --accent-amber-alpha-20: rgba(245, 158, 11, 0.2);
   --accent-amber-alpha-45: rgba(245, 158, 11, 0.45);
   --accent-blue-alpha-14: rgba(56, 189, 248, 0.14);
-  --accent-blue-alpha-18: rgba(56, 189, 248, 0.18);
   --accent-blue-alpha-22: rgba(56, 189, 248, 0.22);
-  --accent-blue-alpha-34: rgba(56, 189, 248, 0.34);
   --accent-blue-alpha-35: rgba(56, 189, 248, 0.35);
   --accent-blue-alpha-45: rgba(56, 189, 248, 0.45);
   --accent-blue-alpha-55: rgba(56, 189, 248, 0.55);
   --accent-danger-alpha-22: rgba(239, 68, 68, 0.22);
-  --accent-purple-alpha-20: rgba(168, 85, 247, 0.2);
   --accent-purple-alpha-38: rgba(168, 85, 247, 0.38);
   --accent-purple-alpha-45: rgba(168, 85, 247, 0.45);
   --bg-dark-alpha-62: rgba(7, 11, 20, 0.62);
@@ -221,11 +217,6 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-}
-
-/* In the two-column mode grids (phones), an odd last button spans the full row. */
-.nav-modes .nav-btn:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
 }
 
 .nav-actions {
@@ -746,9 +737,13 @@ body {
 }
 
 /* Empty stock: the ball fades, and the count turns into a gold "+" that opens the Workshop. */
-.powerup-btn.is-empty .powerup-icon,
-.powerup-btn.is-empty .powerup-name {
+.powerup-btn.is-empty .powerup-icon {
   opacity: 0.45;
+}
+
+/* The name is text, so it fades less: 0.55 keeps it near 5.3:1 on the raised surface (0.45 gave 4.0:1). */
+.powerup-btn.is-empty .powerup-name {
+  opacity: 0.55;
 }
 
 .powerup-btn.is-empty .powerup-count {
@@ -971,7 +966,8 @@ body {
   gap: 12px;
   max-height: 380px;
   overflow-y: auto;
-  padding: 4px;
+  /* At least the focus outline plus its offset (3px + 2px), so the ring is not clipped. */
+  padding: 5px;
 }
 
 /* One tab per chapter; the strip scrolls sideways on its own, never the page. */
@@ -981,7 +977,8 @@ body {
   gap: 8px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  padding: 4px 4px 8px;
+  /* Top and sides hold the focus outline plus its offset (3px + 2px); the bottom also clears the scrollbar. */
+  padding: 5px 5px 8px;
   scrollbar-width: thin;
 }
 
@@ -1298,12 +1295,6 @@ body {
   border-color: var(--accent-blue);
 }
 
-.modal-btn.accent {
-  background: var(--accent-purple-solid);
-  color: var(--text-bright);
-  border-color: var(--accent-purple-solid);
-}
-
 .modal-btn.danger {
   background: var(--accent-danger-solid);
   color: var(--text-bright);
@@ -1520,7 +1511,8 @@ body {
       var(--control-row-height) + var(--overcharge-row-height) + 2 * var(--stage-column-gap) + var(--canvas-border)
     );
     --drawer-width: min(320px, 86vw);
-    --drawer-transition: 0.22s ease;
+    --drawer-duration: 0.22s;
+    --drawer-transition: var(--drawer-duration) ease;
   }
 
   /* The hint sits where the thumb aims: it steps aside while the finger is down. */
@@ -1554,7 +1546,7 @@ body {
     overscroll-behavior: contain;
     transform: translateX(-100%);
     visibility: hidden;
-    transition: transform var(--drawer-transition), visibility 0s linear 0.22s;
+    transition: transform var(--drawer-transition), visibility 0s linear var(--drawer-duration);
   }
   .app-shell.drawer-open .top-bar {
     transform: none;
@@ -2142,7 +2134,6 @@ body {
   --accent-amber: #fcd34d;
   --accent-danger: #fca5a5;
   --accent-emerald: #6ee7b7;
-  --accent-purple-solid: #7e22ce;
   --accent-danger-solid: #b91c1c;
   --focus-ring: #facc15;
   --surface-raised: #0b1120;
@@ -2183,7 +2174,6 @@ body {
     --accent-amber: #fcd34d;
     --accent-danger: #fca5a5;
     --accent-emerald: #6ee7b7;
-    --accent-purple-solid: #7e22ce;
     --accent-danger-solid: #b91c1c;
     --focus-ring: #facc15;
     --surface-raised: #0b1120;
@@ -2246,7 +2236,8 @@ body {
     background: none;
     -webkit-text-fill-color: CanvasText;
   }
-  .overcharge-fill {
+  .overcharge-fill,
+  .star-meter-fill {
     background: Highlight;
   }
 }

@@ -350,10 +350,71 @@ test('AudioManager caps simultaneous voices and routes them through a limiter', 
     assert.equal(ctx.oscillatorsCreated, audioConfig.maxVoices);
     assert.equal(ctx.compressor.connectedTo, ctx.destination, 'limiter must feed the destination');
 
+    const timers = stubAudioTimers(audio);
     audio.setMuted(true);
-    assert.equal(ctx.state, 'suspended', 'muting suspends the context');
+    assert.equal(ctx.state, 'running', 'the context keeps running while the mute fade plays');
+    assert.equal(timers.pending.size, 1, 'muting with voices schedules one deferred suspend');
+    const [scheduled] = timers.pending.values();
+    const msPerSecond = 1000;
+    assert.equal(scheduled.ms, audioConfig.stopRampSec * msPerSecond, 'the suspend waits for the whole fade');
+    timers.runAll();
+    assert.equal(ctx.state, 'suspended', 'muting suspends the context once the fade has ended');
     audio.setMuted(false);
     assert.equal(ctx.state, 'running', 'unmuting resumes the context');
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+/**
+ * Replaces the audio timer pair with a synchronous queue, so a test decides when the
+ * deferred mute suspend runs instead of waiting on a real timeout.
+ */
+function stubAudioTimers(audio) {
+  const pending = new Map();
+  let nextId = 1;
+  audio.timers = {
+    set(fn, ms) {
+      const id = nextId++;
+      pending.set(id, { fn, ms });
+      return id;
+    },
+    clear(id) {
+      pending.delete(id);
+    }
+  };
+  return {
+    pending,
+    runAll() {
+      for (const [id, entry] of [...pending]) {
+        pending.delete(id);
+        entry.fn();
+      }
+    }
+  };
+}
+
+test('AudioManager suspends at once with no voice playing, and unmuting cancels a pending suspend', () => {
+  globalThis.window = { AudioContext: StubAudioContext };
+  try {
+    const audio = new AudioManager();
+    audio.init(false, false);
+    const timers = stubAudioTimers(audio);
+    audio.ensureContext();
+    const ctx = StubAudioContext.last;
+    assert.equal(audio.getActiveVoiceCount(), 0);
+    audio.setMuted(true);
+    assert.equal(ctx.state, 'suspended', 'with nothing to fade, muting suspends immediately');
+    assert.equal(timers.pending.size, 0, 'no deferred suspend is scheduled without a voice');
+
+    audio.setMuted(false);
+    audio.playTone('sine', 440, 220, 1);
+    audio.setMuted(true);
+    assert.equal(timers.pending.size, 1, 'muting a playing voice defers the suspend');
+    audio.setMuted(false);
+    assert.equal(timers.pending.size, 0, 'unmuting during the fade clears the pending suspend');
+    assert.equal(audio.pendingSuspend, null);
+    assert.equal(ctx.state, 'running', 'the context stays running after unmuting mid-fade');
   } finally {
     delete globalThis.window;
   }
@@ -531,4 +592,21 @@ test('A device pixel ratio change invalidates the backing store and re-arms the 
   } finally {
     delete globalThis.window;
   }
+});
+
+test('The Boss Core crack shockwave and the singularity pull wave read their own tuning keys', () => {
+  // Both keys replaced a base value halved in code; they must keep exactly that value.
+  const halfFactor = 0.5;
+  const bossSpec = ballsConfig.clusterModifiers.bossCore;
+  const obsDefaults = obstaclesConfig.defaults;
+  for (const value of [bossSpec.crackShockwaveRadius, obsDefaults.pullWaveAlpha]) {
+    assert.ok(Number.isFinite(value) && value > 0, `${value} must be a finite positive number`);
+  }
+  assert.equal(bossSpec.crackShockwaveRadius, bossSpec.shockwaveRadius * halfFactor);
+  assert.equal(obsDefaults.pullWaveAlpha, obsDefaults.fieldWaveAlpha * halfFactor);
+
+  const engineSource = fs.readFileSync('./src/game/GameEngine.js', 'utf8');
+  const rendererSource = fs.readFileSync('./src/game/Renderer.js', 'utf8');
+  assert.ok(!engineSource.includes('shockwaveRadius * MATH_CONSTANTS.HALF'), 'the crack radius is no longer halved in code');
+  assert.ok(!rendererSource.includes('fieldWaveAlpha * MATH_CONSTANTS.HALF'), 'the pull wave alpha is no longer halved in code');
 });

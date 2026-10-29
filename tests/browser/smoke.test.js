@@ -122,7 +122,27 @@ async function captureEngine(page) {
       return original.apply(this, args);
     };
   });
-  await page.waitForFunction(() => Boolean(window.__fluxEngine));
+  try {
+    await page.waitForFunction(() => Boolean(window.__fluxEngine));
+  } catch (err) {
+    const state = await page.evaluate(async () => {
+      const frames = await new Promise((resolve) => {
+        let count = 0;
+        const tick = () => { count += 1; if (count < 3) { requestAnimationFrame(tick); } };
+        requestAnimationFrame(tick);
+        setTimeout(() => resolve(count), 1000);
+      });
+      const banner = document.getElementById('bootstrap-error');
+      return {
+        visibility: document.visibilityState,
+        readyState: document.readyState,
+        bootstrapError: Boolean(banner) && !banner.classList.contains('hidden'),
+        framesInOneSecond: frames
+      };
+    });
+    err.message += ' | engine hook diagnostics: ' + JSON.stringify(state);
+    throw err;
+  }
 }
 
 const engineState = (page) => page.evaluate(() => window.__fluxEngine.state);
@@ -254,6 +274,9 @@ for (const viewport of VIEWPORTS) {
       try {
         for (const { levelId, showsSpecials } of LEVELS_WITHOUT_AND_WITH_SPECIALS) {
           await startLevel(page, levelId);
+          // The star glyphs are hidden from screen readers; the hidden count speaks for them.
+          const starCount = await page.evaluate(() => document.querySelector('#hud-star-count').textContent.trim());
+          assert.match(starCount, /\d/, `level ${levelId} states its star count`);
           // The bar itself is display: contents on portrait phones, so check one of its buttons.
           assert.equal(await isShown(page, '#powerups-bar .powerup-btn'), showsSpecials, `level ${levelId} special ball slots`);
           if (showsSpecials || EMPTY_SPECIALS_NOTE_VIEWPORTS.has(viewport.name)) {
@@ -334,6 +357,15 @@ for (const viewport of VIEWPORTS) {
         await captureEngine(page);
         await clickMenuButton(page, viewport, '#btn-levels');
         await waitShown(page, '#modal-levels');
+        /** The grid's label reference and the id of the active chapter tab. */
+        const gridLabel = () =>
+          page.evaluate(() => ({
+            labelledBy: document.querySelector('#levels-grid').getAttribute('aria-labelledby'),
+            activeId: document.querySelector('#levels-chapters .level-chapter.active')?.id
+          }));
+        const openedLabel = await gridLabel();
+        assert.ok(openedLabel.activeId, 'the active chapter tab has an id');
+        assert.equal(openedLabel.labelledBy, openedLabel.activeId, 'the grid is labelled by the active chapter');
         const opened = await page.evaluate(() => ({
           activeTabs: document.querySelectorAll('#levels-chapters [role="tab"][aria-selected="true"]').length,
           currentCard: document.querySelector('#levels-grid .level-card.current .level-card-header')?.textContent || '',
@@ -348,6 +380,9 @@ for (const viewport of VIEWPORTS) {
         await page.click('#levels-chapters [role="tab"]:first-child');
         const firstCard = await page.textContent('#levels-grid .level-card .level-card-header');
         assert.match(firstCard, /\b1\b/, 'the first chapter starts at level 1');
+        const switchedLabel = await gridLabel();
+        assert.notEqual(switchedLabel.activeId, openedLabel.activeId, 'another chapter is active');
+        assert.equal(switchedLabel.labelledBy, switchedLabel.activeId, 'the grid follows the active chapter');
         assert.deepEqual(errors, []);
       } finally {
         await context.close();

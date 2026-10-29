@@ -1741,7 +1741,7 @@ export class GameEngine {
         bossSpec.crackBurstCount,
         bossSpec.crackBurstSpeed
       );
-      this.particleSystem.spawnShockwave(ball.x, ball.y, bossSpec.ringColor, bossSpec.shockwaveRadius * MATH_CONSTANTS.HALF);
+      this.particleSystem.spawnShockwave(ball.x, ball.y, bossSpec.ringColor, bossSpec.crackShockwaveRadius);
       this.particleSystem.spawnFloatingText(
         ball.x,
         ball.y + canvasCfg.floatingTextOffsetY,
@@ -2201,6 +2201,10 @@ export class GameEngine {
       this.shotsUntilWave--;
       if (this.shotsUntilWave <= 0) {
         this.spawnEndlessWave();
+        // A wave on a cleared board brings colors back that the first refresh could not
+        // compare against. On a non-empty board the wave only adds balls, so every launcher
+        // color is still present and this second pass draws nothing from the seeded random.
+        this.refreshStaleLauncherColors();
         this.shotsUntilWave = this.gameConfig.endless.shotsBeforeWave;
       }
     }

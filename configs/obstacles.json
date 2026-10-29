@@ -25,6 +25,7 @@
     "triggerRadiusFactor": 0.5,
     "fieldWaveSpeed": 0.04,
     "fieldWaveAlpha": 0.35,
+    "pullWaveAlpha": 0.175,
     "fieldWaveMinRadius": 4,
     "bumperPulseScale": 0.25,
     "bumperCoreRadiusFactor": 0.48,
