@@ -20,14 +20,13 @@ import {
   GAME_STATES,
   INPUT_MODES,
   MATH_CONSTANTS,
-  SPECIAL_TYPES,
   SPECIAL_TYPES_ORDER,
   OBSTACLE_TYPES_ORDER
 } from '../core/Constants.js';
 import { i18n, t, formatNumber } from '../core/I18n.js';
 import { SeededRandom } from '../core/SeededRandom.js';
 import { resolveHintText } from '../game/Discovery.js';
-import { buildDailyShareText } from '../game/DailyShare.js';
+import { buildShareText, formatDailyCountdown, getMsUntilNextDaily } from '../game/DailyShare.js';
 import { decodeGeneratedShapeId, isGeneratedShapeId } from '../game/layouts/ShapeGenerator.js';
 import { LEVEL_FORMATS } from '../game/LevelCatalog.js';
 
@@ -40,6 +39,24 @@ const NON_INTERACTIVE_ANCESTOR_SELECTOR = '.hidden, [hidden], [inert]';
 
 /** Error name of a share sheet the player dismissed: not a failure, nothing to report. */
 const SHARE_ABORT_ERROR_NAME = 'AbortError';
+
+/**
+ * Media query matched once the game runs as an installed app, so the Settings install
+ * entry has nothing left to offer.
+ */
+const STANDALONE_DISPLAY_QUERY = '(display-mode: standalone)';
+
+/**
+ * True in Safari on iPhone and iPad outside the installed app. Only that browser exposes
+ * `navigator.standalone`, and it never fires `beforeinstallprompt`, so the install entry
+ * there is a hint naming the manual steps instead of a button.
+ * @param {object|undefined} nav - The navigator object.
+ * @param {boolean} matchesStandalone - Whether the standalone display mode query matches.
+ * @returns {boolean}
+ */
+export function isIosBrowserTab(nav, matchesStandalone) {
+  return Boolean(nav) && nav.standalone === false && !matchesStandalone;
+}
 
 /** Root class mirroring the in-app reduced motion setting for CSS. */
 export const REDUCED_MOTION_CLASS = 'reduced-motion';
@@ -171,6 +188,29 @@ export function canOpenDrawer({ isOpen, isDrawerLayout, isModalOpen, isVictoryCe
 
 /** Generated level formats whose name and description say what sets them apart. */
 const LABELLED_LEVEL_FORMATS = new Set([LEVEL_FORMATS.TWIST, LEVEL_FORMATS.PRECISION, LEVEL_FORMATS.ARSENAL]);
+
+/** What the victory window's main button does: play the next level, or open the level select. */
+export const VICTORY_NEXT_ACTIONS = Object.freeze({
+  NEXT_LEVEL: 'nextLevel',
+  LEVEL_SELECT: 'levelSelect'
+});
+
+/** Label of the victory window's main button, per action. */
+export const VICTORY_NEXT_LABEL_KEYS = Object.freeze({
+  [VICTORY_NEXT_ACTIONS.NEXT_LEVEL]: 'modals.victory.button.nextLevel',
+  [VICTORY_NEXT_ACTIONS.LEVEL_SELECT]: 'modals.victory.button.backToLevels'
+});
+
+/**
+ * What the victory window's main button does once a campaign level is won: the next level
+ * when there is one, else the level select. A campaign victory never starts Survival.
+ * @param {number} currentLevelId - The level just won.
+ * @param {{has: (levelId: number) => boolean}} levelCatalog - The campaign's levels.
+ * @returns {string} One of VICTORY_NEXT_ACTIONS.
+ */
+export function resolveVictoryNextAction(currentLevelId, levelCatalog) {
+  return levelCatalog.has(currentLevelId + 1) ? VICTORY_NEXT_ACTIONS.NEXT_LEVEL : VICTORY_NEXT_ACTIONS.LEVEL_SELECT;
+}
 
 /** i18n key of the defeat explanation; an unknown reason reads as a crossed line. */
 export function gameOverReasonKey(reason) {
@@ -315,6 +355,7 @@ export class UIManager {
       frozenBadge: document.getElementById('hud-frozen-badge'),
       powerupsContainer: document.getElementById('powerups-bar'),
       powerupsHeader: document.getElementById('powerups-header'),
+      powerupsEmpty: document.getElementById('powerups-empty'),
       btnLevels: document.getElementById('btn-levels'),
       btnEndless: document.getElementById('btn-endless'),
       btnDaily: document.getElementById('btn-daily'),
@@ -378,6 +419,7 @@ export class UIManager {
       gameOverScore: document.getElementById('gameover-score'),
       gameOverBest: document.getElementById('gameover-best'),
       gameOverStage: document.getElementById('gameover-stage'),
+      gameOverDailyNext: document.getElementById('gameover-daily-next'),
       btnRetry: document.getElementById('btn-retry'),
       btnLevelsGameOver: document.getElementById('btn-levels-gameover'),
       btnShareGameOver: document.getElementById('btn-share-gameover'),
@@ -396,6 +438,8 @@ export class UIManager {
       btnSettings: document.getElementById('btn-settings'),
       modalSettings: document.getElementById('modal-settings'),
       btnCloseSettings: document.getElementById('btn-close-settings'),
+      btnInstall: document.getElementById('btn-install'),
+      installIosHint: document.getElementById('install-ios-hint'),
       modalConfirm: document.getElementById('modal-confirm'),
       btnConfirmYes: document.getElementById('btn-confirm-yes'),
       btnConfirmNo: document.getElementById('btn-confirm-no'),
@@ -406,7 +450,11 @@ export class UIManager {
     this.isAnnouncementScheduled = false;
     this.lastExtra = {};
     this.pendingConfirmCallback = null;
+    this.confirmPausedRun = false;
+    this.isSharing = false;
     this.activeShopTab = SHOP_TABS.UPGRADES;
+    // The deferred install prompt, kept until the player asks for it from Settings.
+    this.installPromptEvent = null;
     this.levelsChapterIndex = 0;
     this.autoPausedByOverlay = false;
     this.lastFocusedElement = null;
@@ -499,6 +547,8 @@ export class UIManager {
     this.setupTiltControl();
     this.updateMotionButton();
     this.updateLanguageButton();
+    this.bindInstallEvents();
+    this.syncInstallControls();
 
     i18n.onChange(() => {
       this.updateInputHints();
@@ -511,6 +561,60 @@ export class UIManager {
       this.updateLanguageButton();
       this.refresh(this.engine, this.lastExtra);
     });
+  }
+
+  /**
+   * Keeps the browser's install prompt for the Settings button instead of letting the
+   * browser show it at a moment the player did not choose.
+   */
+  bindInstallEvents() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.installPromptEvent = e;
+      this.syncInstallControls();
+    });
+    window.addEventListener('appinstalled', () => {
+      this.installPromptEvent = null;
+      this.syncInstallControls();
+      this.announce(t('modals.settings.install.installedAnnounce'));
+    });
+    this.elements.btnInstall?.addEventListener('click', () => {
+      this.promptInstall();
+    });
+  }
+
+  /** Shows the stored install prompt once: the browser refuses a second prompt() call. */
+  async promptInstall() {
+    const promptEvent = this.installPromptEvent;
+    if (!promptEvent) {
+      return;
+    }
+    this.installPromptEvent = null;
+    this.syncInstallControls();
+    await promptEvent.prompt();
+    try {
+      await promptEvent.userChoice;
+    } catch {
+      // A dismissed or failed choice leaves nothing to undo: the button is already gone,
+      // and the browser fires beforeinstallprompt again when it can offer the app anew.
+    }
+  }
+
+  /**
+   * The install button shows while the browser offers an install prompt; the manual
+   * steps show in Safari on iPhone and iPad, which has no such prompt.
+   */
+  syncInstallControls() {
+    const matchesStandalone =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia(STANDALONE_DISPLAY_QUERY).matches;
+    const nav = typeof navigator === 'undefined' ? undefined : navigator;
+    this.elements.btnInstall?.classList.toggle('hidden', !this.installPromptEvent);
+    this.elements.installIosHint?.classList.toggle('hidden', !isIosBrowserTab(nav, matchesStandalone));
   }
 
   /**
@@ -781,6 +885,7 @@ export class UIManager {
 
     if (this.elements.btnSettings) {
       this.elements.btnSettings.addEventListener('click', () => {
+        this.syncInstallControls();
         this.openOverlayModal(this.elements.modalSettings, this.elements.btnCloseSettings);
       });
     }
@@ -930,14 +1035,14 @@ export class UIManager {
       this.elements.btnConfirmYes.addEventListener('click', () => {
         const cb = this.pendingConfirmCallback;
         this.pendingConfirmCallback = null;
+        this.confirmPausedRun = false;
         this.elements.modalConfirm.classList.add('hidden');
         if (cb) {
           cb();
         }
       });
       this.elements.btnConfirmNo.addEventListener('click', () => {
-        this.pendingConfirmCallback = null;
-        this.closeOverlayModal(this.elements.modalConfirm);
+        this.dismissConfirm();
       });
     }
 
@@ -967,8 +1072,7 @@ export class UIManager {
       }
     });
     bindBackdropDismiss(this.elements.modalConfirm, () => {
-      this.pendingConfirmCallback = null;
-      this.closeOverlayModal(this.elements.modalConfirm);
+      this.dismissConfirm();
     });
 
     this.elements.btnCloseLevels.addEventListener('click', () => {
@@ -990,12 +1094,12 @@ export class UIManager {
 
     this.elements.btnNextLevel.addEventListener('click', () => {
       this.hideAllModals();
-      const nextId = this.engine.currentLevelId + 1;
-      const exists = this.engine.levelCatalog.has(nextId);
-      if (exists) {
-        this.engine.startCampaignLevel(nextId);
+      const currentLevelId = this.engine.currentLevelId;
+      if (resolveVictoryNextAction(currentLevelId, this.engine.levelCatalog) === VICTORY_NEXT_ACTIONS.NEXT_LEVEL) {
+        this.engine.startCampaignLevel(currentLevelId + 1);
       } else {
-        this.engine.startEndlessMode();
+        // The last level is behind: the level select opens on its chapter.
+        this.openLevelsModal();
       }
     });
 
@@ -1020,7 +1124,7 @@ export class UIManager {
     });
 
     this.elements.btnShareGameOver?.addEventListener('click', () => {
-      this.shareDailyResult();
+      this.shareRunResult();
     });
 
     this.elements.btnResume.addEventListener('click', () => {
@@ -1064,8 +1168,7 @@ export class UIManager {
           return;
         }
         if (this.elements.modalConfirm && !this.elements.modalConfirm.classList.contains('hidden')) {
-          this.pendingConfirmCallback = null;
-          this.closeOverlayModal(this.elements.modalConfirm);
+          this.dismissConfirm();
           return;
         }
         if (!this.elements.modalLevels.classList.contains('hidden')) {
@@ -1155,11 +1258,59 @@ export class UIManager {
     // Over another dialog, its opener is where focus returns when the Confirm closes.
     this.stackedModalOpener = this.isAnyModalOpen() ? document.activeElement : null;
     this.saveLastFocusedElement();
+    // The run holds still while the player decides, as under the menu dialogs.
+    if (this.engine.state === GAME_STATES.PLAYING) {
+      this.confirmPausedRun = true;
+      this.engine.state = GAME_STATES.PAUSED;
+    }
     this.elements.modalConfirm.classList.remove('hidden');
     this.syncModalInertState();
     if (this.elements.btnConfirmNo) {
       this.elements.btnConfirmNo.focus();
     }
+  }
+
+  /**
+   * Closes the Confirm without its action (No, backdrop or Escape) and resumes the run it
+   * paused. Yes does not come here: its action starts another run.
+   */
+  dismissConfirm() {
+    this.pendingConfirmCallback = null;
+    if (this.confirmPausedRun) {
+      this.confirmPausedRun = false;
+      if (this.engine.state === GAME_STATES.PAUSED) {
+        this.engine.state = GAME_STATES.PLAYING;
+      }
+    }
+    this.closeOverlayModal(this.elements.modalConfirm);
+  }
+
+  /** True when the run is paused by the menu, a menu dialog or the Confirm, not by the player. */
+  isRunHeldByUi() {
+    return this.autoPausedByOverlay || this.confirmPausedRun;
+  }
+
+  /**
+   * Focuses a control only when its dialog is the one on top: a Confirm still open over a
+   * window that just appeared keeps the focus, and the window gets it when the Confirm closes.
+   */
+  focusInTopModal(element) {
+    const topModal = this.getActiveTopModal();
+    if (element && topModal && topModal.contains(element)) {
+      element.focus();
+    }
+  }
+
+  /** The victory window's main button names what it does: the next level, or the level select. */
+  updateNextLevelButton(engine) {
+    const button = this.elements.btnNextLevel;
+    if (!button) {
+      return;
+    }
+    const labelKey = VICTORY_NEXT_LABEL_KEYS[resolveVictoryNextAction(engine.currentLevelId, engine.levelCatalog)];
+    // data-i18n follows, so a language switch keeps the right wording.
+    setAttributeIfChanged(button, 'data-i18n', labelKey);
+    setTextIfChanged(button, t(labelKey));
   }
 
   saveLastFocusedElement() {
@@ -1351,7 +1502,7 @@ export class UIManager {
       this.elements.modalVictory.classList.remove('hidden');
     } else if (this.engine.state === GAME_STATES.GAME_OVER) {
       this.elements.modalGameOver.classList.remove('hidden');
-    } else if (this.engine.state === GAME_STATES.PAUSED && !this.autoPausedByOverlay) {
+    } else if (this.engine.state === GAME_STATES.PAUSED && !this.isRunHeldByUi()) {
       this.elements.modalPause.classList.remove('hidden');
     }
     this.syncModalInertState();
@@ -1665,20 +1816,37 @@ export class UIManager {
   }
 
   /**
-   * Shares the finished Daily Challenge: the system share sheet when there is one, else the
-   * clipboard, else a read-only field with the text selected for a manual copy. The outcome
-   * is announced to screen readers.
+   * Shares the finished run (Daily Challenge, Survival or Flux): the system share sheet when
+   * there is one, else the clipboard, else a read-only field with the text selected for a
+   * manual copy. The outcome is announced to screen readers. A tap while a share is under
+   * way is ignored: a second share sheet request would be refused and wrongly fall back to
+   * the clipboard.
    */
-  async shareDailyResult() {
+  async shareRunResult() {
+    if (this.isSharing) {
+      return;
+    }
+    this.isSharing = true;
+    try {
+      await this.shareRunResultOnce();
+    } finally {
+      this.isSharing = false;
+    }
+  }
+
+  /** One share attempt of shareRunResult, without the in-progress guard. */
+  async shareRunResultOnce() {
     const engine = this.engine;
     const shareConfig = this.gameConfig.share;
-    const text = buildDailyShareText(
+    const text = buildShareText(
       {
+        mode: engine.mode,
         dateKey: engine.dailySeedKey,
         mutatorKey: engine.activeMutatorKey,
         wave: engine.waveCount,
         score: engine.score,
         waveLog: engine.waveLog,
+        stage: engine.fluxStage,
         url: shareConfig.url
       },
       shareConfig
@@ -1722,6 +1890,7 @@ export class UIManager {
 
   hideAllModals() {
     this.autoPausedByOverlay = false;
+    this.confirmPausedRun = false;
     for (const modal of this.getModalsByPriority()) {
       modal.classList.add('hidden');
     }
@@ -1849,6 +2018,11 @@ export class UIManager {
         titleEl.className = 'ammo-card-title';
         titleEl.textContent = t(`hud.powerups.${type}.name`);
 
+        // What the ball does, so a purchase is not a guess on the name alone.
+        const descEl = document.createElement('div');
+        descEl.className = 'ammo-card-desc';
+        descEl.textContent = t(`hud.powerups.${type}.tooltip`);
+
         const stockEl = document.createElement('div');
         stockEl.className = 'ammo-card-stock';
         stockEl.textContent = t('modals.shop.specialAmmo.stock', { count: formatNumber(count) });
@@ -1872,7 +2046,7 @@ export class UIManager {
           }
         });
 
-        card.append(iconSpan, titleEl, stockEl, buyAmmoBtn);
+        card.append(iconSpan, titleEl, descEl, stockEl, buyAmmoBtn);
         ammoGrid.appendChild(card);
       }
     }
@@ -2307,13 +2481,14 @@ export class UIManager {
     if (this.elements.btnDaily) {
       const todayKey = SeededRandom.getTodayDateKey();
       const dailyBonusCoins = this.gameConfig.daily?.firstPlayBonusCoins || 0;
-      const canClaimDaily = dailyBonusCoins > 0 && !this.storageManager.hasPlayedDailyToday(todayKey);
-      setTextIfChanged(
-        this.elements.btnDaily,
-        canClaimDaily
-          ? t('app.nav.button.dailyBonusBadge', { coins: dailyBonusCoins })
-          : t('app.nav.button.daily')
-      );
+      let dailyLabel = t('app.nav.button.daily');
+      if (this.storageManager.hasPlayedDailyToday(todayKey)) {
+        // Today's challenge is done: say so rather than fall back to the plain label.
+        dailyLabel = t('app.nav.button.dailyPlayedBadge');
+      } else if (dailyBonusCoins > 0) {
+        dailyLabel = t('app.nav.button.dailyBonusBadge', { coins: dailyBonusCoins });
+      }
+      setTextIfChanged(this.elements.btnDaily, dailyLabel);
     }
 
     const overchargePct = Math.min(
@@ -2473,16 +2648,17 @@ export class UIManager {
       const equippedType = engine.currentBall?.specialType;
       if (equippedType && engine.state === GAME_STATES.PLAYING) {
         const spec = this.ballsConfig.specialTypes[equippedType];
-        setTextIfChanged(
-          this.elements.specialEquippedBanner,
-          t('hud.launcher.specialEquipped.hint', {
+        revealLiveRegion({
+          region: this.elements.specialEquippedBanner,
+          textElement: this.elements.specialEquippedBanner,
+          text: t('hud.launcher.specialEquipped.hint', {
             icon: spec?.icon || '',
             name: t(`hud.powerups.${equippedType}.name`),
             desc: t(`hud.powerups.${equippedType}.tooltip`),
             unequip: t(`hud.launcher.specialEquipped.unequip.${this.inputMode}`)
-          })
-        );
-        this.elements.specialEquippedBanner.classList.remove('hidden');
+          }),
+          schedule: scheduleNextFrame
+        });
       } else {
         this.elements.specialEquippedBanner.classList.add('hidden');
       }
@@ -2494,6 +2670,8 @@ export class UIManager {
     const offersSpecialBalls = engine.offersSpecialBalls();
     this.elements.powerupsContainer.classList.toggle('hidden', !offersSpecialBalls);
     this.elements.powerupsHeader?.classList.toggle('hidden', !offersSpecialBalls);
+    // The panel keeps its place in the layout, so it says why it is empty.
+    this.elements.powerupsEmpty?.classList.toggle('hidden', offersSpecialBalls);
 
     const buttons = this.elements.powerupsContainer.querySelectorAll('.powerup-btn');
     const canBuyAmmo = this.isRunActive();
@@ -2533,7 +2711,7 @@ export class UIManager {
       );
     }
 
-    if (engine.state === GAME_STATES.PAUSED && !this.autoPausedByOverlay) {
+    if (engine.state === GAME_STATES.PAUSED && !this.isRunHeldByUi()) {
       if (this.elements.pauseLevelTip) {
         if (engine.levelTutorialKey) {
           setTextIfChanged(
@@ -2600,13 +2778,14 @@ export class UIManager {
           coins: formatNumber(summary.earnedCoins || 0)
         })
       );
+      this.updateNextLevelButton(engine);
       if (isVictoryJustRevealed) {
         this.saveLastFocusedElement();
         this.announce(t('hud.announcer.round.victory', { score: scoreText, stars, maxStars }));
       }
       this.elements.modalVictory.classList.remove('hidden');
-      if (isVictoryJustRevealed && this.elements.btnNextLevel) {
-        this.elements.btnNextLevel.focus();
+      if (isVictoryJustRevealed) {
+        this.focusInTopModal(this.elements.btnNextLevel);
       }
     }
 
@@ -2635,15 +2814,28 @@ export class UIManager {
         }
         this.elements.gameOverStage.classList.toggle('hidden', !isFlux);
       }
-      this.elements.btnShareGameOver?.classList.toggle('hidden', engine.mode !== GAME_MODES.DAILY);
+      if (this.elements.gameOverDailyNext) {
+        const isDaily = engine.mode === GAME_MODES.DAILY;
+        if (isDaily) {
+          // The Daily seed is the UTC date, so the next challenge starts at UTC midnight.
+          const { hours, minutes } = formatDailyCountdown(getMsUntilNextDaily(Date.now()));
+          setTextIfChanged(
+            this.elements.gameOverDailyNext,
+            t('modals.gameOver.daily.nextIn', { hours: formatNumber(hours), minutes: formatNumber(minutes) })
+          );
+        }
+        this.elements.gameOverDailyNext.classList.toggle('hidden', !isDaily);
+      }
+      // Every mode but the campaign has a result worth sharing.
+      this.elements.btnShareGameOver?.classList.toggle('hidden', engine.mode === GAME_MODES.CAMPAIGN);
       if (transitionedState) {
         this.elements.gameOverShareFallback?.classList.add('hidden');
         this.saveLastFocusedElement();
         this.announce(t('hud.announcer.round.gameOver', { reason: t(reasonKey), score: scoreText }));
       }
       this.elements.modalGameOver.classList.remove('hidden');
-      if (transitionedState && this.elements.btnRetry) {
-        this.elements.btnRetry.focus();
+      if (transitionedState) {
+        this.focusInTopModal(this.elements.btnRetry);
       }
     }
 

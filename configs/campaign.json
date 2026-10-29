@@ -34,7 +34,11 @@
     "pairedCountShare": 0.6,
     "formats": {
       "pattern": ["landmark", "standard", "standard", "twist", "standard", "precision", "standard", "twist", "arsenal", "standard"],
-      "twist": { "weight": [0.03, 0.06], "minCount": [2, 4] },
+      "twist": {
+        "boardPick": { "candidates": 4, "require": "everyMechanic" },
+        "weight": [0.03, 0.06],
+        "minCount": [2, 4]
+      },
       "precision": {
         "boardPick": { "candidates": 5, "prefer": "smallest" },
         "shotsPerSphereFactor": 0.85,
@@ -88,8 +92,10 @@
     "calibration": {
       "runs": 16,
       "minWinRate": 0.125,
+      "minArsenalWinRate": 0.5,
       "extraShotSteps": [6, 12, 18],
       "seedVariants": 3,
+      "maxLevelAttempts": 2,
       "starPolicy": "arsenal",
       "threeStarMedianFactors": { "greedy": 1.08, "arsenal": 0.79 },
       "bot": {

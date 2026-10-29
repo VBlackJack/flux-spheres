@@ -21,7 +21,7 @@
 - **Modes de jeu** :
   - **Campagne** : 24 niveaux conçus à la main, qui introduisent pendules, rotors à inertie, répulseurs, barrières oscillantes, verrous quantiques, portails liés, Noyaux Boss, ancres neutres qu'aucun groupe ne brise, sphères enchaînées, bulles, coeurs de givre, de foudre et de peinture, ancres sur rail, propulseurs, longues amarres et rouille. Puis 800 niveaux générés (25 à 824), en 20 chapitres de 40 : les 12 premiers autour d'une de ces mécaniques, les 8 derniers autour d'une paire. Plus de couleurs, de sphères et de modificateurs, et moins de tirs en réserve au fil des niveaux. Chaque série de 10 niveaux mêle les formats : des niveaux standard, deux variantes qui ajoutent une mécanique d'un autre chapitre, un niveau de précision (petit plateau, peu de tirs et une seule bombe), un niveau arsenal (grand plateau, moins de tirs et deux fois plus de balles spéciales) et un niveau marquant (une forme dessinée ou une paire, et un Noyau Boss). Le nom d'un niveau indique son format. Chaque niveau se reconstruit depuis son seul numéro. La sélection des niveaux montre un chapitre à la fois, avec les étoiles gagnées dans chacun, et s'ouvre sur le chapitre en cours.
   - **Survie (sans fin)** : défense par vagues infinies, avec vagues de ruée vers l'or et anomalies Boss.
-  - **Défi du jour** : graine quotidienne déterministe, mutateurs physiques tournants (*Hyper Gravité*, *Rotors Turbo*, *Super Magnétisme*, *Amas Volatil*) et récompense quotidienne en pièces. En fin de partie, **Partager** envoie un résultat sans rien dévoiler (numéro du défi, mutateur, vague, score, un symbole par vague passée, vagues dorées et vagues de boss marquées) par la feuille de partage du système, ou le copie dans le presse-papiers.
+  - **Défi du jour** : graine quotidienne déterministe, mutateurs physiques tournants (*Hyper Gravité*, *Rotors Turbo*, *Super Magnétisme*, *Amas Volatil*) et récompense quotidienne en pièces. En fin de partie, **Partager** envoie un résultat sans rien dévoiler (numéro du défi, mutateur, vague, score, un symbole par vague passée, vagues dorées et vagues de boss marquées) par la feuille de partage du système, ou le copie dans le presse-papiers. Les parties de Survie et de Mode Flux partagent de même leur vague ou leur forme et leur score. Le game over du Défi du jour indique quand commence le suivant, et le menu marque un défi déjà joué aujourd'hui.
   - **Mode Flux** : un enchaînement sans fin de formes générées, avec une réserve de tirs commune. Trois formes sur quatre sont des silhouettes générées, parmi plus de 1 200 formes distinctes : étoiles, fleurs, engrenages, polygones, croissants et coeurs, pleins ou creux, de plusieurs tailles et proportions, nommés d'après leur forme ("Étoile à 7 branches", "Fleur creuse à 5 pétales"). Les autres sont un rotor ou un pendule paramétré, une silhouette dessinée (coeur, couronne, cloche, phare, ancre marine...), parfois tenue par des ancres neutres, ou une paire de petites formes, jamais deux fois de suite la même famille. Un budget de difficulté ajoute bumpers, portails, répulseurs et singularités au fil de la partie, une forme sur cinq cache un Noyau Boss, les formes avancées ajoutent chaînes, bulles et coeurs de givre, de foudre et de peinture, et vider une forme rend des tirs. Chaque partie a sa graine : un rechargement reprend sur la même forme.
 - **Prise en main** :
   - Un indice de première rencontre explique chaque mécanique la première fois qu'elle arrive sur le plateau, dans tous les modes : le tutoriel du niveau quand il existe, sinon son entrée du Codex. Chaque indice ne s'affiche qu'une fois ; laissé ouvert, il cède la place au suivant après trois tours, et les **Réglages** permettent de tous les revoir. En campagne, ce autour de quoi le niveau est construit est expliqué en premier.
@@ -45,7 +45,7 @@
   - Mise en page sans défilement sur ordinateur, téléphone et téléphone en paysage, avec des zones tactiles de 44 px. Sur téléphone en portrait, le plateau occupe toute la largeur ; navigation et statistiques se trouvent dans le menu coulissant (☰), qui met la partie en pause, et une ligne sous le score garde en vue la manche, les pièces et le record. Le plateau prend la forme du monde, 470 x 820. Sur un écran d'ordinateur en paysage, le plateau occupe toute la hauteur de la fenêtre, centré entre deux colonnes de même largeur : navigation et statistiques de la manche à gauche, surcharge, billes spéciales, Polarité et Échanger à droite.
   - La partie en cours survit à un rechargement ou à un onglet fermé par le système, et reprend en pause.
 - **Installable et hors ligne** :
-  - Application web progressive installable, avec icônes standard et adaptatives (maskable).
+  - Application web progressive installable, avec icônes standard et adaptatives (maskable) ; **Réglages** propose un bouton Installer là où le navigateur l'autorise, et une aide pour iPhone et iPad.
   - Service Worker réseau d'abord, qui sert la copie en cache hors ligne ou quand le réseau est trop lent.
 
 ---
@@ -95,7 +95,7 @@ Le code suit une architecture en modules ES sans dépendance, avec une séparati
 │   │   ├── GameLoop.js       # Boucle à pas fixe avec interpolation, ralenti au repos et arrêt sur erreur fatale
 │   │   ├── ImpactPreview.js  # Ce qu'un tir détruirait, partagé par la prévisualisation et le bot de calibration
 │   │   ├── Renderer.js       # Rendu Canvas 2D HiDPI avec interpolation et prévisualisation de zone
-│   │   ├── SpecialBallController.js # Résolution des impacts Bombe, Éclair, Prisme, Enclume et Cryo
+│   │   ├── SpecialBallController.js # Résolution des impacts Bombe, Éclair, Prisme, Enclume, Cryo et Fusée
 │   │   ├── Discovery.js      # Indices de première rencontre : mécaniques du plateau, prochaine inconnue, texte
 │   │   ├── DailyShare.js     # Texte de résultat du Défi du jour, sans rien dévoiler, pour le bouton Partager
 │   │   └── layouts/
@@ -124,11 +124,14 @@ npm start
 # Lancer les suites du moteur, des utilitaires d'interface et des gardes du dépôt
 npm test
 
+# Analyser les sources avec ESLint (la première fois : npm install)
+npm run lint
+
 # Lancer les tests de fumée dans le navigateur (la première fois : npm install, puis npx playwright install chromium)
 npm run test:browser
 ```
 
-Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, et six gardes du dépôt :
+Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rendu, les utilitaires d'interface, les outils de calibration, et six gardes du dépôt :
 
 - `typography.test.js` refuse, dans tous les fichiers texte, les variantes typographiques des caractères ASCII (tirets longs, guillemets courbes, points de suspension, espaces spéciales, ligatures).
 - `pwa.test.js` vérifie que chaque fichier de `src/`, `configs/`, `locales/` et `icons/` est mis en cache par `sw.js`, et que la version du cache du Service Worker correspond à `package.json`.
@@ -136,6 +139,7 @@ Les suites de `tests/` couvrent le moteur de jeu, la physique, la boucle de rend
 - `fluxGenerator.test.js` vérifie que le générateur produit au moins 1 000 formes distinctes, chacune tenant entre les murs et suspendue à ses ancres, nommée dans les deux langues.
 - `campaign.test.js` vérifie que les 800 niveaux générés sont des plateaux jouables, reconstruits à l'identique depuis leur numéro, que la difficulté monte d'un chapitre à l'autre, qu'un niveau marquant revient tous les 10 niveaux, que chaque niveau est nommé dans les deux langues, et que chacun est calibré pour le plateau qu'il est : un changement du générateur, des formes Flux ou de la courbe de la campagne le fait échouer tant que les niveaux ne sont pas mesurés à nouveau.
 - `world.test.js` vérifie que chaque niveau (niveaux générés compris), chaque étape Flux (1 à 60) et la grille de Survie tiennent entre les murs, et qu'un monde de la largeur de conception construit chaque niveau à ses positions d'origine.
+- `bot.test.js` vérifie les bots de calibration (ce que vaut un tir, quand le bot arsenal joue une spéciale, que le glouton n'en joue jamais) et la ligne de commande de `scripts/calibrate-campaign.mjs`.
 
 Les niveaux générés sont calibrés hors CI par deux bots (`scripts/bot/CampaignBot.js`) :
 
@@ -144,9 +148,9 @@ node scripts/calibrate-campaign.mjs
 ```
 
 - le bot **glouton** vise avec la couleur chargée là où se trouvent le plus de sphères de cette couleur, et ne joue jamais de balle spéciale. Il joue chaque niveau 16 fois (`calibration` dans `configs/campaign.json`) ; un niveau qu'il gagne moins d'une partie sur huit reçoit des tirs en plus, puis une autre graine, jusqu'à ce qu'une variante passe. Un joueur qui ignore les balles spéciales peut donc toujours gagner.
-- le bot **arsenal** lit la prévisualisation de visée que voit le joueur (ce qu'un tir détruit et fait tomber, `src/game/ImpactPreview.js`) pour la couleur chargée et pour chaque balle spéciale en stock. Il joue une spéciale quand elle retire au moins 6 sphères et 3 de plus que le meilleur tir de couleur, ou dès que les tirs restants ne dépassent plus le nombre de spéciales (`calibration.bot.arsenal`). Il joue ensuite 16 fois le plateau retenu.
+- le bot **arsenal** lit la prévisualisation de visée que voit le joueur (ce qu'un tir détruit et fait tomber, `src/game/ImpactPreview.js`) pour la couleur chargée et pour chaque balle spéciale en stock. Il joue une spéciale quand elle retire au moins 6 sphères et 3 de plus que le meilleur tir de couleur, ou dès que les tirs restants ne dépassent plus le nombre de spéciales (`calibration.bot.arsenal`). Il joue lui aussi 16 fois chaque variante, et un niveau qu'il gagne moins d'une partie sur deux (`minArsenalWinRate`) reçoit de même des tirs en plus, puis une autre graine, jusqu'à ce qu'une variante passe les deux seuils.
 
-Les seuils d'étoiles viennent du score médian du bot désigné par `calibration.starPolicy` : trois étoiles au rapport que montrent les 24 niveaux dessinés pour ce bot (`threeStarMedianFactors` : 1,08 pour le glouton, 0,79 pour l'arsenal), deux étoiles à 63 % des trois. Le résultat, avec les mesures des deux bots, va dans `configs/campaignTuning.json` ; `--from` et `--to` ne mesurent qu'une plage, et `--dry-run` affiche les mesures sans les écrire.
+Les seuils d'étoiles viennent du score médian du bot désigné par `calibration.starPolicy` : trois étoiles au rapport que montrent les 24 niveaux dessinés pour ce bot (`threeStarMedianFactors` : 1,08 pour le glouton, 0,79 pour l'arsenal), deux étoiles à 63 % des trois. Le résultat, avec les mesures des deux bots, va dans `configs/campaignTuning.json` ; `--from` et `--to` ne mesurent qu'une plage, `--workers` fixe le nombre de processus parallèles (par défaut, tous les coeurs moins deux), et `--dry-run` affiche les mesures sans les écrire. Seule une mesure à blanc peut porter sur un niveau dessiné, tel qu'il est (`--from 24 --to 24 --dry-run`) ; une exécution qui écrit commence au premier niveau généré.
 
 `tests/browser/smoke.test.js` ouvre la vraie page dans Chromium sans interface, aux quatre mises en page prises en charge (ordinateur, tablette en portrait, téléphone en paysage et en portrait). Il échoue sur toute erreur de console, tout défilement horizontal ou tout libellé de bouton coupé, vérifie la mise en page au niveau 1 (sans sphère spéciale) et au niveau 2 (avec), vérifie que la sélection des niveaux s'ouvre sur le chapitre du niveau en cours et change de chapitre, vérifie que les fenêtres Réglages, Niveaux, Atelier et Pause mettent la partie en pause puis la reprennent, parcourt la victoire, la défaite et la reprise après rechargement, vérifie que seule une défaite au Défi du jour propose Partager et que le bouton remplit le presse-papiers, et vérifie qu'un tremblement de souris garde une visée affinée au clavier. La CI le lance dans une tâche séparée.
 

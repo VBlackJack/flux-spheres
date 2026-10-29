@@ -57,6 +57,9 @@ const TOP_Y = 100;
 const [COLOR_A, COLOR_B] = ballsConfig.standardColors.map((c) => c.id);
 const NEUTRAL_LEVEL_ID = 17;
 const GUARANTEE_ATTEMPTS = 5;
+// Level 24 introduces rust; level 150 is a generated chapter-4 level that guarantees it.
+const RUST_INTRO_LEVEL_ID = 24;
+const GENERATED_RUST_LEVEL_ID = 150;
 
 const createEngine = () => {
   const storageManager = new StorageManager();
@@ -345,7 +348,7 @@ test('A tether binds distant spheres with long links that never snap or carry a 
   const board = createEmptyBoard();
   const world = board.physicsWorld;
   const tetherSpec = ballsConfig.clusterModifiers.tether;
-  const anchor = addBall(board, CENTER_X, TOP_Y, { isAnchor: true, colorId: COLOR_B });
+  addBall(board, CENTER_X, TOP_Y, { isAnchor: true, colorId: COLOR_B });
   const tetherBall = addBall(board, CENTER_X, TOP_Y + REST_DISTANCE, { clusterModifier: CLUSTER_MODIFIERS.TETHER });
   const distant = addBall(board, CENTER_X + RADIUS * tetherSpec.rangeFactor * 0.9, TOP_Y + REST_DISTANCE, { colorId: COLOR_A });
   const outOfRange = addBall(board, CENTER_X - RADIUS * tetherSpec.rangeFactor * 1.5, TOP_Y + REST_DISTANCE);
@@ -410,6 +413,16 @@ test('A Rocket shot hits the hardest targets first and cracks a Boss Core shield
   assert.equal(boss.armorHits, 2, 'a rocket cracks one Boss Core shield, like a blast');
   assert.ok(gone(anchor), 'then anchors');
   assert.ok(!gone(plain) && extra.every((ball) => !gone(ball)), `only ${rocketSpec.rocketCount} rockets fly`);
+});
+
+test('A rust sphere guaranteed by a level carries no hidden color', () => {
+  for (const levelId of [RUST_INTRO_LEVEL_ID, GENERATED_RUST_LEVEL_ID]) {
+    const engine = createEngine();
+    engine.startCampaignLevel(levelId);
+    const rusty = engine.physicsWorld.balls.filter((b) => b.clusterModifier === CLUSTER_MODIFIERS.RUST);
+    assert.ok(rusty.length > 0, `level ${levelId} shows rust`);
+    assert.ok(rusty.every((b) => b.colorId === null), `level ${levelId} rust is colorless`);
+  }
 });
 
 test('A guaranteed armored ball gets its armor like a rolled one', () => {

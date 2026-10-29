@@ -15,6 +15,7 @@
         "endless": "Survival",
         "daily": "Daily",
         "dailyBonusBadge": "Daily (+{{coins}} ⬡)",
+        "dailyPlayedBadge": "Daily ✓",
         "flux": "Flux Mode",
         "shop": "Workshop",
         "shopBadge": "Workshop ({{count}})",
@@ -174,7 +175,8 @@
         "aria": "{{name}}: {{count}} in stock",
         "buyAria": "{{name}}: none left. Open the Workshop to buy more",
         "emptyMark": "+"
-      }
+      },
+      "empty": "No special ball in this level."
     },
     "canvas": {
       "aria": {
@@ -565,7 +567,8 @@
       "button": {
         "nextLevel": "Next Level",
         "replay": "Replay",
-        "levels": "Level Select"
+        "levels": "Level Select",
+        "backToLevels": "Back to Levels"
       }
     },
     "gameOver": {
@@ -590,6 +593,9 @@
         "field": {
           "label": "Share text, ready to copy"
         }
+      },
+      "daily": {
+        "nextIn": "Next challenge in {{hours}} h {{minutes}} min"
       }
     },
     "pause": {
@@ -634,6 +640,11 @@
       },
       "button": {
         "close": "Close"
+      },
+      "install": {
+        "button": "Install the app",
+        "iosHint": "On iPhone and iPad: Share, then Add to Home Screen.",
+        "installedAnnounce": "App installed. Launch it from your home screen."
       }
     }
   },
@@ -778,6 +789,14 @@
       "headerNoMutator": "FluxSpheres - Daily #{{number}}",
       "stats": "Wave {{wave}} - {{score}} pts",
       "overflow": "+{{count}}"
+    },
+    "survival": {
+      "header": "FluxSpheres - Survival",
+      "stats": "Wave {{wave}} - {{score}} pts"
+    },
+    "flux": {
+      "header": "FluxSpheres - Flux Mode",
+      "stats": "Shape {{stage}} - {{score}} pts"
     },
     "feedback": {
       "shared": "Result shared.",

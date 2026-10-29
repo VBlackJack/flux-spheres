@@ -29,11 +29,17 @@ import {
   filterFocusTrapCandidates,
   gameOverReasonKey,
   isBrowserShortcut,
+  isIosBrowserTab,
+  UIManager,
+  VICTORY_NEXT_ACTIONS,
+  VICTORY_NEXT_LABEL_KEYS,
   resolveModalFocusTarget,
+  resolveVictoryNextAction,
   revealLiveRegion,
   shouldIgnoreRepeatedKey
 } from '../src/ui/UIManager.js';
 import { applyWorldGeometry } from '../src/core/WorldGeometry.js';
+import { LevelCatalog } from '../src/game/LevelCatalog.js';
 
 const loadJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const gameConfig = applyWorldGeometry(loadJson('./configs/game.json'));
@@ -203,6 +209,27 @@ test('coarse pointers get 44px controls whatever the viewport size', () => {
   assert.match(coarse, /min-height:\s*var\(--touch-target\)/);
 });
 
+test('landscape phones move the board overlays to the left column and pack the nav', () => {
+  const phone = cssBlock(mainCss, '@media (orientation: landscape) and (max-height: 500px) {');
+  assert.match(phone, /\.tutorial-banner[^{]*\{[^}]*position:\s*fixed/, 'the hint leaves the board');
+  assert.match(phone, /\.special-equipped-banner[^{]*\{[^}]*position:\s*fixed/, 'the equipped banner leaves the board');
+  assert.match(phone, /\.special-equipped-banner\s*\{[^}]*white-space:\s*normal/, 'the equipped banner wraps');
+  assert.match(phone, /\.nav-modes\s*\{[^}]*repeat\(4/, 'the four modes share one row');
+  // A size container would become the containing block of the fixed overlays.
+  const landscape = cssBlock(mainCss, '@media (orientation: landscape) and (max-height: 500px),');
+  assert.match(landscape, /\.stage-container\s*\{[^}]*container-type:\s*normal/);
+  assert.match(landscape, /\.stage-column\s*\{[^}]*container-type:\s*normal/);
+  assert.doesNotMatch(phone, /container-type:\s*(?:size|inline-size)/);
+});
+
+test('portrait phones hide the hint while the finger is on the board, without motion when reduced', () => {
+  const portrait = cssBlock(mainCss, '@media (max-width: 680px) {');
+  assert.match(portrait, /#game-canvas:active\)\s*\.tutorial-banner\s*\{[^}]*opacity:\s*0/);
+  assert.match(mainCss, /\.tutorial-banner\s*\{[^}]*transition:\s*opacity var\(--tutorial-fade\)/);
+  const reduced = cssBlock(mainCss, '@media (prefers-reduced-motion: reduce)');
+  assert.match(reduced, /\.tutorial-banner\s*\{[^}]*transition:\s*none/);
+});
+
 test('the menu cannot open during the victory celebration or over a dialog', () => {
   const base = { isOpen: false, isDrawerLayout: true, isModalOpen: false, isVictoryCelebrating: false };
   assert.equal(canOpenDrawer(base), true);
@@ -362,6 +389,72 @@ test('the level select puts a level forward instead of starting Survival', () =>
 test('the board takes keyboard focus and shows it', () => {
   assert.match(indexHtml, /<canvas id="game-canvas"[^>]*tabindex="0"/);
   assert.match(mainCss, /#game-canvas:focus-visible\s*\{[^}]*outline:/);
+});
+
+test('a campaign victory leads to the next level, and to the level select after the last one', () => {
+  const catalog = new LevelCatalog({
+    levelsConfig: loadJson('./configs/levels.json'),
+    campaignConfig: loadJson('./configs/campaign.json'),
+    fluxConfig: loadJson('./configs/flux.json'),
+    obstaclesConfig: loadJson('./configs/obstacles.json'),
+    ballRadius: loadJson('./configs/physics.json').ball.radius
+  });
+  const middleId = Math.floor((catalog.firstId + catalog.lastId) / 2);
+  assert.equal(resolveVictoryNextAction(middleId, catalog), VICTORY_NEXT_ACTIONS.NEXT_LEVEL);
+  assert.equal(resolveVictoryNextAction(catalog.lastId, catalog), VICTORY_NEXT_ACTIONS.LEVEL_SELECT);
+
+  const en = flattenStrings(loadJson('./locales/en.json'));
+  const fr = flattenStrings(loadJson('./locales/fr.json'));
+  for (const action of Object.values(VICTORY_NEXT_ACTIONS)) {
+    const key = VICTORY_NEXT_LABEL_KEYS[action];
+    assert.ok(en.has(key) && fr.has(key), `${action}: label ${key} in both locales`);
+  }
+  const uiSource = readFileSync('./src/ui/UIManager.js', 'utf8');
+  const handler = uiSource.slice(
+    uiSource.indexOf('btnNextLevel.addEventListener'),
+    uiSource.indexOf('btnReplayVictory.addEventListener')
+  );
+  assert.ok(handler.length > 0 && !handler.includes('startEndlessMode'), 'Next Level never starts Survival');
+});
+
+test('a share tap while a share is under way is ignored, and the next one goes through', async () => {
+  let release;
+  let attempts = 0;
+  const ui = {
+    isSharing: false,
+    shareRunResultOnce: () => {
+      attempts++;
+      return new Promise((resolve, reject) => {
+        release = { resolve, reject };
+      });
+    }
+  };
+  const first = UIManager.prototype.shareRunResult.call(ui);
+  await UIManager.prototype.shareRunResult.call(ui);
+  assert.equal(attempts, 1, 'the second tap does not share again');
+  release.reject(new Error('share sheet failed'));
+  await assert.rejects(first);
+  assert.equal(ui.isSharing, false, 'a failed share releases the guard');
+  const next = UIManager.prototype.shareRunResult.call(ui);
+  release.resolve();
+  await next;
+  assert.equal(attempts, 2);
+});
+
+/** The breakpoint opens the drawer layout in styles/main.css and switches its styles. */
+const MIN_DRAWER_QUERY_USES = 2;
+
+test('the drawer breakpoint of configs/game.json is the one styles/main.css uses', () => {
+  const query = gameConfig.defaults.drawerMediaQuery;
+  const uses = mainCss.split(query).length - 1;
+  assert.ok(uses >= MIN_DRAWER_QUERY_USES, `${query} appears ${uses} times in styles/main.css`);
+});
+
+test('the install hint is for iOS browser tabs only, not for the installed app', () => {
+  assert.equal(isIosBrowserTab({ standalone: false }, false), true, 'iOS Safari tab');
+  assert.equal(isIosBrowserTab({}, false), false, 'no navigator.standalone: not iOS');
+  assert.equal(isIosBrowserTab({ standalone: true }, false), false, 'launched from the home screen');
+  assert.equal(isIosBrowserTab({ standalone: false }, true), false, 'display-mode standalone');
 });
 
 test('the star gauge runs from the last star earned to the next one', () => {

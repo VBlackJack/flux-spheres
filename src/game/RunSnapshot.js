@@ -284,7 +284,9 @@ export function applyRunSnapshot(engine, snapshot) {
 
   const newIdBySavedId = new Map();
   const restored = snapshot.balls.map((saved) => {
-    const ball = new Ball({ x: saved.x, y: saved.y, radius: saved.radius, colorId: saved.colorId });
+    // Built from neutral values, not the saved ones, so restoreFields checks every saved
+    // field (a text position included) against a value of the right type.
+    const ball = new Ball({ x: 0, y: 0, radius: engine.physicsConfig.ball.radius, colorId: null });
     restoreFields(ball, saved, BALL_SCALAR_FIELDS);
     ball.pivotRef = saved.pivotIndex === NO_PIVOT_INDEX ? null : world.obstacles[saved.pivotIndex] || null;
     newIdBySavedId.set(saved.id, ball.id);

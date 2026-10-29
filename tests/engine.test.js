@@ -48,6 +48,8 @@ configRegistry.configs.set('audio', audioConfig);
 const PAST_DAILY_SEED = '2025-01-01';
 const FAR_POSITION = 100;
 const OTHER_POSITION = 400;
+const TEST_FLUX_SEED = 'abc123';
+const SHOP_TEST_COINS = 500;
 
 const createTestEngine = (configOverride = gameConfig) => {
   const storageManager = new StorageManager();
@@ -477,6 +479,76 @@ test('Coins earned while a shot is in flight are written only once the run is sa
   assert.equal(engine.pendingRunCoins, 0);
 });
 
+test('A chain reaction between shots is paid once: the run stored after it has nothing left to replay', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  engine.physicsWorld.clear();
+  const world = engine.physicsWorld;
+  const spacing = physicsConfig.ball.radius * physicsConfig.simulation.bondRestDistanceFactor;
+  const cluster = [0, 1, 2].map((i) => makeBoardBall(FAR_POSITION + i * spacing, FAR_POSITION, { isAnchor: true }));
+  cluster.forEach((b) => world.addBall(b));
+  world.createBond(cluster[0], cluster[1], false);
+  world.createBond(cluster[1], cluster[2], false);
+  const hanging = makeBoardBall(FAR_POSITION, FAR_POSITION + spacing, { colorId: ballsConfig.standardColors[1].id });
+  world.addBall(hanging);
+  world.createBond(cluster[0], hanging, false);
+  world.addBall(makeBoardBall(OTHER_POSITION, OTHER_POSITION, { isAnchor: true, colorId: ballsConfig.standardColors[1].id }));
+  engine.hasFiredInRound = true;
+  world.pendingChainCandidateIds.add(cluster[0].id);
+  engine.saveRunSnapshot();
+  const coinsBefore = engine.storageManager.getCoins();
+
+  engine.evaluateAutomaticChainReactions();
+  const coinsAfterChain = engine.storageManager.getCoins();
+  assert.equal(coinsAfterChain, coinsBefore + gameConfig.scoring.coinsPerAvalancheBall, 'the falling sphere pays');
+  const stored = engine.storageManager.loadRunSnapshot();
+  assert.deepEqual(stored.pendingChainCandidateIds, [], 'the stored run no longer holds the chain');
+  assert.equal(stored.balls.length, world.balls.length);
+
+  const resumed = createTestEngine();
+  resumed.storageManager = engine.storageManager;
+  assert.equal(resumed.restoreSavedRun(), true);
+  resumed.evaluateAutomaticChainReactions();
+  assert.equal(resumed.storageManager.getCoins(), coinsAfterChain, 'a reload does not pay the chain again');
+});
+
+test('A Flux run stored at the start of a stage is still stored once it is resumed', () => {
+  const engine = createTestEngine();
+  engine.startFluxRun(TEST_FLUX_SEED);
+  const coinsBefore = engine.storageManager.getCoins();
+
+  engine.completeFluxStage();
+  assert.equal(engine.storageManager.getCoins(), coinsBefore, 'stage-clear coins wait for the next shape to be stored');
+  while (engine.stageTransitionFrames > 0) {
+    engine.update();
+  }
+  assert.equal(engine.storageManager.getCoins(), coinsBefore + fluxConfig.rewards.stageClearCoins);
+  const stored = engine.storageManager.loadRunSnapshot();
+  assert.equal(stored.engine.hasFiredInRound, false, 'stored before the first shot of the new shape');
+
+  const resumed = createTestEngine();
+  resumed.storageManager = engine.storageManager;
+  assert.equal(resumed.restoreSavedRun(), true);
+  assert.notEqual(resumed.storageManager.loadRunSnapshot(), null, 'a second reload still finds the run');
+  assert.equal(resumed.fluxStage, engine.fluxStage);
+});
+
+test('A special ball bought before the first shot is stored with the run', () => {
+  const engine = createTestEngine();
+  engine.startCampaignLevel(1);
+  engine.storageManager.setCoins(SHOP_TEST_COINS);
+
+  assert.equal(engine.buySpecialAmmo(SPECIAL_TYPES.BOMB), true);
+  const stored = engine.storageManager.loadRunSnapshot();
+  assert.notEqual(stored, null, 'the debit is not kept without the ball it paid for');
+  assert.equal(stored.specialInventory[SPECIAL_TYPES.BOMB], engine.specialInventory[SPECIAL_TYPES.BOMB]);
+
+  const resumed = createTestEngine();
+  resumed.storageManager = engine.storageManager;
+  assert.equal(resumed.restoreSavedRun(), true);
+  assert.equal(resumed.specialInventory[SPECIAL_TYPES.BOMB], engine.specialInventory[SPECIAL_TYPES.BOMB]);
+});
+
 test('A write from another tab replaces the cached value instead of being overwritten', () => {
   const storage = new StorageManager();
   storage.init();
@@ -558,6 +630,24 @@ test('A saved run whose values have the wrong type is discarded instead of resto
   }
   assert.equal(engine.storageManager.loadRunSnapshot(), null);
   assert.notEqual(resumed.score, '01200');
+
+  engine.saveRunSnapshot();
+  const textPosition = engine.storageManager.loadRunSnapshot();
+  // The fields a ball derives from its position are saved as text too, so only the type
+  // check on the position itself can catch it.
+  for (const field of ['x', 'prevX', 'anchorX']) {
+    textPosition.balls[0][field] = '120';
+  }
+  engine.storageManager.saveRunSnapshot(textPosition);
+  const withTextPosition = createTestEngine();
+  withTextPosition.storageManager = engine.storageManager;
+  console.error = () => {};
+  try {
+    assert.equal(withTextPosition.restoreSavedRun(), false, 'a text position is rejected like any other field');
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(engine.storageManager.loadRunSnapshot(), null);
 });
 
 test('A saved run with its discovery hint dismissed restores without it', () => {

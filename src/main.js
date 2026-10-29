@@ -15,7 +15,7 @@
  */
 
 import { configRegistry } from './core/ConfigRegistry.js';
-import { i18n, t, resolveInitialLocale } from './core/I18n.js';
+import { i18n, resolveInitialLocale } from './core/I18n.js';
 import { StorageManager } from './core/StorageManager.js';
 import { AudioManager } from './core/AudioManager.js';
 import { Renderer } from './game/Renderer.js';
