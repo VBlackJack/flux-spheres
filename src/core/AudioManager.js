@@ -21,6 +21,8 @@ const CONTEXT_STATES = Object.freeze({
   SUSPENDED: 'suspended'
 });
 
+const MS_PER_SECOND = 1000;
+
 export class AudioManager {
   constructor() {
     this.ctx = null;
@@ -35,6 +37,14 @@ export class AudioManager {
     this.lastHapticTime = -Infinity;
     this.visibilityBound = false;
     this.clock = () => performance.now();
+    // Timer pair behind the deferred mute suspend, injectable so tests can run the
+    // scheduled callback synchronously instead of waiting on a real timeout.
+    this.timers = {
+      set: (fn, ms) => setTimeout(fn, ms),
+      clear: (id) => clearTimeout(id)
+    };
+    // Timer id of a suspend waiting for the mute fade to end, or null when none is pending.
+    this.pendingSuspend = null;
   }
 
   init(initialMuted = false, initialReducedMotion = false) {
@@ -128,9 +138,13 @@ export class AudioManager {
    * Silences every playing voice. Each one fades to the minimum gain over stopRampSec before
    * it stops: cutting a wave mid-cycle clicks. The voice disconnects itself once it ends
    * (see playTone), so the fade is heard in full.
+   *
+   * @returns {boolean} True when at least one voice was scheduled to fade, so a caller that
+   *   suspends the context afterwards knows it must wait for the ramp to end first.
    */
   stopAll() {
-    if (this.ctx && this.activeOscillators.size > 0) {
+    const fading = Boolean(this.ctx) && this.activeOscillators.size > 0;
+    if (fading) {
       const now = this.ctx.currentTime;
       const stopTime = now + this.config.stopRampSec;
       const minGain = this.config.minGain;
@@ -148,12 +162,36 @@ export class AudioManager {
       }
     }
     this.activeOscillators.clear();
+    return fading;
   }
 
+  /**
+   * Drops a suspend still waiting for the mute fade, so a later mute change decides the
+   * context state on its own.
+   */
+  cancelPendingSuspend() {
+    if (this.pendingSuspend !== null) {
+      this.timers.clear(this.pendingSuspend);
+      this.pendingSuspend = null;
+    }
+  }
+
+  /**
+   * Mutes or unmutes every sound. Muting fades the playing voices out, then suspends the
+   * context only once the stopRampSec fade has ended: a suspended context freezes its
+   * ramps, so suspending at once would cut the fade and leave its frozen tail to blip on
+   * unmute. With no voice playing there is nothing to wait for and the suspend is
+   * immediate. Unmuting during the fade cancels the pending suspend and resumes at once.
+   */
   setMuted(muted) {
     this.muted = Boolean(muted);
-    if (this.muted) {
-      this.stopAll();
+    this.cancelPendingSuspend();
+    if (this.muted && this.stopAll()) {
+      this.pendingSuspend = this.timers.set(() => {
+        this.pendingSuspend = null;
+        this.syncContextState();
+      }, this.config.stopRampSec * MS_PER_SECOND);
+      return;
     }
     this.syncContextState();
   }

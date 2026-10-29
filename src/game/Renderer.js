@@ -677,7 +677,7 @@ export class Renderer {
           ctx.fill();
 
           ctx.strokeStyle = cfg.ringColor;
-          ctx.globalAlpha = obsDefaults.fieldWaveAlpha * MATH_CONSTANTS.HALF;
+          ctx.globalAlpha = obsDefaults.pullWaveAlpha;
           ctx.lineWidth = obsDefaults.lineWidth;
           ctx.beginPath();
           ctx.arc(ox, oy, Math.max(obs.captureRadius, pullWave), 0, MATH_CONSTANTS.TWO_PI);
