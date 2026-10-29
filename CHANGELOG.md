@@ -4,6 +4,22 @@ All notable changes to **FluxSpheres** are documented in this file.
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-29
+
+### Fixed
+- **Muting Without a Click**: Muting suspended the audio context at once, which froze the fade-out added in 1.7.0, so the cut voices were never faded and their tail could sound on unmute. The context now suspends once the `stopRampSec` fade has played; unmuting during the fade cancels the suspend.
+- **Survival Launcher After a Cleared Board**: After a shot that cleared the board, the launcher could keep a color the new wave did not bring for one turn. The launcher colors are checked again once the wave has spawned.
+- **Hints on Generated Levels**: The neutral anchors and rails of generated levels were not counted among the mechanics a level always shows, so their first-encounter hint could come after a less central one.
+- **Level 24 Stars**: The rust tutorial kept star thresholds measured while its rust spheres still matched by color. They now follow the arsenal bot's median like every generated level: 9600 and 15300 instead of 14200 and 22500.
+- **Flux Announcement**: The "shape cleared" announcement could be read again when the language or the input mode changed during the stage transition.
+- **Screen Readers**: The score stars of the HUD are read as a count ("Stars: 2 of 3") instead of glyph names, and the level grid is labelled by its active chapter tab.
+- **Contrast and Focus**: The name of an empty special ball meets 4.5:1 contrast, the star gauge stays visible under Windows contrast themes, and the keyboard focus ring is no longer clipped in the level select.
+
+### Changed
+- **Settings Out of the Code**: The Boss Core shield crack radius (`crackShockwaveRadius`) and the singularity pull wave opacity (`pullWaveAlpha`) moved to the config with the same values; numbers shown in the level select are grouped per locale.
+- **Style Sheet**: Unused rules and color tokens are removed, the drawer duration is one token, and tests now require the in-app and system high-contrast themes to declare the same values and every color token to be used.
+- **Calibration Guard**: `tests/campaign.test.js` fails when `configs/campaign.json` changes the calibration runs or win-rate floors without a new measure.
+- **Browser Test Diagnostics**: When the smoke suite times out waiting for the game loop, it reports the page visibility, the boot state and the frame rate.
 ## [1.7.0] - 2026-10-29
 
 ### Added
