@@ -122,7 +122,27 @@ async function captureEngine(page) {
       return original.apply(this, args);
     };
   });
-  await page.waitForFunction(() => Boolean(window.__fluxEngine));
+  try {
+    await page.waitForFunction(() => Boolean(window.__fluxEngine));
+  } catch (err) {
+    const state = await page.evaluate(async () => {
+      const frames = await new Promise((resolve) => {
+        let count = 0;
+        const tick = () => { count += 1; if (count < 3) { requestAnimationFrame(tick); } };
+        requestAnimationFrame(tick);
+        setTimeout(() => resolve(count), 1000);
+      });
+      const banner = document.getElementById('bootstrap-error');
+      return {
+        visibility: document.visibilityState,
+        readyState: document.readyState,
+        bootstrapError: Boolean(banner) && !banner.classList.contains('hidden'),
+        framesInOneSecond: frames
+      };
+    });
+    err.message += ' | engine hook diagnostics: ' + JSON.stringify(state);
+    throw err;
+  }
 }
 
 const engineState = (page) => page.evaluate(() => window.__fluxEngine.state);
