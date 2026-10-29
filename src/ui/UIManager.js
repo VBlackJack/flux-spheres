@@ -105,8 +105,23 @@ const PAUSE_INPUT_HINTS = Object.freeze([
 /** Accessible names that have one wording per input mode (the board's text alternative). */
 export const INPUT_ARIA_HINTS = Object.freeze([{ elementId: 'game-canvas', key: 'hud.canvas.aria.label' }]);
 
-/** Percent scale of the star gauge. */
+/** Percent scale of the HUD gauges (star progress, overcharge, tutorial offset). */
 const FULL_PERCENT = 100;
+
+/** Where the light catches a special ball icon, as a radial-gradient position. */
+const SPECIAL_ICON_HIGHLIGHT_POSITION = '30% 30%';
+
+/** Id prefix of the level-select chapter tabs; the chapter index completes it. */
+const LEVEL_CHAPTER_TAB_ID_PREFIX = 'levels-chapter-tab-';
+
+/**
+ * Background of a special ball icon: lit from the top left, like the ball on the board.
+ * @param {{highlight: string, fill: string}} spec - Special ball colors from balls.json.
+ * @returns {string} A CSS background value.
+ */
+function specialIconBackground(spec) {
+  return `radial-gradient(circle at ${SPECIAL_ICON_HIGHLIGHT_POSITION}, ${spec.highlight}, ${spec.fill})`;
+}
 
 /**
  * How far a score has gone from the last star threshold it passed toward the next one.
@@ -340,6 +355,7 @@ export class UIManager {
       scoreValue: document.getElementById('hud-score-value'),
       starProgress: document.getElementById('hud-star-progress'),
       starGlyphs: document.getElementById('hud-star-glyphs'),
+      starCount: document.getElementById('hud-star-count'),
       starNext: document.getElementById('hud-star-next'),
       starMeter: document.getElementById('hud-star-meter'),
       starMeterFill: document.getElementById('hud-star-meter-fill'),
@@ -627,7 +643,7 @@ export class UIManager {
       document.documentElement.style.setProperty('--canvas-aspect', `${logicalWidth} / ${logicalHeight}`);
     }
     if (this.elements.canvasWrapper) {
-      const belowDangerPct = ((logicalHeight - dangerLineY) / logicalHeight) * 100;
+      const belowDangerPct = ((logicalHeight - dangerLineY) / logicalHeight) * FULL_PERCENT;
       this.elements.canvasWrapper.style.setProperty('--tutorial-bottom', `${belowDangerPct}%`);
     }
   }
@@ -646,7 +662,7 @@ export class UIManager {
 
       const iconSpan = document.createElement('span');
       iconSpan.className = 'powerup-icon';
-      iconSpan.style.background = `radial-gradient(circle at 30% 30%, ${spec.highlight}, ${spec.fill})`;
+      iconSpan.style.background = specialIconBackground(spec);
       iconSpan.textContent = spec.icon;
 
       iconSpan.setAttribute('aria-hidden', 'true');
@@ -2010,7 +2026,7 @@ export class UIManager {
 
         const iconSpan = document.createElement('span');
         iconSpan.className = 'powerup-icon';
-        iconSpan.style.background = `radial-gradient(circle at 30% 30%, ${spec.highlight}, ${spec.fill})`;
+        iconSpan.style.background = specialIconBackground(spec);
         iconSpan.textContent = spec.icon;
         iconSpan.setAttribute('aria-hidden', 'true');
 
@@ -2188,8 +2204,8 @@ export class UIManager {
       const totalStars = this.storageManager.getTotalStars();
       const maxCampaignStars = this.engine.levelCatalog.count * this.gameConfig.scoring.maxStars;
       this.elements.levelsStarsSummary.textContent = t('modals.levelSelect.starsTotal', {
-        stars: totalStars,
-        maxStars: maxCampaignStars
+        stars: formatNumber(totalStars),
+        maxStars: formatNumber(maxCampaignStars)
       });
     }
 
@@ -2255,6 +2271,7 @@ export class UIManager {
 
       const tab = document.createElement('button');
       tab.type = 'button';
+      tab.id = `${LEVEL_CHAPTER_TAB_ID_PREFIX}${chapter.index}`;
       tab.className = `level-chapter${isActive ? ' active' : ''}${isLocked ? ' locked' : ''}`;
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(isActive));
@@ -2297,6 +2314,12 @@ export class UIManager {
       });
       strip.appendChild(tab);
     }
+    // The grid is the panel of the active tab, and is named by it.
+    setAttributeIfChanged(
+      this.elements.levelsGrid,
+      'aria-labelledby',
+      `${LEVEL_CHAPTER_TAB_ID_PREFIX}${this.levelsChapterIndex}`
+    );
   }
 
   /** Scrolls the chapter strip, and only it, so the active chapter sits in the middle. */
@@ -2446,9 +2469,10 @@ export class UIManager {
   }
 
   refresh(engine, extra = {}) {
-    // One-shot extras must not replay when refresh is re-run with lastExtra
-    // (language change, shop purchase).
-    const { unlockedAchievementId, ...persistentExtra } = extra;
+    // One-shot extras (an unlocked achievement, a cleared Flux stage) must not replay
+    // when refresh is re-run with lastExtra (language change, input mode change, shop
+    // purchase): they are read from this call only.
+    const { unlockedAchievementId, fluxStageCleared, ...persistentExtra } = extra;
     this.lastExtra = persistentExtra;
     setTextIfChanged(this.elements.scoreValue, formatNumber(engine.score));
     setTextIfChanged(
@@ -2492,8 +2516,8 @@ export class UIManager {
     }
 
     const overchargePct = Math.min(
-      100,
-      Math.round((engine.overcharge / this.gameConfig.scoring.overchargeMax) * 100)
+      FULL_PERCENT,
+      Math.round((engine.overcharge / this.gameConfig.scoring.overchargeMax) * FULL_PERCENT)
     );
     setTextIfChanged(this.elements.overchargePct, t('hud.stats.overcharge.pct', { pct: overchargePct }));
     this.elements.overchargeFill.style.width = `${overchargePct}%`;
@@ -2552,6 +2576,14 @@ export class UIManager {
         this.updateStarMeter(engine.score, thresholds, nextThreshold);
         // Two unbreakable parts, so a narrow HUD wraps between them and never inside one.
         setTextIfChanged(this.elements.starGlyphs, starsStr);
+        // The glyphs are hidden from screen readers; this hidden text states the count.
+        setTextIfChanged(
+          this.elements.starCount,
+          t('hud.stats.score.starsAria', {
+            stars: formatNumber(Math.max(0, Math.min(maxStars, currentStars))),
+            maxStars: formatNumber(maxStars)
+          })
+        );
         setTextIfChanged(
           this.elements.starNext,
           nextThreshold !== undefined
@@ -2697,8 +2729,8 @@ export class UIManager {
     const transitionedState = this.prevEngineState !== engine.state;
     this.prevEngineState = engine.state;
 
-    if (extra.fluxStageCleared) {
-      this.announce(t('hud.announcer.round.fluxStageCleared', { stage: extra.fluxStageCleared }));
+    if (fluxStageCleared) {
+      this.announce(t('hud.announcer.round.fluxStageCleared', { stage: fluxStageCleared }));
     }
 
     if (unlockedAchievementId) {

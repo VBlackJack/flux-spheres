@@ -79,7 +79,8 @@
         "label": "Score",
         "nextThreshold": "• Prochain : {{next}}",
         "maxReached": "• MAX",
-        "progressAria": "Progression vers l'étoile suivante"
+        "progressAria": "Progression vers l'étoile suivante",
+        "starsAria": "Étoiles : {{stars}} sur {{maxStars}}"
       },
       "highScore": {
         "label": "Record"

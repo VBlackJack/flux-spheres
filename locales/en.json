@@ -79,7 +79,8 @@
         "label": "Score",
         "nextThreshold": "• Next: {{next}}",
         "maxReached": "• MAX",
-        "progressAria": "Progress to the next star"
+        "progressAria": "Progress to the next star",
+        "starsAria": "Stars: {{stars}} of {{maxStars}}"
       },
       "highScore": {
         "label": "Best"
